@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit } from 'lucide-react';  // Importing the pencil (edit) icon
+import { Edit } from 'lucide-react';  // Pencil icon
 
 export default function Courses() {
     const [courses, setCourses] = useState(() => {
@@ -155,7 +155,51 @@ export default function Courses() {
     return (
         <div className="min-h-screen bg-gray-100 p-4">
             <h2 className="text-2xl font-bold mb-4 text-center pt-5">Disc Golf Courses</h2>
-            <ul className="space-y-4">
+
+            {/* 🔘 Floating Action Button (FAB) */}
+            <button
+                onClick={openModal}
+                className="fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
+                aria-label="Add Course"
+            >
+                <span className="text-2xl">＋</span>
+            </button>
+
+            {/* 🧾 Modal for Add Course Form */}
+            {isModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-96">
+                        <h3 className="text-xl font-semibold mb-4">Add New Course</h3>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <input
+                                type="text"
+                                placeholder="Course Name"
+                                value={newCourseName}
+                                onChange={(e) => setNewCourseName(e.target.value)}
+                                className="w-full border rounded px-3 py-2"
+                                required
+                            />
+                            <div className="flex justify-end space-x-2">
+                                <button
+                                    type="button"
+                                    onClick={closeModal}
+                                    className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                                >
+                                    Add Course
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            <ul className="space-y-4 mt-6">
                 {courses.length === 0 ? (
                     <li>No courses added yet.</li>
                 ) : (
@@ -193,7 +237,10 @@ function AddHoleForm({ onAddHole }) {
         <form onSubmit={handleSubmit} className="mt-6 max-w-xs mx-auto space-y-2">
             <input
                 type="number"
-                placeholder="Hole Number"
+
+
+
+                ChatGPT said:placeholder="Hole Number"
                 value={holeNumber}
                 onChange={(e) => setHoleNumber(e.target.value)}
                 className="w-full border rounded px-3 py-2"
@@ -213,10 +260,7 @@ function AddHoleForm({ onAddHole }) {
                 onChange={(e) => setHoleNote(e.target.value)}
                 className="w-full border rounded px-3 py-2"
             />
-            <button
-                type="submit"
-                className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-            >
+            <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700" >
                 Add Hole
             </button>
         </form>

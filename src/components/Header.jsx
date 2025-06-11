@@ -5,7 +5,7 @@ const Header = () => {
     const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <header className="w-full bg-white shadow-md">
+        <header className="w-full bg-white shadow-md sticky top-0 z-50">
             <div className="flex items-center justify-between px-4 py-4">
                 {/* Left side (hamburger menu) */}
                 <button
