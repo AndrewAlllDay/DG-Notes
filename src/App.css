@@ -45,3 +45,16 @@
 .read-the-docs {
   color: #888;
 }
+
+/* If you want to apply custom button colors for the light theme */
+@media (prefers-color-scheme: light) {
+  button {
+    background-color: initial !important;
+    /* reset background-color if necessary */
+    /* Alternatively, define your own background color here */
+    background-color: #4caf50;
+    /* Or any color you want */
+    color: white;
+    /* Ensure the text color contrasts */
+  }
+}

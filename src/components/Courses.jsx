@@ -236,11 +236,11 @@ function AddHoleForm({ onAddHole }) {
     return (
         <form onSubmit={handleSubmit} className="mt-6 max-w-xs mx-auto space-y-2">
             <input
-                type="number"
+                type="text"
 
 
 
-                ChatGPT said:placeholder="Hole Number"
+                placeholder="Hole Number"
                 value={holeNumber}
                 onChange={(e) => setHoleNumber(e.target.value)}
                 className="w-full border rounded px-3 py-2"
@@ -260,7 +260,7 @@ function AddHoleForm({ onAddHole }) {
                 onChange={(e) => setHoleNote(e.target.value)}
                 className="w-full border rounded px-3 py-2"
             />
-            <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700" >
+            <button type="submit" className="test w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700" >
                 Add Hole
             </button>
         </form>
