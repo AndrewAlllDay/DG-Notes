@@ -277,7 +277,7 @@ export default function Courses() {
             {/* FAB */}
             <button
                 onClick={openModal}
-                className="fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
+                className="fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
                 aria-label="Add Course"
             >
                 <span className="text-2xl">＋</span>
@@ -329,7 +329,7 @@ export default function Courses() {
                             {/* Delete Button */}
                             <button
                                 onClick={(e) => deleteCourse(e, course.id)}
-                                className="absolute right-0 top-0 bottom-0 w-20 bg-red-600 text-white flex items-center justify-center z-0"
+                                className="fab-fix absolute right-0 top-0 bottom-0 w-20 bg-red-600 text-white flex items-center justify-center z-0"
                                 aria-label={`Delete ${course.name}`}
                             >
                                 <Trash />
@@ -404,7 +404,7 @@ function AddHoleForm({ onAddHole }) {
             />
             <button
                 type="submit"
-                className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+                className="w-full btn-fix text-white py-2 rounded hover:bg-blue-700"
             >
                 Add Hole
             </button>
