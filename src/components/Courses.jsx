@@ -11,13 +11,13 @@ export default function Courses() {
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [editingHoleData, setEditingHoleData] = useState({});
     const [swipedCourseId, setSwipedCourseId] = useState(null);
+    const [isAddHoleModalOpen, setIsAddHoleModalOpen] = useState(false);
     const swipeRefs = useRef({});
 
     useEffect(() => {
         localStorage.setItem('courses', JSON.stringify(courses));
     }, [courses]);
 
-    // Modal handlers
     const openModal = () => setIsModalOpen(true);
     const closeModal = () => {
         setNewCourseName('');
@@ -31,14 +31,12 @@ export default function Courses() {
         closeModal();
     };
 
-    // Delete course
     const deleteCourse = (e, id) => {
         e.stopPropagation();
         setCourses(courses.filter((course) => course.id !== id));
         if (swipedCourseId === id) setSwipedCourseId(null);
     };
 
-    // Hole-related functions unchanged
     const addHole = (holeNumber, holePar, holeNote) => {
         if (!holeNumber.trim() || !holePar.trim()) return;
         const newHole = {
@@ -130,11 +128,8 @@ export default function Courses() {
 
     const backToList = () => setSelectedCourse(null);
 
-    // Swipe handlers
     const handleTouchStart = (e, id) => {
         swipeRefs.current[id] = { startX: e.touches[0].clientX };
-
-        // Close any other open swipe
         if (swipedCourseId && swipedCourseId !== id) {
             const prevEl = document.getElementById(`course-${swipedCourseId}`);
             if (prevEl) {
@@ -147,18 +142,15 @@ export default function Courses() {
 
     const handleTouchMove = (e, id) => {
         if (!swipeRefs.current[id]) return;
-
         const deltaX = e.touches[0].clientX - swipeRefs.current[id].startX;
         const el = document.getElementById(`course-${id}`);
         if (!el) return;
 
         if (deltaX < -30) {
-            // Swipe left to open
             el.style.transition = 'transform 0.3s ease';
             el.style.transform = 'translateX(-80px)';
             setSwipedCourseId(id);
         } else if (deltaX > 30) {
-            // Swipe right to close
             el.style.transition = 'transform 0.3s ease';
             el.style.transform = 'translateX(0)';
             setSwipedCourseId(null);
@@ -168,21 +160,11 @@ export default function Courses() {
     const handleTouchEnd = (id) => {
         const el = document.getElementById(`course-${id}`);
         if (!el) return;
-
-        if (swipedCourseId === id) {
-            // Keep open
-            el.style.transition = 'transform 0.3s ease';
-            el.style.transform = 'translateX(-80px)';
-        } else {
-            // Close
-            el.style.transition = 'transform 0.3s ease';
-            el.style.transform = 'translateX(0)';
-        }
-
+        el.style.transition = 'transform 0.3s ease';
+        el.style.transform = swipedCourseId === id ? 'translateX(-80px)' : 'translateX(0)';
         swipeRefs.current[id] = null;
     };
 
-    // Clean up transition style after animation ends to avoid interference
     useEffect(() => {
         const cleanupFns = [];
         courses.forEach((course) => {
@@ -248,9 +230,7 @@ export default function Courses() {
                                     </div>
                                 ) : (
                                     <div>
-                                        <p>
-                                            Hole {hole.number} - Par {hole.par}
-                                        </p>
+                                        <p>Hole {hole.number} - Par {hole.par}</p>
                                         <p>{hole.note || 'No note added yet.'}</p>
                                     </div>
                                 )}
@@ -265,7 +245,31 @@ export default function Courses() {
                         </li>
                     ))}
                 </ul>
-                <AddHoleForm onAddHole={addHole} />
+
+                {/* Floating Add Hole Button */}
+                <button
+                    onClick={() => setIsAddHoleModalOpen(true)}
+                    className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
+                    aria-label="Add Hole"
+                >
+                    ＋
+                </button>
+
+                {/* Add Hole Modal */}
+                {isAddHoleModalOpen && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+                        <div className="bg-white rounded-lg p-6 w-96">
+                            <h3 className="text-xl font-semibold mb-4">Add New Hole</h3>
+                            <AddHoleForm
+                                onAddHole={(n, p, note) => {
+                                    addHole(n, p, note);
+                                    setIsAddHoleModalOpen(false);
+                                }}
+                                onCancel={() => setIsAddHoleModalOpen(false)}
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
@@ -274,7 +278,6 @@ export default function Courses() {
         <div className="min-h-screen bg-gray-100 p-4">
             <h2 className="text-2xl font-bold mb-4 text-center pt-5">Disc Golf Courses</h2>
 
-            {/* FAB */}
             <button
                 onClick={openModal}
                 className="fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
@@ -283,7 +286,6 @@ export default function Courses() {
                 <span className="text-2xl">＋</span>
             </button>
 
-            {/* Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
                     <div className="bg-white rounded-lg p-6 w-96">
@@ -326,7 +328,6 @@ export default function Courses() {
                             key={course.id}
                             className="relative h-16 overflow-hidden select-none touch-pan-y"
                         >
-                            {/* Delete Button */}
                             <button
                                 onClick={(e) => deleteCourse(e, course.id)}
                                 className="fab-fix absolute right-0 top-0 bottom-0 w-20 bg-red-600 text-white flex items-center justify-center z-0"
@@ -334,8 +335,6 @@ export default function Courses() {
                             >
                                 <Trash />
                             </button>
-
-                            {/* Swipeable Course Name */}
                             <div
                                 id={`course-${course.id}`}
                                 className="absolute inset-0 bg-white border z-10 flex items-center px-4 cursor-pointer hover:bg-gray-50"
@@ -345,7 +344,6 @@ export default function Courses() {
                                 }}
                                 onClick={() => {
                                     if (swipedCourseId === course.id) {
-                                        // If open, close on tap
                                         setSwipedCourseId(null);
                                         return;
                                     }
@@ -365,7 +363,7 @@ export default function Courses() {
     );
 }
 
-function AddHoleForm({ onAddHole }) {
+function AddHoleForm({ onAddHole, onCancel }) {
     const [holeNumber, setHoleNumber] = useState('');
     const [holePar, setHolePar] = useState('');
     const [holeNote, setHoleNote] = useState('');
@@ -379,7 +377,7 @@ function AddHoleForm({ onAddHole }) {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="mt-6 max-w-xs mx-auto space-y-2">
+        <form onSubmit={handleSubmit} className="space-y-4">
             <input
                 type="text"
                 placeholder="Hole Number"
@@ -402,12 +400,21 @@ function AddHoleForm({ onAddHole }) {
                 onChange={(e) => setHoleNote(e.target.value)}
                 className="w-full border rounded px-3 py-2"
             />
-            <button
-                type="submit"
-                className="w-full btn-fix text-white py-2 rounded hover:bg-blue-700"
-            >
-                Add Hole
-            </button>
+            <div className="flex justify-end gap-2">
+                <button
+                    type="button"
+                    onClick={onCancel}
+                    className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                    Add Hole
+                </button>
+            </div>
         </form>
     );
 }
