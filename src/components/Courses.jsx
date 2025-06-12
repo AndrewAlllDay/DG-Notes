@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Edit } from 'lucide-react';
-import { useSwipeable } from 'react-swipeable';
+import React, { useState, useEffect, useRef } from 'react';
+import { Edit, Trash } from 'lucide-react';
 
 export default function Courses() {
     const [courses, setCourses] = useState(() => {
@@ -11,12 +10,14 @@ export default function Courses() {
     const [newCourseName, setNewCourseName] = useState('');
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [editingHoleData, setEditingHoleData] = useState({});
-    const [confirmDelete, setConfirmDelete] = useState({ open: false, course: null });
+    const [swipedCourseId, setSwipedCourseId] = useState(null);
+    const swipeRefs = useRef({});
 
     useEffect(() => {
         localStorage.setItem('courses', JSON.stringify(courses));
     }, [courses]);
 
+    // Modal handlers
     const openModal = () => setIsModalOpen(true);
     const closeModal = () => {
         setNewCourseName('');
@@ -30,48 +31,59 @@ export default function Courses() {
         closeModal();
     };
 
+    // Delete course
+    const deleteCourse = (e, id) => {
+        e.stopPropagation();
+        setCourses(courses.filter((course) => course.id !== id));
+        if (swipedCourseId === id) setSwipedCourseId(null);
+    };
+
+    // Hole-related functions unchanged
     const addHole = (holeNumber, holePar, holeNote) => {
         if (!holeNumber.trim() || !holePar.trim()) return;
-        const newHole = { id: Date.now(), number: holeNumber, par: holePar, note: holeNote || '', editing: false };
-        const updatedCourses = courses.map(course => {
+        const newHole = {
+            id: Date.now(),
+            number: holeNumber,
+            par: holePar,
+            note: holeNote || '',
+            editing: false,
+        };
+        const updatedCourses = courses.map((course) => {
             if (course.id === selectedCourse.id) {
-                const updatedHoles = [...(course.holes || []), newHole];
-                return { ...course, holes: updatedHoles };
+                return { ...course, holes: [...(course.holes || []), newHole] };
             }
             return course;
         });
         setCourses(updatedCourses);
-        setSelectedCourse(prev => ({
+        setSelectedCourse((prev) => ({
             ...prev,
             holes: [...(prev.holes || []), newHole],
         }));
     };
 
     const toggleEditing = (holeId) => {
-        const holeToEdit = selectedCourse.holes.find(h => h.id === holeId);
+        const holeToEdit = selectedCourse.holes.find((h) => h.id === holeId);
         setEditingHoleData({
             number: holeToEdit.number,
             par: holeToEdit.par,
-            note: holeToEdit.note
+            note: holeToEdit.note,
         });
 
-        const updatedCourses = courses.map(course => {
+        const updatedCourses = courses.map((course) => {
             if (course.id === selectedCourse.id) {
-                const updatedHoles = course.holes.map(hole => {
-                    if (hole.id === holeId) {
-                        return { ...hole, editing: !hole.editing };
-                    }
-                    return { ...hole, editing: false };
-                });
+                const updatedHoles = course.holes.map((hole) => ({
+                    ...hole,
+                    editing: hole.id === holeId ? !hole.editing : false,
+                }));
                 return { ...course, holes: updatedHoles };
             }
             return course;
         });
         setCourses(updatedCourses);
 
-        setSelectedCourse(prev => ({
+        setSelectedCourse((prev) => ({
             ...prev,
-            holes: prev.holes.map(hole =>
+            holes: prev.holes.map((hole) =>
                 hole.id === holeId
                     ? { ...hole, editing: !hole.editing }
                     : { ...hole, editing: false }
@@ -80,9 +92,9 @@ export default function Courses() {
     };
 
     const saveHoleChanges = (holeId) => {
-        const updatedCourses = courses.map(course => {
+        const updatedCourses = courses.map((course) => {
             if (course.id === selectedCourse.id) {
-                const updatedHoles = course.holes.map(hole =>
+                const updatedHoles = course.holes.map((hole) =>
                     hole.id === holeId
                         ? {
                             ...hole,
@@ -99,9 +111,9 @@ export default function Courses() {
         });
 
         setCourses(updatedCourses);
-        setSelectedCourse(prev => ({
+        setSelectedCourse((prev) => ({
             ...prev,
-            holes: prev.holes.map(hole =>
+            holes: prev.holes.map((hole) =>
                 hole.id === holeId
                     ? {
                         ...hole,
@@ -116,26 +128,74 @@ export default function Courses() {
         setEditingHoleData({});
     };
 
-    const backToList = () => {
-        setSelectedCourse(null);
-    };
+    const backToList = () => setSelectedCourse(null);
 
-    const confirmDeleteCourse = (course) => {
-        setConfirmDelete({ open: true, course });
-    };
+    // Swipe handlers
+    const handleTouchStart = (e, id) => {
+        swipeRefs.current[id] = { startX: e.touches[0].clientX };
 
-    const cancelDelete = () => {
-        setConfirmDelete({ open: false, course: null });
-    };
-
-    const deleteCourse = () => {
-        if (!confirmDelete.course) return;
-        setCourses(courses.filter(c => c.id !== confirmDelete.course.id));
-        setConfirmDelete({ open: false, course: null });
-        if (selectedCourse && selectedCourse.id === confirmDelete.course.id) {
-            setSelectedCourse(null);
+        // Close any other open swipe
+        if (swipedCourseId && swipedCourseId !== id) {
+            const prevEl = document.getElementById(`course-${swipedCourseId}`);
+            if (prevEl) {
+                prevEl.style.transition = 'transform 0.3s ease';
+                prevEl.style.transform = 'translateX(0)';
+            }
+            setSwipedCourseId(null);
         }
     };
+
+    const handleTouchMove = (e, id) => {
+        if (!swipeRefs.current[id]) return;
+
+        const deltaX = e.touches[0].clientX - swipeRefs.current[id].startX;
+        const el = document.getElementById(`course-${id}`);
+        if (!el) return;
+
+        if (deltaX < -30) {
+            // Swipe left to open
+            el.style.transition = 'transform 0.3s ease';
+            el.style.transform = 'translateX(-80px)';
+            setSwipedCourseId(id);
+        } else if (deltaX > 30) {
+            // Swipe right to close
+            el.style.transition = 'transform 0.3s ease';
+            el.style.transform = 'translateX(0)';
+            setSwipedCourseId(null);
+        }
+    };
+
+    const handleTouchEnd = (id) => {
+        const el = document.getElementById(`course-${id}`);
+        if (!el) return;
+
+        if (swipedCourseId === id) {
+            // Keep open
+            el.style.transition = 'transform 0.3s ease';
+            el.style.transform = 'translateX(-80px)';
+        } else {
+            // Close
+            el.style.transition = 'transform 0.3s ease';
+            el.style.transform = 'translateX(0)';
+        }
+
+        swipeRefs.current[id] = null;
+    };
+
+    // Clean up transition style after animation ends to avoid interference
+    useEffect(() => {
+        const cleanupFns = [];
+        courses.forEach((course) => {
+            const el = document.getElementById(`course-${course.id}`);
+            if (!el) return;
+            const onTransitionEnd = () => {
+                el.style.transition = '';
+            };
+            el.addEventListener('transitionend', onTransitionEnd);
+            cleanupFns.push(() => el.removeEventListener('transitionend', onTransitionEnd));
+        });
+        return () => cleanupFns.forEach((fn) => fn());
+    }, [courses]);
 
     if (selectedCourse) {
         return (
@@ -143,29 +203,40 @@ export default function Courses() {
                 <button onClick={backToList} className="mb-4 text-blue-600 underline">
                     ← Back to Courses
                 </button>
-                <h2 className="text-2xl font-bold mb-4 text-center pt-5">{selectedCourse.name} - Holes</h2>
+                <h2 className="text-2xl font-bold mb-4 text-center pt-5">
+                    {selectedCourse.name} - Holes
+                </h2>
                 <ul>
                     {(selectedCourse.holes || []).length === 0 && <li>No holes added yet.</li>}
-                    {(selectedCourse.holes || []).map(hole => (
-                        <li key={hole.id} className="mb-4 border rounded p-4 bg-white flex justify-between items-start">
+                    {(selectedCourse.holes || []).map((hole) => (
+                        <li
+                            key={hole.id}
+                            className="mb-4 border rounded p-4 bg-white flex justify-between items-start"
+                        >
                             <div className="flex-grow">
                                 {hole.editing ? (
                                     <div className="space-y-2">
                                         <input
                                             type="number"
                                             value={editingHoleData.number}
-                                            onChange={(e) => setEditingHoleData(prev => ({ ...prev, number: e.target.value }))}
+                                            onChange={(e) =>
+                                                setEditingHoleData((prev) => ({ ...prev, number: e.target.value }))
+                                            }
                                             className="w-full mt-2 p-2 border rounded"
                                         />
                                         <input
                                             type="number"
                                             value={editingHoleData.par}
-                                            onChange={(e) => setEditingHoleData(prev => ({ ...prev, par: e.target.value }))}
+                                            onChange={(e) =>
+                                                setEditingHoleData((prev) => ({ ...prev, par: e.target.value }))
+                                            }
                                             className="w-full mt-2 p-2 border rounded"
                                         />
                                         <textarea
                                             value={editingHoleData.note}
-                                            onChange={(e) => setEditingHoleData(prev => ({ ...prev, note: e.target.value }))}
+                                            onChange={(e) =>
+                                                setEditingHoleData((prev) => ({ ...prev, note: e.target.value }))
+                                            }
                                             className="w-full mt-2 p-2 border rounded"
                                         />
                                         <button
@@ -177,7 +248,9 @@ export default function Courses() {
                                     </div>
                                 ) : (
                                     <div>
-                                        <p>Hole {hole.number} - Par {hole.par}</p>
+                                        <p>
+                                            Hole {hole.number} - Par {hole.par}
+                                        </p>
                                         <p>{hole.note || 'No note added yet.'}</p>
                                     </div>
                                 )}
@@ -201,16 +274,16 @@ export default function Courses() {
         <div className="min-h-screen bg-gray-100 p-4">
             <h2 className="text-2xl font-bold mb-4 text-center pt-5">Disc Golf Courses</h2>
 
-            {/* Floating Action Button (FAB) */}
+            {/* FAB */}
             <button
                 onClick={openModal}
-                className="fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
+                className="fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
                 aria-label="Add Course"
             >
-                <span className="text-2xl fab-fix">＋</span>
+                <span className="text-2xl">＋</span>
             </button>
 
-            {/* Modal for Add Course Form */}
+            {/* Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
                     <div className="bg-white rounded-lg p-6 w-96">
@@ -234,7 +307,7 @@ export default function Courses() {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="btn-fix bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                                 >
                                     Add Course
                                 </button>
@@ -244,83 +317,51 @@ export default function Courses() {
                 </div>
             )}
 
-            {/* List of courses with swipe-to-delete */}
-            <ul className="space-y-4 mt-6 max-w-md mx-auto">
+            <ul className="space-y-4 mt-6">
                 {courses.length === 0 ? (
                     <li>No courses added yet.</li>
                 ) : (
                     courses.map((course) => (
-                        <CourseItem
+                        <li
                             key={course.id}
-                            course={course}
-                            onSelect={() => setSelectedCourse(course)}
-                            onDelete={() => confirmDeleteCourse(course)}
-                        />
+                            className="relative h-16 overflow-hidden select-none touch-pan-y"
+                        >
+                            {/* Delete Button */}
+                            <button
+                                onClick={(e) => deleteCourse(e, course.id)}
+                                className="absolute right-0 top-0 bottom-0 w-20 bg-red-600 text-white flex items-center justify-center z-0"
+                                aria-label={`Delete ${course.name}`}
+                            >
+                                <Trash />
+                            </button>
+
+                            {/* Swipeable Course Name */}
+                            <div
+                                id={`course-${course.id}`}
+                                className="absolute inset-0 bg-white border z-10 flex items-center px-4 cursor-pointer hover:bg-gray-50"
+                                style={{
+                                    transform: swipedCourseId === course.id ? 'translateX(-80px)' : 'translateX(0)',
+                                    transition: 'transform 0.3s ease',
+                                }}
+                                onClick={() => {
+                                    if (swipedCourseId === course.id) {
+                                        // If open, close on tap
+                                        setSwipedCourseId(null);
+                                        return;
+                                    }
+                                    setSelectedCourse(course);
+                                }}
+                                onTouchStart={(e) => handleTouchStart(e, course.id)}
+                                onTouchMove={(e) => handleTouchMove(e, course.id)}
+                                onTouchEnd={() => handleTouchEnd(course.id)}
+                            >
+                                {course.name}
+                            </div>
+                        </li>
                     ))
                 )}
             </ul>
-
-            {/* Custom Delete Confirmation Modal */}
-            {confirmDelete.open && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-60">
-                    <div className="bg-white rounded-lg p-6 w-80 text-center shadow-lg">
-                        <h3 className="text-lg font-semibold mb-4">Delete Course</h3>
-                        <p className="mb-6">
-                            Are you sure you want to delete <strong>{confirmDelete.course?.name}</strong>?
-                        </p>
-                        <div className="flex justify-center space-x-4">
-                            <button
-                                onClick={cancelDelete}
-                                className="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={deleteCourse}
-                                className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
-                            >
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
-    );
-}
-
-function CourseItem({ course, onSelect, onDelete }) {
-    const [isSwiped, setIsSwiped] = useState(false);
-
-    const handlers = useSwipeable({
-        onSwipedLeft: () => setIsSwiped(true),
-        onSwipedRight: () => setIsSwiped(false),
-        preventDefaultTouchmoveEvent: true,
-        trackMouse: true,
-    });
-
-    return (
-        <li {...handlers} className="relative overflow-hidden bg-white rounded shadow-md max-w-md mx-auto">
-            {/* Delete button behind */}
-            <button
-                onClick={onDelete}
-                className="absolute top-0 right-0 h-full bg-red-600 text-white px-6 flex items-center justify-center font-semibold select-none"
-                style={{ width: '100px', zIndex: 0 }}
-            >
-                Delete
-            </button>
-
-            {/* Sliding content */}
-            <div
-                onClick={() => !isSwiped && onSelect()}
-                className={`p-4 cursor-pointer select-none transition-transform duration-300 ease-in-out`}
-                style={{
-                    transform: isSwiped ? 'translateX(-100px)' : 'translateX(0)'
-                }}
-            >
-                {course.name}
-            </div>
-        </li>
     );
 }
 
@@ -361,7 +402,10 @@ function AddHoleForm({ onAddHole }) {
                 onChange={(e) => setHoleNote(e.target.value)}
                 className="w-full border rounded px-3 py-2"
             />
-            <button type="submit" className="btn-fix w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+            <button
+                type="submit"
+                className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+            >
                 Add Hole
             </button>
         </form>
