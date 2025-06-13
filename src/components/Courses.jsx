@@ -347,7 +347,7 @@ export default function Courses() {
     // --- Conditional Rendering for Course List vs. Hole List ---
     if (selectedCourse) {
         return (
-            <div className="relative min-h-screen bg-gray-100 p-4">
+            <div className="relative min-h-screen bg-gray-100 p-4 pt-5">
                 <button onClick={backToList} className="mb-4 px-3 py-1 border border-black text-black rounded hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200">
                     ← Back to Courses
                 </button>

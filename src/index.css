@@ -102,4 +102,8 @@ button:focus-visible {
     margin-left: 25px;
     line-height: 50px;
   }
+
+  .button-bottom {
+    margin-bottom: 75px;
+  }
 }
