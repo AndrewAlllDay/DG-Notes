@@ -352,7 +352,7 @@ export default function Courses() {
                     ← Back to Courses
                 </button>
 
-                <div className="text-center mb-6">
+                <div className="text-center mb-6 pt-5">
                     <h2 className="text-2xl font-bold mb-3">
                         {selectedCourse.name}
                     </h2>
