@@ -10,6 +10,8 @@ export default function HoleList({
     saveHoleChanges,
     onDeleteClick,
     onDragEnd,
+    // NEW: Receive the deleteHole prop from Courses.jsx
+    deleteHole,
 }) {
     return (
         <DragDropContext onDragEnd={onDragEnd}>
