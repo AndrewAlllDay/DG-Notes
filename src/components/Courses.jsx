@@ -20,25 +20,26 @@ export default function Courses() {
     const [swipedCourseId, setSwipedCourseId] = useState(null);
     const [isAddHoleModalOpen, setIsAddHoleModalOpen] = useState(false);
 
-    // NEW STATE FOR DELETE CONFIRMATION MODAL
+    // State for delete confirmation modal
     const [isDeleteConfirmationModalOpen, setIsDeleteConfirmationModalOpen] = useState(false);
     const [holeToDeleteId, setHoleToDeleteId] = useState(null);
 
     const swipeRefs = useRef({});
-    const holeListRef = useRef(null); // NEW: Ref for the HoleList container
+    const holeListRef = useRef(null); // Ref for the HoleList container
 
     useEffect(() => {
         localStorage.setItem('courses', JSON.stringify(courses));
     }, [courses]);
 
-    // NEW: Effect for click-outside detection when a course is selected
+    // Effect for click-outside detection when a course is selected
     useEffect(() => {
         function handleClickOutside(event) {
             // Only act if a course is selected and an edit is potentially open
             if (selectedCourse && holeListRef.current && !holeListRef.current.contains(event.target)) {
                 // Check if the click was not on an editing hole or any related modal
-                const isClickOnModal = event.target.closest('.modal-overlay') || event.target.closest('.modal-content'); // Add classes for your modals
-                const isClickOnHoleItem = event.target.closest('.HoleItem'); // Assuming HoleItem has a class 'HoleItem'
+                const isClickOnModal = event.target.closest('.modal-overlay') || event.target.closest('.modal-content');
+                // Assuming HoleItem has a class 'HoleItem' or similar structure
+                const isClickOnHoleItem = event.target.closest('.HoleItem') || event.target.closest('li.mb-4');
 
                 // If not clicking inside hole list, and not clicking on a modal (AddHoleModal, DeleteConfirmationModal)
                 // and not clicking on a HoleItem itself (to allow editing to happen),
@@ -59,7 +60,7 @@ export default function Courses() {
         };
     }, [selectedCourse, courses]); // Depend on selectedCourse and courses to re-evaluate listener
 
-    // NEW: Function to close all editing holes
+    // Function to close all editing holes
     const closeAllHoleEdits = () => {
         if (!selectedCourse) return;
 
@@ -88,7 +89,6 @@ export default function Courses() {
 
     // --- REVISED SWIPE HANDLING FUNCTIONS WITH DEBUGGING LOGS ---
     const handleTouchStart = (e, id) => {
-        // ... (existing handleTouchStart logic) ...
         console.log(`[TOUCH START] ID: ${id}`);
         swipeRefs.current[id] = { startX: e.touches[0].clientX, currentX: 0 };
 
@@ -113,7 +113,6 @@ export default function Courses() {
     };
 
     const handleTouchMove = (e, id) => {
-        // ... (existing handleTouchMove logic) ...
         const swipeRef = swipeRefs.current[id];
         if (!swipeRef) {
             console.warn(`[TOUCH MOVE] No swipeRef for ID: ${id}. TouchStart may not have fired.`);
@@ -136,7 +135,6 @@ export default function Courses() {
     };
 
     const handleTouchEnd = (id) => {
-        // ... (existing handleTouchEnd logic) ...
         const swipeRef = swipeRefs.current[id];
         if (!swipeRef) {
             console.warn(`[TOUCH END] No swipeRef for ID: ${id}. TouchStart/Move may not have fired or ref cleared.`);
@@ -184,6 +182,7 @@ export default function Courses() {
         if (swipedCourseId === id) setSwipedCourseId(null);
     };
 
+    // Function to delete a specific hole from the selected course
     const deleteHoleConfirmed = (holeIdToDelete) => {
         if (!selectedCourse) return;
 
@@ -211,7 +210,7 @@ export default function Courses() {
             deleteHoleConfirmed(holeToDeleteId);
             setIsDeleteConfirmationModalOpen(false);
             setHoleToDeleteId(null);
-            handleToggleEditingHole(holeToDeleteId);
+            handleToggleEditingHole(holeToDeleteId); // Ensure edit mode is closed for the deleted hole
         }
     };
 
@@ -243,7 +242,7 @@ export default function Courses() {
     };
 
     const handleToggleEditingHole = (holeId) => {
-        // NEW: Close other open edits when one is toggled
+        // Close other open edits when one is toggled
         closeAllHoleEdits();
 
         const holeToEdit = selectedCourse.holes.find((h) => h.id === holeId);
@@ -314,7 +313,7 @@ export default function Courses() {
     };
 
     const backToList = () => {
-        closeAllHoleEdits(); // NEW: Close all edits when going back to courses
+        closeAllHoleEdits(); // Close all edits when going back to courses
         setSelectedCourse(null);
     };
 
@@ -354,7 +353,7 @@ export default function Courses() {
                         <p className="text-lg text-gray-600">{selectedCourse.tournamentName}</p>
                     )}
                 </div>
-                <div ref={holeListRef}> {/* NEW: Attach ref to the HoleList's container */}
+                <div ref={holeListRef}> {/* Attach ref to the HoleList's container */}
                     <HoleList
                         holes={selectedCourse.holes || []}
                         editingHoleData={editingHoleData}
