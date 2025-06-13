@@ -1,44 +1,55 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Edit, Trash } from 'lucide-react';
+import CourseList from './CourseList';
+import HoleList from './HoleList';
+import AddCourseModal from './AddCourseModal';
+import AddHoleModal from './AddHoleModal'; // This will wrap your AddHoleForm
 
 export default function Courses() {
     const [courses, setCourses] = useState(() => {
         const saved = localStorage.getItem('courses');
         return saved ? JSON.parse(saved) : [];
     });
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
     const [newCourseName, setNewCourseName] = useState('');
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [editingHoleData, setEditingHoleData] = useState({});
     const [swipedCourseId, setSwipedCourseId] = useState(null);
     const [isAddHoleModalOpen, setIsAddHoleModalOpen] = useState(false);
+
+    // This ref is still managed here as it holds state related to all course swipe gestures
     const swipeRefs = useRef({});
 
+    // Effect to save courses to localStorage whenever they change
     useEffect(() => {
         localStorage.setItem('courses', JSON.stringify(courses));
     }, [courses]);
 
-    const openModal = () => setIsModalOpen(true);
-    const closeModal = () => {
-        setNewCourseName('');
-        setIsModalOpen(false);
+    // --- Course Management Functions ---
+
+    const handleAddCourse = (courseName) => {
+        // Generate 18 default holes for the new course
+        const defaultHoles = Array.from({ length: 18 }, (_, index) => ({
+            id: Date.now() + index, // Unique ID for each hole
+            number: (index + 1).toString(), // Hole numbers 1 to 18
+            par: '3', // Default par for all holes
+            note: '', // No note by default
+            editing: false, // Not in editing mode
+        }));
+
+        setCourses([...courses, { id: Date.now(), name: courseName, holes: defaultHoles }]);
+        setIsAddCourseModalOpen(false);
+        setNewCourseName(''); // Clear input after adding
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!newCourseName.trim()) return;
-        setCourses([...courses, { id: Date.now(), name: newCourseName, holes: [] }]);
-        closeModal();
-    };
-
-    const deleteCourse = (e, id) => {
-        e.stopPropagation();
+    const handleDeleteCourse = (id) => {
         setCourses(courses.filter((course) => course.id !== id));
-        if (swipedCourseId === id) setSwipedCourseId(null);
+        if (swipedCourseId === id) setSwipedCourseId(null); // Reset swiped state if deleted
     };
 
-    const addHole = (holeNumber, holePar, holeNote) => {
-        if (!holeNumber.trim() || !holePar.trim()) return;
+    // --- Hole Management Functions ---
+
+    const handleAddHole = (holeNumber, holePar, holeNote) => {
+        if (!holeNumber.trim() || !holePar.trim()) return; // Basic validation
         const newHole = {
             id: Date.now(),
             number: holeNumber,
@@ -46,39 +57,48 @@ export default function Courses() {
             note: holeNote || '',
             editing: false,
         };
+
         const updatedCourses = courses.map((course) => {
             if (course.id === selectedCourse.id) {
+                // Ensure holes array exists before spreading
                 return { ...course, holes: [...(course.holes || []), newHole] };
             }
             return course;
         });
         setCourses(updatedCourses);
+
+        // Also update the selectedCourse state immediately for UI responsiveness
         setSelectedCourse((prev) => ({
             ...prev,
             holes: [...(prev.holes || []), newHole],
         }));
     };
 
-    const toggleEditing = (holeId) => {
+    const handleToggleEditingHole = (holeId) => {
         const holeToEdit = selectedCourse.holes.find((h) => h.id === holeId);
-        setEditingHoleData({
-            number: holeToEdit.number,
-            par: holeToEdit.par,
-            note: holeToEdit.note,
-        });
+        if (holeToEdit) {
+            setEditingHoleData({
+                number: holeToEdit.number,
+                par: holeToEdit.par,
+                note: holeToEdit.note,
+            });
+        }
 
-        const updatedCourses = courses.map((course) => {
-            if (course.id === selectedCourse.id) {
-                const updatedHoles = course.holes.map((hole) => ({
-                    ...hole,
-                    editing: hole.id === holeId ? !hole.editing : false,
-                }));
-                return { ...course, holes: updatedHoles };
-            }
-            return course;
-        });
-        setCourses(updatedCourses);
+        // Update main courses state
+        setCourses((prevCourses) =>
+            prevCourses.map((course) => {
+                if (course.id === selectedCourse.id) {
+                    const updatedHoles = course.holes.map((hole) => ({
+                        ...hole,
+                        editing: hole.id === holeId ? !hole.editing : false, // Toggle editing for selected, false for others
+                    }));
+                    return { ...course, holes: updatedHoles };
+                }
+                return course;
+            })
+        );
 
+        // Update selectedCourse state for immediate UI reflection
         setSelectedCourse((prev) => ({
             ...prev,
             holes: prev.holes.map((hole) =>
@@ -89,26 +109,29 @@ export default function Courses() {
         }));
     };
 
-    const saveHoleChanges = (holeId) => {
-        const updatedCourses = courses.map((course) => {
-            if (course.id === selectedCourse.id) {
-                const updatedHoles = course.holes.map((hole) =>
-                    hole.id === holeId
-                        ? {
-                            ...hole,
-                            number: editingHoleData.number,
-                            par: editingHoleData.par,
-                            note: editingHoleData.note,
-                            editing: false,
-                        }
-                        : hole
-                );
-                return { ...course, holes: updatedHoles };
-            }
-            return course;
-        });
+    const handleSaveHoleChanges = (holeId) => {
+        // Update main courses state
+        setCourses((prevCourses) =>
+            prevCourses.map((course) => {
+                if (course.id === selectedCourse.id) {
+                    const updatedHoles = course.holes.map((hole) =>
+                        hole.id === holeId
+                            ? {
+                                ...hole,
+                                number: editingHoleData.number,
+                                par: editingHoleData.par,
+                                note: editingHoleData.note,
+                                editing: false, // Exit editing mode
+                            }
+                            : hole
+                    );
+                    return { ...course, holes: updatedHoles };
+                }
+                return course;
+            })
+        );
 
-        setCourses(updatedCourses);
+        // Update selectedCourse state for immediate UI reflection
         setSelectedCourse((prev) => ({
             ...prev,
             holes: prev.holes.map((hole) =>
@@ -123,13 +146,16 @@ export default function Courses() {
                     : hole
             ),
         }));
-        setEditingHoleData({});
+        setEditingHoleData({}); // Clear editing data
     };
 
     const backToList = () => setSelectedCourse(null);
 
+    // --- Swipe Handling Functions (for CourseList) ---
+    // These functions are passed down to CourseList and CourseItem
     const handleTouchStart = (e, id) => {
         swipeRefs.current[id] = { startX: e.touches[0].clientX };
+        // If another course is swiped open, close it
         if (swipedCourseId && swipedCourseId !== id) {
             const prevEl = document.getElementById(`course-${swipedCourseId}`);
             if (prevEl) {
@@ -146,13 +172,13 @@ export default function Courses() {
         const el = document.getElementById(`course-${id}`);
         if (!el) return;
 
-        if (deltaX < -30) {
+        if (deltaX < -30) { // Swiping left past a threshold
             el.style.transition = 'transform 0.3s ease';
-            el.style.transform = 'translateX(-80px)';
+            el.style.transform = 'translateX(-80px)'; // Expose delete button
             setSwipedCourseId(id);
-        } else if (deltaX > 30) {
+        } else if (deltaX > 30) { // Swiping right past a threshold
             el.style.transition = 'transform 0.3s ease';
-            el.style.transform = 'translateX(0)';
+            el.style.transform = 'translateX(0)'; // Hide delete button
             setSwipedCourseId(null);
         }
     };
@@ -160,25 +186,30 @@ export default function Courses() {
     const handleTouchEnd = (id) => {
         const el = document.getElementById(`course-${id}`);
         if (!el) return;
-        el.style.transition = 'transform 0.3s ease';
+        el.style.transition = 'transform 0.3s ease'; // Ensure smooth transition on release
+        // Keep swiped if it was opened, or close if it was partially opened and released
         el.style.transform = swipedCourseId === id ? 'translateX(-80px)' : 'translateX(0)';
-        swipeRefs.current[id] = null;
+        swipeRefs.current[id] = null; // Clear touch data
     };
 
+    // Effect to remove transition styles after animation to prevent interference
     useEffect(() => {
         const cleanupFns = [];
         courses.forEach((course) => {
             const el = document.getElementById(`course-${course.id}`);
             if (!el) return;
             const onTransitionEnd = () => {
-                el.style.transition = '';
+                el.style.transition = ''; // Remove transition style once animation completes
             };
             el.addEventListener('transitionend', onTransitionEnd);
             cleanupFns.push(() => el.removeEventListener('transitionend', onTransitionEnd));
         });
         return () => cleanupFns.forEach((fn) => fn());
-    }, [courses]);
+    }, [courses, swipedCourseId]); // Re-run if courses or swipedCourseId changes
 
+    // --- Conditional Rendering for Course List vs. Hole List ---
+
+    // If a course is selected, show its holes
     if (selectedCourse) {
         return (
             <div className="relative min-h-screen bg-gray-100 p-4">
@@ -188,63 +219,13 @@ export default function Courses() {
                 <h2 className="text-2xl font-bold mb-4 text-center pt-5">
                     {selectedCourse.name} - Holes
                 </h2>
-                <ul>
-                    {(selectedCourse.holes || []).length === 0 && <li>No holes added yet.</li>}
-                    {(selectedCourse.holes || []).map((hole) => (
-                        <li
-                            key={hole.id}
-                            className="mb-4 border rounded p-4 bg-white flex justify-between items-start"
-                        >
-                            <div className="flex-grow">
-                                {hole.editing ? (
-                                    <div className="space-y-2">
-                                        <input
-                                            type="number"
-                                            value={editingHoleData.number}
-                                            onChange={(e) =>
-                                                setEditingHoleData((prev) => ({ ...prev, number: e.target.value }))
-                                            }
-                                            className="w-full mt-2 p-2 border rounded"
-                                        />
-                                        <input
-                                            type="number"
-                                            value={editingHoleData.par}
-                                            onChange={(e) =>
-                                                setEditingHoleData((prev) => ({ ...prev, par: e.target.value }))
-                                            }
-                                            className="w-full mt-2 p-2 border rounded"
-                                        />
-                                        <textarea
-                                            value={editingHoleData.note}
-                                            onChange={(e) =>
-                                                setEditingHoleData((prev) => ({ ...prev, note: e.target.value }))
-                                            }
-                                            className="w-full mt-2 p-2 border rounded"
-                                        />
-                                        <button
-                                            onClick={() => saveHoleChanges(hole.id)}
-                                            className="bg-blue-600 text-white py-1 px-4 mt-2 rounded hover:bg-blue-700"
-                                        >
-                                            Save Changes
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <p>Hole {hole.number} - Par {hole.par}</p>
-                                        <p>{hole.note || 'No note added yet.'}</p>
-                                    </div>
-                                )}
-                            </div>
-                            <button
-                                onClick={() => toggleEditing(hole.id)}
-                                className="text-gray-500 hover:text-gray-700 ml-4 mt-1"
-                                aria-label="Edit Hole"
-                            >
-                                <Edit size={16} />
-                            </button>
-                        </li>
-                    ))}
-                </ul>
+                <HoleList
+                    holes={selectedCourse.holes || []} // Ensure holes is an array
+                    editingHoleData={editingHoleData}
+                    setEditingHoleData={setEditingHoleData}
+                    toggleEditing={handleToggleEditingHole}
+                    saveHoleChanges={handleSaveHoleChanges}
+                />
 
                 {/* Floating Add Hole Button */}
                 <button
@@ -256,165 +237,49 @@ export default function Courses() {
                 </button>
 
                 {/* Add Hole Modal */}
-                {isAddHoleModalOpen && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                        <div className="bg-white rounded-lg p-6 w-96">
-                            <h3 className="text-xl font-semibold mb-4">Add New Hole</h3>
-                            <AddHoleForm
-                                onAddHole={(n, p, note) => {
-                                    addHole(n, p, note);
-                                    setIsAddHoleModalOpen(false);
-                                }}
-                                onCancel={() => setIsAddHoleModalOpen(false)}
-                            />
-                        </div>
-                    </div>
-                )}
+                <AddHoleModal
+                    isOpen={isAddHoleModalOpen}
+                    onClose={() => setIsAddHoleModalOpen(false)}
+                    onAddHole={handleAddHole}
+                />
             </div>
         );
     }
 
+    // Otherwise, show the list of courses
     return (
         <div className="min-h-screen bg-gray-100 p-4">
             <h2 className="text-2xl font-bold mb-4 text-center pt-5">Disc Golf Courses</h2>
 
+            {/* Floating Add Course Button */}
             <button
-                onClick={openModal}
+                onClick={() => setIsAddCourseModalOpen(true)}
                 className="fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
                 aria-label="Add Course"
             >
                 <span className="text-2xl">＋</span>
             </button>
 
-            {isModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                    <div className="bg-white rounded-lg p-6 w-96">
-                        <h3 className="text-xl font-semibold mb-4">Add New Course</h3>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <input
-                                type="text"
-                                placeholder="Course Name"
-                                value={newCourseName}
-                                onChange={(e) => setNewCourseName(e.target.value)}
-                                className="w-full border rounded px-3 py-2"
-                                required
-                            />
-                            <div className="flex justify-end space-x-2">
-                                <button
-                                    type="button"
-                                    onClick={closeModal}
-                                    className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                                >
-                                    Add Course
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            {/* Add Course Modal */}
+            <AddCourseModal
+                isOpen={isAddCourseModalOpen}
+                onClose={() => setIsAddCourseModalOpen(false)}
+                onSubmit={handleAddCourse}
+                newCourseName={newCourseName}
+                setNewCourseName={setNewCourseName}
+            />
 
-            <ul className="space-y-4 mt-6">
-                {courses.length === 0 ? (
-                    <li>No courses added yet.</li>
-                ) : (
-                    courses.map((course) => (
-                        <li
-                            key={course.id}
-                            className="relative h-16 overflow-hidden select-none touch-pan-y"
-                        >
-                            <button
-                                onClick={(e) => deleteCourse(e, course.id)}
-                                className="fab-fix absolute right-0 top-0 bottom-0 w-20 bg-red-600 text-white flex items-center justify-center z-0"
-                                aria-label={`Delete ${course.name}`}
-                            >
-                                <Trash />
-                            </button>
-                            <div
-                                id={`course-${course.id}`}
-                                className="absolute inset-0 bg-white border z-10 flex items-center px-4 cursor-pointer hover:bg-gray-50"
-                                style={{
-                                    transform: swipedCourseId === course.id ? 'translateX(-80px)' : 'translateX(0)',
-                                    transition: 'transform 0.3s ease',
-                                }}
-                                onClick={() => {
-                                    if (swipedCourseId === course.id) {
-                                        setSwipedCourseId(null);
-                                        return;
-                                    }
-                                    setSelectedCourse(course);
-                                }}
-                                onTouchStart={(e) => handleTouchStart(e, course.id)}
-                                onTouchMove={(e) => handleTouchMove(e, course.id)}
-                                onTouchEnd={() => handleTouchEnd(course.id)}
-                            >
-                                {course.name}
-                            </div>
-                        </li>
-                    ))
-                )}
-            </ul>
+            {/* List of Courses */}
+            <CourseList
+                courses={courses}
+                setSelectedCourse={setSelectedCourse}
+                deleteCourse={handleDeleteCourse}
+                swipedCourseId={swipedCourseId}
+                setSwipedCourseId={setSwipedCourseId}
+                handleTouchStart={handleTouchStart}
+                handleTouchMove={handleTouchMove}
+                handleTouchEnd={handleTouchEnd}
+            />
         </div>
-    );
-}
-
-function AddHoleForm({ onAddHole, onCancel }) {
-    const [holeNumber, setHoleNumber] = useState('');
-    const [holePar, setHolePar] = useState('');
-    const [holeNote, setHoleNote] = useState('');
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onAddHole(holeNumber, holePar, holeNote);
-        setHoleNumber('');
-        setHolePar('');
-        setHoleNote('');
-    };
-
-    return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <input
-                type="text"
-                placeholder="Hole Number"
-                value={holeNumber}
-                onChange={(e) => setHoleNumber(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-                required
-            />
-            <input
-                type="number"
-                placeholder="Par"
-                value={holePar}
-                onChange={(e) => setHolePar(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-                required
-            />
-            <textarea
-                placeholder="Add a note"
-                value={holeNote}
-                onChange={(e) => setHoleNote(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-            />
-            <div className="flex justify-end gap-2">
-                <button
-                    type="button"
-                    onClick={onCancel}
-                    className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
-                >
-                    Cancel
-                </button>
-                <button
-                    type="submit"
-                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                >
-                    Add Hole
-                </button>
-            </div>
-        </form>
     );
 }
