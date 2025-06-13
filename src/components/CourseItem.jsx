@@ -12,22 +12,24 @@ export default function CourseItem({
     onTouchMove,
     onTouchEnd,
 }) {
+    console.log(`Rendering Course: ${course.name}, Tournament Value: '${course.tournament}'`);
+
     return (
         <li className="relative h-16 overflow-hidden select-none touch-pan-y">
-            {/* DELETE BUTTON - updated border-radius */}
+            {/* DELETE BUTTON - ADD CONSOLE.LOG HERE */}
             <button
                 onClick={(e) => {
                     e.stopPropagation(); // Prevents the click from bubbling up to the div
+                    console.log(`Delete button clicked for course ID: ${course.id}`); // <--- ADD THIS LINE
                     onDelete(course.id); // Pass the specific course.id to the onDelete handler
                 }}
-                // Added rounded-tr-lg and rounded-br-lg for top-right and bottom-right radius
-                className="fab-fix absolute right-0 top-0 bottom-0 w-20 bg-red-600 text-white flex items-center justify-center z-10 del-btn-fix"
+                className="fab-fix absolute right-0 top-0 bottom-0 w-20 bg-red-600 text-white flex items-center justify-center z-10 del-btn-fix rounded-tr-lg rounded-br-lg"
                 aria-label={`Delete ${course.name}`}
             >
                 <Trash />
             </button>
 
-            {/* MAIN COURSE CONTENT DIV (z-index remains z-20 as per your request) */}
+            {/* MAIN COURSE CONTENT DIV */}
             <div
                 id={`course-${course.id}`}
                 className="absolute inset-0 bg-white border z-20 flex items-center px-4 cursor-pointer hover:bg-gray-50"
@@ -40,7 +42,14 @@ export default function CourseItem({
                 onTouchMove={(e) => onTouchMove(e, course.id)}
                 onTouchEnd={() => onTouchEnd(course.id)}
             >
-                {course.name}
+                <div>
+                    <h3 className="font-semibold">{course.name}</h3>
+                    {course.tournament && (
+                        <p style={{ fontSize: '0.875rem', color: '#6B7280', marginTop: '0.1rem' }}>
+                            Tournament: {course.tournament}
+                        </p>
+                    )}
+                </div>
             </div>
         </li>
     );

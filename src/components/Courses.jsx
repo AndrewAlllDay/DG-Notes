@@ -13,6 +13,9 @@ export default function Courses() {
     });
     const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
     const [newCourseName, setNewCourseName] = useState('');
+    // --- ADD THIS NEW STATE FOR TOURNAMENT NAME ---
+    const [newTournamentName, setNewTournamentName] = useState('');
+    // ----------------------------------------------
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [editingHoleData, setEditingHoleData] = useState({});
     const [swipedCourseId, setSwipedCourseId] = useState(null);
@@ -111,8 +114,8 @@ export default function Courses() {
         console.log(`[TOUCH END] Cleared swipeRef for ID: ${id}`);
     };
 
-    // --- Course Management Functions (No Changes) ---
-    const handleAddCourse = (courseName) => {
+    // --- MODIFIED handleAddCourse FUNCTION ---
+    const handleAddCourse = (courseName, tournamentName) => { // <--- Accepts tournamentName now
         const defaultHoles = Array.from({ length: 18 }, (_, index) => ({
             id: Date.now() + index,
             number: (index + 1).toString(),
@@ -120,10 +123,17 @@ export default function Courses() {
             note: '',
             editing: false,
         }));
-        setCourses([...courses, { id: Date.now(), name: courseName, holes: defaultHoles }]);
+        setCourses([...courses, {
+            id: Date.now(),
+            name: courseName,
+            tournament: tournamentName, // <--- Add tournament property
+            holes: defaultHoles
+        }]);
         setIsAddCourseModalOpen(false);
         setNewCourseName('');
+        setNewTournamentName(''); // <--- Reset tournament name state
     };
+    // ------------------------------------------
 
     const handleDeleteCourse = (id) => {
         setCourses(courses.filter((course) => course.id !== id));
@@ -247,12 +257,16 @@ export default function Courses() {
     if (selectedCourse) {
         return (
             <div className="relative min-h-screen bg-gray-100 p-4">
-                <button onClick={backToList} className="mb-4 px-3 py-1 border border-black text-black rounded hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200">
+                <button onClick={backToList} className="mb-4 px-3 py-1 border border-black text-black rounded hover:bg-blue-50  transition-colors duration-200">
                     ← Back to Courses
                 </button>
-                <h2 className="text-2xl font-bold mb-4 text-center pt-5">
-                    {selectedCourse.name} - Holes
+                <h2 className="text-2xl font-bold mb-1 text-center pt-5">
+                    {selectedCourse.name}
                 </h2>
+                <h3 className="text-xl mb-16 text-center pt-2">
+                    {/* Changed from selectedCourse.name to selectedCourse.tournament */}
+                    {selectedCourse.tournament}
+                </h3>
                 <HoleList
                     holes={selectedCourse.holes || []}
                     editingHoleData={editingHoleData}
@@ -279,7 +293,7 @@ export default function Courses() {
 
     return (
         <div className="min-h-screen bg-gray-100 p-4">
-            <h2 className="text-2xl font-bold mb-4 text-center pt-5">DG Courses</h2>
+            <h2 className="text-2xl font-bold mb-4 text-center pt-5">Course</h2>
             <p className='text-center mb-6'>This is a list of courses that you've taken notes for.</p>
             {/* The Export All Data button has been removed from here */}
             <button
@@ -295,6 +309,10 @@ export default function Courses() {
                 onSubmit={handleAddCourse}
                 newCourseName={newCourseName}
                 setNewCourseName={setNewCourseName}
+                // --- PASS NEW PROPS TO ADDCOURSEMODAL ---
+                newTournamentName={newTournamentName}
+                setNewTournamentName={setNewTournamentName}
+            // ----------------------------------------
             />
             <CourseList
                 courses={courses}

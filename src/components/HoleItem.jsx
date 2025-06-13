@@ -59,7 +59,7 @@ export default function HoleItem({
                             </div>
                         ) : (
                             <div>
-                                <p>Hole {hole.number} - Par {hole.par}</p>
+                                <p><span className='font-bold'>Hole {hole.number}</span> - Par {hole.par}</p>
                                 <p>{hole.note || 'No note added yet.'}</p>
                             </div>
                         )}

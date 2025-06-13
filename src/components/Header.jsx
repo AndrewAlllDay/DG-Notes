@@ -10,17 +10,21 @@ const Header = ({ onNavigate }) => {
 
     return (
         <header className="w-full bg-white shadow-md sticky top-0 z-50">
-            <div className="flex items-center justify-between px-4 py-4">
-                {/* Left side (hamburger menu) */}
+            {/* Added 'relative' to the parent div to correctly position absolute children */}
+            <div className="relative flex items-center px-4 py-4">
+                {/* Left side (hamburger menu) - Now has z-10 to ensure it's clickable above the logo */}
                 <button
-                    className="md:hidden text-gray-700 bg-transparent border-none focus:outline-none active:bg-transparent"
+                    className="md:hidden text-gray-700 bg-transparent border-none focus:outline-none active:bg-transparent z-10"
                     onClick={() => setIsOpen(!isOpen)}
                 >
                     {isOpen ? <X size={28} /> : <Menu size={28} />}
                 </button>
 
-                {/* Center logo */}
-                <div className="flex-grow flex justify-center cursor-pointer" onClick={() => onNavigate('courses')}>
+                {/* Center logo - ABSOLUTELY POSITIONED FOR TRUE CENTERING */}
+                <div
+                    className="absolute left-1/2 -translate-x-1/2 flex justify-center cursor-pointer"
+                    onClick={() => onNavigate('courses')}
+                >
                     <img
                         src={LogoImage}
                         alt="DG Caddy Notes Logo"
@@ -28,26 +32,24 @@ const Header = ({ onNavigate }) => {
                     />
                 </div>
 
-                {/* Placeholder for alignment */}
-                <div className="w-7 md:hidden" />
+                {/* This placeholder div is no longer needed, as the logo is absolutely positioned */}
+                {/* <div className="w-7 md:hidden" /> */}
             </div>
 
             {/* Mobile nav links */}
             {isOpen && (
-                <nav className="md:hidden px-4 pb-4">
+                <nav className="md:hidden px-4 pb-4 pt-5">
                     <ul className="flex flex-col gap-2 text-gray-700">
-                        <li><a href="#" onClick={() => { onNavigate('courses'); setIsOpen(false); }}>Courses</a></li>
-                        {/* Updated Settings link */}
-                        <li><a href="#" onClick={() => { onNavigate('settings'); setIsOpen(false); }}>Settings</a></li>
+                        <li className="nav-links"><a href="#" onClick={() => { onNavigate('courses'); setIsOpen(false); }}>Courses</a></li>
+                        <li className="nav-links"><a href="#" onClick={() => { onNavigate('settings'); setIsOpen(false); }}>Settings</a></li>
                     </ul>
                 </nav>
             )}
 
             {/* Desktop nav links */}
             <nav className="hidden md:flex justify-center gap-8 py-2 text-gray-700">
-                <li><a href="#" onClick={() => onNavigate('courses')} className="hover:text-blue-600 transition-colors duration-150">Courses</a></li>
-                {/* Updated Settings link */}
-                <li><a href="#" onClick={() => onNavigate('settings')} className="hover:text-blue-600 transition-colors duration-150">Settings</a></li>
+                <li><a href="#" onClick={() => onNavigate('courses')} className="hover:text-blue-600 transition-colors duration-150 nav-links">Courses</a></li>
+                <li><a href="#" onClick={() => onNavigate('settings')} className="hover:text-blue-600 transition-colors duration-150 nav-links">Settings</a></li>
             </nav>
         </header>
     );
