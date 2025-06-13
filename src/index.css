@@ -1,5 +1,6 @@
-@import "tailwindcss";
+/* src/index.css */
 
+@import "tailwindcss";
 
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -16,7 +17,6 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-
 a {
   font-weight: 500;
   color: #646cff;
@@ -29,8 +29,9 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
+  /* REMOVE these two lines: */
+  /* display: flex; */
+  /* place-items: center; */
   min-width: 320px;
   min-height: 100vh;
 }
@@ -40,10 +41,12 @@ h1 {
   line-height: 1.1;
 }
 
-h2 (font-size: 2.2em;
+h2 {
+  font-size: 2.2em;
   line-height: 1.1;
+}
 
-) button {
+button {
   border-radius: 8px;
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
@@ -84,5 +87,13 @@ button:focus-visible {
 
   .fab-fix {
     background-color: var(--color-red-700);
+  }
+
+  .ham-fix {
+    background-color: transparent;
+  }
+
+  .del-btn-fix {
+    border-radius: 0 8px 8px 0;
   }
 }
