@@ -9,7 +9,7 @@ export default function HoleItem({
     setEditingHoleData,
     onToggleEdit,
     onSave,
-    onDelete, // Accept onDelete prop
+    onDelete,
 }) {
     return (
         <Draggable draggableId={String(hole.id)} index={index}>
@@ -18,7 +18,7 @@ export default function HoleItem({
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}
-                    className="mb-4 border rounded p-4 bg-white flex justify-between items-start HoleItem" // Added HoleItem class for click-outside detection
+                    className="mb-4 border rounded p-4 bg-white flex justify-between items-start HoleItem"
                 >
                     <div className="flex-grow">
                         {hole.editing ? (
@@ -51,7 +51,7 @@ export default function HoleItem({
                                     }
                                     className="w-full mt-2 p-2 border rounded"
                                 />
-                                <div className="flex gap-2 mt-2"> {/* Flex container for buttons */}
+                                <div className="flex gap-2 mt-2">
                                     <button
                                         onClick={onSave}
                                         className="!bg-green-600 text-white py-1 px-4 rounded hover:bg-blue-700"

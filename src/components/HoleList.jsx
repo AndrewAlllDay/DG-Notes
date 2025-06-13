@@ -8,7 +8,7 @@ export default function HoleList({
     setEditingHoleData,
     toggleEditing,
     saveHoleChanges,
-    onDeleteClick, // This prop is passed from Courses.jsx
+    onDeleteClick,
     onDragEnd,
 }) {
     return (
