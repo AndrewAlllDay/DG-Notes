@@ -1,5 +1,6 @@
 import React from 'react';
-import HoleItem from './HoleItem'; // Assuming it's in the same 'components' folder
+import { DragDropContext, Droppable } from '@hello-pangea/dnd';
+import HoleItem from './HoleItem';
 
 export default function HoleList({
     holes,
@@ -7,20 +8,34 @@ export default function HoleList({
     setEditingHoleData,
     toggleEditing,
     saveHoleChanges,
+    onDragEnd,
 }) {
     return (
-        <ul>
-            {holes.length === 0 && <li>No holes added yet.</li>}
-            {holes.map((hole) => (
-                <HoleItem
-                    key={hole.id}
-                    hole={hole}
-                    editingHoleData={editingHoleData}
-                    setEditingHoleData={setEditingHoleData}
-                    onToggleEdit={() => toggleEditing(hole.id)}
-                    onSave={() => saveHoleChanges(hole.id)}
-                />
-            ))}
-        </ul>
+        <DragDropContext onDragEnd={onDragEnd}>
+            <Droppable droppableId="holes-list">
+                {(provided) => (
+                    <ul
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                        className="space-y-4"
+                    >
+                        {holes.length === 0 && <li>No holes added yet.</li>}
+                        {/* Ensure 'hole' is not undefined before rendering HoleItem */}
+                        {holes.filter(Boolean).map((hole, index) => (
+                            <HoleItem
+                                key={hole.id}
+                                hole={hole}
+                                index={index}
+                                editingHoleData={editingHoleData}
+                                setEditingHoleData={setEditingHoleData}
+                                onToggleEdit={() => toggleEditing(hole.id)}
+                                onSave={() => saveHoleChanges(hole.id)}
+                            />
+                        ))}
+                        {provided.placeholder}
+                    </ul>
+                )}
+            </Droppable>
+        </DragDropContext>
     );
 }

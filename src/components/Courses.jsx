@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import CourseList from './CourseList';
 import HoleList from './HoleList';
 import AddCourseModal from './AddCourseModal';
-import AddHoleModal from './AddHoleModal'; // This will wrap your AddHoleForm
+import AddHoleModal from './AddHoleModal';
 
 export default function Courses() {
     const [courses, setCourses] = useState(() => {
@@ -16,7 +16,6 @@ export default function Courses() {
     const [swipedCourseId, setSwipedCourseId] = useState(null);
     const [isAddHoleModalOpen, setIsAddHoleModalOpen] = useState(false);
 
-    // This ref is still managed here as it holds state related to all course swipe gestures
     const swipeRefs = useRef({});
 
     // Effect to save courses to localStorage whenever they change
@@ -151,6 +150,37 @@ export default function Courses() {
 
     const backToList = () => setSelectedCourse(null);
 
+    // --- Drag and Drop Reordering Logic for Holes ---
+    const onDragEnd = (result) => {
+        const { source, destination } = result;
+
+        // If dropped outside a droppable area or back to the same spot, do nothing
+        if (!destination || source.index === destination.index) {
+            return;
+        }
+
+        // Create a mutable copy of the holes array for the selected course
+        const currentHoles = Array.from(selectedCourse.holes);
+        const [reorderedHole] = currentHoles.splice(source.index, 1);
+        currentHoles.splice(destination.index, 0, reorderedHole);
+
+        // Update the main 'courses' state with the reordered holes
+        setCourses((prevCourses) =>
+            prevCourses.map((course) =>
+                course.id === selectedCourse.id
+                    ? { ...course, holes: currentHoles }
+                    : course
+            )
+        );
+
+        // Update the 'selectedCourse' state immediately for UI responsiveness
+        setSelectedCourse((prev) => ({
+            ...prev,
+            holes: currentHoles,
+        }));
+    };
+
+
     // --- Swipe Handling Functions (for CourseList) ---
     // These functions are passed down to CourseList and CourseItem
     const handleTouchStart = (e, id) => {
@@ -225,6 +255,7 @@ export default function Courses() {
                     setEditingHoleData={setEditingHoleData}
                     toggleEditing={handleToggleEditingHole}
                     saveHoleChanges={handleSaveHoleChanges}
+                    onDragEnd={onDragEnd}
                 />
 
                 {/* Floating Add Hole Button */}
@@ -269,7 +300,6 @@ export default function Courses() {
                 setNewCourseName={setNewCourseName}
             />
 
-            {/* List of Courses */}
             <CourseList
                 courses={courses}
                 setSelectedCourse={setSelectedCourse}
