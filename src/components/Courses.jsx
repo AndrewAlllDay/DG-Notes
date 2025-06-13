@@ -111,7 +111,7 @@ export default function Courses() {
         console.log(`[TOUCH END] Cleared swipeRef for ID: ${id}`);
     };
 
-    // --- Course Management Functions (No Changes) ---
+    // --- Course Management Functions ---
     const handleAddCourse = (courseName) => {
         const defaultHoles = Array.from({ length: 18 }, (_, index) => ({
             id: Date.now() + index,
@@ -128,6 +128,25 @@ export default function Courses() {
     const handleDeleteCourse = (id) => {
         setCourses(courses.filter((course) => course.id !== id));
         if (swipedCourseId === id) setSwipedCourseId(null);
+    };
+
+    // --- NEW: Function to delete a specific hole from the selected course ---
+    const handleDeleteHole = (holeIdToDelete) => {
+        if (!selectedCourse) return; // Should not happen if UI is correct
+
+        const updatedHoles = selectedCourse.holes.filter(
+            (hole) => hole.id !== holeIdToDelete
+        );
+
+        const updatedCourses = courses.map((course) =>
+            course.id === selectedCourse.id
+                ? { ...course, holes: updatedHoles }
+                : course
+        );
+
+        setCourses(updatedCourses);
+        // Also update the selectedCourse state to reflect the deletion immediately
+        setSelectedCourse((prev) => ({ ...prev, holes: updatedHoles }));
     };
 
     const handleAddHole = (holeNumber, holePar, holeNote) => {
@@ -243,15 +262,15 @@ export default function Courses() {
         }));
     };
 
-    // --- Conditional Rendering for Course List vs. Hole List (No Changes) ---
+    // --- Conditional Rendering for Course List vs. Hole List ---
     if (selectedCourse) {
         return (
             <div className="relative min-h-screen bg-gray-100 p-4">
                 <button onClick={backToList} className="mb-4 px-3 py-1 border border-black text-black rounded hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200">
                     ← Back to Courses
                 </button>
-                <h2 className="text-2xl font-bold mb-4 text-center pt-5">
-                    {selectedCourse.name} - Holes
+                <h2 className="text-2xl font-bold mb-6 text-center pt-5">
+                    {selectedCourse.name}
                 </h2>
                 <HoleList
                     holes={selectedCourse.holes || []}
@@ -259,6 +278,8 @@ export default function Courses() {
                     setEditingHoleData={setEditingHoleData}
                     toggleEditing={handleToggleEditingHole}
                     saveHoleChanges={handleSaveHoleChanges}
+                    // NEW: Pass handleDeleteHole down
+                    deleteHole={handleDeleteHole}
                     onDragEnd={onDragEnd}
                 />
                 <button

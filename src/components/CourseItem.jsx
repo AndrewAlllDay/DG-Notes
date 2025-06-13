@@ -1,5 +1,3 @@
-// src/components/CourseItem.jsx
-
 import React from 'react';
 import { Trash } from 'lucide-react';
 
@@ -27,13 +25,16 @@ export default function CourseItem({
                 <Trash />
             </button>
 
-            {/* MAIN COURSE CONTENT DIV (z-index remains z-20 as per your request) */}
+            {/* MAIN COURSE CONTENT DIV */}
             <div
                 id={`course-${course.id}`}
                 className="absolute inset-0 bg-white border z-20 flex items-center px-4 cursor-pointer hover:bg-gray-50"
                 style={{
+                    // This transform value is dynamically set based on the swipedCourseId
                     transform: swipedCourseId === course.id ? 'translateX(-80px)' : 'translateX(0)',
-                    transition: 'transform 0.3s ease',
+                    // REMOVED: transition: 'transform 0.3s ease',
+                    // This transition is now controlled by the parent Courses.jsx component
+                    // via direct DOM manipulation in handleTouchStart and handleTouchEnd.
                 }}
                 onClick={() => onClick(course)}
                 onTouchStart={(e) => onTouchStart(e, course.id)}
