@@ -292,10 +292,29 @@ export default function Courses() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 p-4">
-            <h2 className="text-2xl font-bold mb-4 text-center pt-5">Course</h2>
-            <p className='text-center mb-6'>This is a list of courses that you've taken notes for.</p>
-            {/* The Export All Data button has been removed from here */}
+        // Changed this div to be a flex column that takes full height
+        <div className="flex flex-col h-full bg-gray-100">
+            {/* Top content section, will take its natural height */}
+            <div className="p-4 pb-0"> {/* Adjusted padding-bottom to reduce gap */}
+                <h2 className="text-2xl font-bold mb-4 text-center pt-5">Course</h2>
+                <p className='text-center mb-6'>This is a list of courses that you've taken notes for.</p>
+            </div>
+
+            {/* This is the new scrollable container for the courses */}
+            {/* flex-grow allows it to take all remaining height, overflow-y-auto makes it scroll if content overflows */}
+            <div className="flex-grow overflow-y-auto px-4 pb-20"> {/* pb-20 adds space for the FAB */}
+                <CourseList
+                    courses={courses}
+                    setSelectedCourse={setSelectedCourse}
+                    deleteCourse={handleDeleteCourse}
+                    swipedCourseId={swipedCourseId}
+                    handleTouchStart={handleTouchStart}
+                    handleTouchMove={handleTouchMove}
+                    handleTouchEnd={handleTouchEnd}
+                />
+            </div>
+
+            {/* The FAB is fixed position, so it sits on top of the scrolling content */}
             <button
                 onClick={() => setIsAddCourseModalOpen(true)}
                 className="fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
@@ -309,19 +328,8 @@ export default function Courses() {
                 onSubmit={handleAddCourse}
                 newCourseName={newCourseName}
                 setNewCourseName={setNewCourseName}
-                // --- PASS NEW PROPS TO ADDCOURSEMODAL ---
                 newTournamentName={newTournamentName}
                 setNewTournamentName={setNewTournamentName}
-            // ----------------------------------------
-            />
-            <CourseList
-                courses={courses}
-                setSelectedCourse={setSelectedCourse}
-                deleteCourse={handleDeleteCourse}
-                swipedCourseId={swipedCourseId}
-                handleTouchStart={handleTouchStart}
-                handleTouchMove={handleTouchMove}
-                handleTouchEnd={handleTouchEnd}
             />
         </div>
     );
