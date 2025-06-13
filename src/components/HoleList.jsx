@@ -9,6 +9,8 @@ export default function HoleList({
     toggleEditing,
     saveHoleChanges,
     onDragEnd,
+    // NEW: Receive the deleteHole prop from Courses.jsx
+    deleteHole,
 }) {
     return (
         <DragDropContext onDragEnd={onDragEnd}>
@@ -30,6 +32,8 @@ export default function HoleList({
                                 setEditingHoleData={setEditingHoleData}
                                 onToggleEdit={() => toggleEditing(hole.id)}
                                 onSave={() => saveHoleChanges(hole.id)}
+                                // NEW: Pass the deleteHole prop down to HoleItem
+                                onDelete={() => deleteHole(hole.id)}
                             />
                         ))}
                         {provided.placeholder}

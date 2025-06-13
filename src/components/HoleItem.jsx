@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit } from 'lucide-react';
+import { Edit, Trash } from 'lucide-react'; // Import Trash icon
 import { Draggable } from '@hello-pangea/dnd';
 
 export default function HoleItem({
@@ -9,6 +9,8 @@ export default function HoleItem({
     setEditingHoleData,
     onToggleEdit,
     onSave,
+    // NEW: Accept the onDelete prop
+    onDelete,
 }) {
     return (
         <Draggable draggableId={String(hole.id)} index={index}>
@@ -50,12 +52,21 @@ export default function HoleItem({
                                     }
                                     className="w-full mt-2 p-2 border rounded"
                                 />
-                                <button
-                                    onClick={onSave}
-                                    className="bg-blue-600 text-white py-1 px-4 mt-2 rounded hover:bg-blue-700"
-                                >
-                                    Save Changes
-                                </button>
+                                <div className="flex gap-2 mt-2"> {/* Container for buttons */}
+                                    <button
+                                        onClick={onSave}
+                                        className="!bg-green-600 text-white py-1 px-4 rounded hover:bg-blue-700"
+                                    >
+                                        Save Changes
+                                    </button>
+                                    {/* NEW: Delete Button */}
+                                    <button
+                                        onClick={onDelete} // Call the onDelete prop directly
+                                        className="!bg-red-600 text-white py-1 px-4 rounded hover:bg-red-700 flex items-center gap-1"
+                                    >
+                                        <Trash size={16} /> Delete
+                                    </button>
+                                </div>
                             </div>
                         ) : (
                             <div>
@@ -64,6 +75,7 @@ export default function HoleItem({
                             </div>
                         )}
                     </div>
+                    {/* The edit button is always visible */}
                     <button
                         onClick={onToggleEdit}
                         className="text-gray-500 hover:text-gray-700 ml-4 mt-1"
