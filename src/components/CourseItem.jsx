@@ -9,6 +9,8 @@ export default function CourseItem({
     onTouchStart,
     onTouchMove,
     onTouchEnd,
+    // NEW: Accept the tournamentName prop
+    tournamentName,
 }) {
     return (
         <li className="relative h-16 overflow-hidden select-none touch-pan-y">
@@ -41,7 +43,13 @@ export default function CourseItem({
                 onTouchMove={(e) => onTouchMove(e, course.id)}
                 onTouchEnd={() => onTouchEnd(course.id)}
             >
-                {course.name}
+                <div> {/* Added a div to stack course name and tournament name */}
+                    <p className="font-semibold text-xl">{course.name}</p>
+                    {/* NEW: Display Tournament Name if it exists */}
+                    {tournamentName && (
+                        <p className="text-sm text-gray-600 mt-1">{tournamentName}</p>
+                    )}
+                </div>
             </div>
         </li>
     );

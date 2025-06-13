@@ -13,10 +13,6 @@ export default function CourseList({
     handleTouchMove,
     handleTouchEnd,
 }) {
-    // Remove any definitions of handleTouchStart, handleTouchMove, or handleTouchEnd from here
-    // For example, if you have lines like:
-    // const handleTouchMove = (e, id) => { ... } <-- DELETE THIS!
-
     return (
         <ul className="space-y-4">
             {courses.map((course) => (
@@ -30,6 +26,8 @@ export default function CourseList({
                     onTouchStart={handleTouchStart}
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
+                    // NEW: Pass the tournamentName to CourseItem
+                    tournamentName={course.tournamentName}
                 />
             ))}
         </ul>

@@ -4,13 +4,18 @@ export default function AddHoleForm({ onAddHole, onCancel }) {
     const [holeNumber, setHoleNumber] = useState('');
     const [holePar, setHolePar] = useState('');
     const [holeNote, setHoleNote] = useState('');
+    // NEW: State for tournament name
+    const [tournamentName, setTournamentName] = useState('');
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onAddHole(holeNumber, holePar, holeNote);
+        // MODIFIED: Pass tournamentName as the fourth argument
+        onAddHole(holeNumber, holePar, holeNote, tournamentName);
         setHoleNumber('');
         setHolePar('');
         setHoleNote('');
+        // NEW: Clear tournament name after submission
+        setTournamentName('');
     };
 
     return (
@@ -31,8 +36,10 @@ export default function AddHoleForm({ onAddHole, onCancel }) {
                 className="w-full border rounded px-3 py-2"
                 required
             />
+            {/* NEW: Input field for Tournament Name */}
+
             <textarea
-                placeholder="Add a note"
+                placeholder="Add a note (Optional)" // Clarified optional
                 value={holeNote}
                 onChange={(e) => setHoleNote(e.target.value)}
                 className="w-full border rounded px-3 py-2"

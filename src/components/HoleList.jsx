@@ -8,6 +8,7 @@ export default function HoleList({
     setEditingHoleData,
     toggleEditing,
     saveHoleChanges,
+    onDeleteClick,
     onDragEnd,
     // NEW: Receive the deleteHole prop from Courses.jsx
     deleteHole,
@@ -22,7 +23,6 @@ export default function HoleList({
                         className="space-y-4"
                     >
                         {holes.length === 0 && <li>No holes added yet.</li>}
-                        {/* Ensure 'hole' is not undefined before rendering HoleItem */}
                         {holes.filter(Boolean).map((hole, index) => (
                             <HoleItem
                                 key={hole.id}
@@ -32,8 +32,9 @@ export default function HoleList({
                                 setEditingHoleData={setEditingHoleData}
                                 onToggleEdit={() => toggleEditing(hole.id)}
                                 onSave={() => saveHoleChanges(hole.id)}
-                                // NEW: Pass the deleteHole prop down to HoleItem
-                                onDelete={() => deleteHole(hole.id)}
+
+                                onDelete={() => onDeleteClick(hole.id)}
+
                             />
                         ))}
                         {provided.placeholder}
