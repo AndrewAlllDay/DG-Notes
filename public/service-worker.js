@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dgnotes-cache-v1.0.30';
+const CACHE_NAME = 'dgnotes-cache-v1.0.27';
 const urlsToCache = [
     '/',
     '/index.html',

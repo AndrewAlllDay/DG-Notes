@@ -21,14 +21,10 @@ function App() {
   };
 
   return (
-    // Make the App container a flex column that takes full screen height
-    <div className="flex flex-col h-screen">
+    <div className="App">
+      {/* Pass setCurrentPage down to Header so it can change the view */}
       <Header onNavigate={setCurrentPage} />
-      {/* The main content area should grow to fill remaining space and manage its overflow */}
-      <main className="flex-grow overflow-hidden">
-        {currentPage === 'courses' && <Courses />}
-        {currentPage === 'settings' && <Settings />}
-      </main>
+      {renderPage()}
     </div>
   );
 }

@@ -96,13 +96,4 @@ button:focus-visible {
   .del-btn-fix {
     border-radius: 0 8px 8px 0;
   }
-
-  .nav-links {
-    font-size: 1 rem;
-    padding-left: 25px
-  }
-
-  .mb-12 {
-    margin-bottom: 50px;
-  }
 }
