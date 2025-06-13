@@ -1,12 +1,22 @@
 import React from 'react';
 
-export default function AddCourseModal({ isOpen, onClose, onSubmit, newCourseName, setNewCourseName }) {
+export default function AddCourseModal({
+    isOpen,
+    onClose,
+    onSubmit,
+    newCourseName,
+    setNewCourseName,
+    // NEW: Accept new props for tournament name
+    newCourseTournamentName,
+    setNewCourseTournamentName,
+}) {
     if (!isOpen) return null;
 
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!newCourseName.trim()) return;
-        onSubmit(newCourseName);
+        // MODIFIED: Pass both courseName and tournamentName to onSubmit
+        onSubmit(newCourseName, newCourseTournamentName);
     };
 
     return (
@@ -22,6 +32,14 @@ export default function AddCourseModal({ isOpen, onClose, onSubmit, newCourseNam
                         className="w-full border rounded px-3 py-2"
                         required
                     />
+                    {/* NEW: Input field for Tournament Name */}
+                    <input
+                        type="text"
+                        placeholder="Tournament Name (Optional)"
+                        value={newCourseTournamentName}
+                        onChange={(e) => setNewCourseTournamentName(e.target.value)}
+                        className="w-full border rounded px-3 py-2"
+                    />
                     <div className="flex justify-end space-x-2">
                         <button
                             type="button"
@@ -32,7 +50,7 @@ export default function AddCourseModal({ isOpen, onClose, onSubmit, newCourseNam
                         </button>
                         <button
                             type="submit"
-                            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                            className="!bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                         >
                             Add Course
                         </button>

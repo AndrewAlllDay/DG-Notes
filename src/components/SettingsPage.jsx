@@ -79,7 +79,7 @@ export default function SettingsPage() {
                 </p>
                 <button
                     onClick={handleExportData}
-                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded shadow-md transition-colors duration-200 mb-4"
+                    className="w-full px-4 py-2 !bg-green-600 hover:bg-blue-700 text-white rounded shadow-md transition-colors duration-200 mb-4"
                 >
                     Export All Data
                 </button>
@@ -87,7 +87,7 @@ export default function SettingsPage() {
                 <p className="text-gray-700 mb-4">
                     Import data from a previously exported JSON file. This will overwrite your current data.
                 </p>
-                <label className="w-full flex items-center justify-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded shadow-md cursor-pointer transition-colors duration-200">
+                <label className="w-full flex items-center justify-center px-4 py-2 !bg-blue-600 hover:bg-purple-700 text-white rounded shadow-md cursor-pointer transition-colors duration-200">
                     Import Data
                     <input
                         type="file"

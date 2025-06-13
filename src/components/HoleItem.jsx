@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit } from 'lucide-react';
+import { Edit, Trash } from 'lucide-react'; // NEW: Import Trash icon
 import { Draggable } from '@hello-pangea/dnd';
 
 export default function HoleItem({
@@ -9,6 +9,7 @@ export default function HoleItem({
     setEditingHoleData,
     onToggleEdit,
     onSave,
+    onDelete, // NEW: Accept onDelete prop
 }) {
     return (
         <Draggable draggableId={String(hole.id)} index={index}>
@@ -50,23 +51,33 @@ export default function HoleItem({
                                     }
                                     className="w-full mt-2 p-2 border rounded"
                                 />
-                                <button
-                                    onClick={onSave}
-                                    className="bg-blue-600 text-white py-1 px-4 mt-2 rounded hover:bg-blue-700"
-                                >
-                                    Save Changes
-                                </button>
+                                {/* NEW: Flex container for buttons */}
+                                <div className="flex gap-2 mt-2">
+                                    <button
+                                        onClick={onSave}
+                                        className="!bg-green-600 text-white py-1 px-4 rounded hover:bg-blue-700"
+                                    >
+                                        Save Changes
+                                    </button>
+                                    {/* NEW: Delete Button */}
+                                    <button
+                                        onClick={onDelete}
+                                        className="!bg-red-600 text-white py-1 px-4 rounded hover:bg-red-700 flex items-center gap-1"
+                                    >
+                                        <Trash size={16} /> Delete
+                                    </button>
+                                </div>
                             </div>
                         ) : (
-                            <div>
-                                <p>Hole {hole.number} - Par {hole.par}</p>
+                            <div className=''>
+                                <p className='mb-3'><span className='font-bold text-lg'>Hole {hole.number}</span> - Par {hole.par}</p>
                                 <p>{hole.note || 'No note added yet.'}</p>
                             </div>
                         )}
                     </div>
                     <button
                         onClick={onToggleEdit}
-                        className="text-gray-500 hover:text-gray-700 ml-4 mt-1"
+                        className="text-gray-500 !bg-transparent hover:text-gray-700 ml-4 mt-1"
                         aria-label="Edit Hole"
                     >
                         <Edit size={16} />

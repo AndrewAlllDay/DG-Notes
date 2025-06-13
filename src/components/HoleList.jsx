@@ -8,6 +8,7 @@ export default function HoleList({
     setEditingHoleData,
     toggleEditing,
     saveHoleChanges,
+    onDeleteClick, // Now explicitly receive onDeleteClick
     onDragEnd,
 }) {
     return (
@@ -20,7 +21,6 @@ export default function HoleList({
                         className="space-y-4"
                     >
                         {holes.length === 0 && <li>No holes added yet.</li>}
-                        {/* Ensure 'hole' is not undefined before rendering HoleItem */}
                         {holes.filter(Boolean).map((hole, index) => (
                             <HoleItem
                                 key={hole.id}
@@ -30,6 +30,7 @@ export default function HoleList({
                                 setEditingHoleData={setEditingHoleData}
                                 onToggleEdit={() => toggleEditing(hole.id)}
                                 onSave={() => saveHoleChanges(hole.id)}
+                                onDelete={() => onDeleteClick(hole.id)} // Pass hole.id to onDeleteClick
                             />
                         ))}
                         {provided.placeholder}

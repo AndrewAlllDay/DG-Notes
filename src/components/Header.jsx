@@ -13,7 +13,7 @@ const Header = ({ onNavigate }) => {
             <div className="flex items-center justify-between px-4 py-4">
                 {/* Left side (hamburger menu) */}
                 <button
-                    className="md:hidden text-gray-700 bg-transparent border-none focus:outline-none active:bg-transparent"
+                    className="md:hidden text-gray-700 !bg-transparent border-none focus:outline-none active:bg-transparent"
                     onClick={() => setIsOpen(!isOpen)}
                 >
                     {isOpen ? <X size={28} /> : <Menu size={28} />}
@@ -36,9 +36,9 @@ const Header = ({ onNavigate }) => {
             {isOpen && (
                 <nav className="md:hidden px-4 pb-4">
                     <ul className="flex flex-col gap-2 text-gray-700">
-                        <li><a href="#" onClick={() => { onNavigate('courses'); setIsOpen(false); }}>Courses</a></li>
+                        <li className="nav-links"><a href="#" onClick={() => { onNavigate('courses'); setIsOpen(false); }}>Courses</a></li>
                         {/* Updated Settings link */}
-                        <li><a href="#" onClick={() => { onNavigate('settings'); setIsOpen(false); }}>Settings</a></li>
+                        <li className="nav-links"><a href="#" onClick={() => { onNavigate('settings'); setIsOpen(false); }}>Settings</a></li>
                     </ul>
                 </nav>
             )}
