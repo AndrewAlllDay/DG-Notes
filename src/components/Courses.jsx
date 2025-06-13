@@ -263,7 +263,7 @@ export default function Courses() {
                 />
                 <button
                     onClick={() => setIsAddHoleModalOpen(true)}
-                    className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
+                    className="fixed bottom-6 right-6 !bg-green-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
                     aria-label="Add Hole"
                 >
                     ＋
@@ -280,11 +280,11 @@ export default function Courses() {
     return (
         <div className="min-h-screen bg-gray-100 p-4">
             <h2 className="text-2xl font-bold mb-4 text-center pt-5">DG Courses</h2>
-            <p className='text-center mb-4'>This is a list of courses that you've taken notes for.</p>
+            <p className='text-center mb-6'>This is a list of courses that you've taken notes for.</p>
             {/* The Export All Data button has been removed from here */}
             <button
                 onClick={() => setIsAddCourseModalOpen(true)}
-                className="fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
+                className="fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
                 aria-label="Add Course"
             >
                 <span className="text-2xl">＋</span>
