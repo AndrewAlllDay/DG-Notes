@@ -10,14 +10,16 @@ const Header = ({ onNavigate }) => {
 
     return (
         <header className="w-full bg-white shadow-md sticky top-0 z-50">
-            <div className="flex items-center justify-between px-4 py-4">
+            <div className="flex items-center justify-between px-4 py-4 relative"> {/* Added relative positioning */}
                 {/* Left side (hamburger menu) */}
-                <button
-                    className="md:hidden text-gray-700 !bg-transparent border-none focus:outline-none active:bg-transparent"
-                    onClick={() => setIsOpen(!isOpen)}
-                >
-                    {isOpen ? <X size={28} /> : <Menu size={28} />}
-                </button>
+                <div className="absolute left-4 md:static"> {/* Positioned absolutely for centering */}
+                    <button
+                        className="md:hidden text-gray-700 !bg-transparent border-none focus:outline-none active:bg-transparent"
+                        onClick={() => setIsOpen(!isOpen)}
+                    >
+                        {isOpen ? <X size={28} /> : <Menu size={28} />}
+                    </button>
+                </div>
 
                 {/* Center logo */}
                 <div className="flex-grow flex justify-center cursor-pointer" onClick={() => onNavigate('courses')}>
@@ -28,8 +30,10 @@ const Header = ({ onNavigate }) => {
                     />
                 </div>
 
-                {/* Placeholder for alignment */}
-                <div className="w-7 md:hidden" />
+                {/* Placeholder for alignment (ensure it matches the width of the left-side element if needed for perfect centering) */}
+                <div className="absolute right-4 md:static"> {/* Positioned absolutely for centering */}
+                    <div className="w-7 md:hidden" /> {/* This div's width should ideally match the hamburger menu's width */}
+                </div>
             </div>
 
             {/* Mobile nav links */}
