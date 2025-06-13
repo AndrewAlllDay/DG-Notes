@@ -11,7 +11,7 @@ export default function CourseDetail({ course, onBack }) {
             >
                 ← Back to Courses
             </button>
-            <h2 className="text-2xl font-bold mb-4">{course.name} - Holes</h2>
+            <h2 className="text-2xl font-bold mb-4">{course.name}</h2>
             {/* Hole list & add hole UI goes here */}
         </div>
     );

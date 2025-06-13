@@ -163,7 +163,9 @@ export default function Courses() {
     };
 
     // --- Course Management Functions ---
+
     const handleAddCourse = (courseName, tournamentName) => {
+
         const defaultHoles = Array.from({ length: 18 }, (_, index) => ({
             id: Date.now() + index,
             number: (index + 1).toString(),
@@ -182,9 +184,11 @@ export default function Courses() {
         if (swipedCourseId === id) setSwipedCourseId(null);
     };
 
+
     // Function to delete a specific hole from the selected course
     const deleteHoleConfirmed = (holeIdToDelete) => {
         if (!selectedCourse) return;
+
 
         const updatedHoles = selectedCourse.holes.filter(
             (hole) => hole.id !== holeIdToDelete
@@ -197,6 +201,7 @@ export default function Courses() {
         );
 
         setCourses(updatedCourses);
+
         setSelectedCourse((prev) => ({ ...prev, holes: updatedHoles }));
     };
 
@@ -218,6 +223,7 @@ export default function Courses() {
         setIsDeleteConfirmationModalOpen(false);
         setHoleToDeleteId(null);
     };
+
 
     const handleAddHole = (holeNumber, holePar, holeNote) => {
         if (!holeNumber.trim() || !holePar.trim()) return;
@@ -345,6 +351,7 @@ export default function Courses() {
                 <button onClick={backToList} className="mb-4 px-3 py-1 border border-black text-black rounded hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200">
                     ← Back to Courses
                 </button>
+
                 <div className="text-center mb-6">
                     <h2 className="text-2xl font-bold mb-3">
                         {selectedCourse.name}
@@ -364,6 +371,7 @@ export default function Courses() {
                         onDragEnd={onDragEnd}
                     />
                 </div>
+
                 <button
                     onClick={() => setIsAddHoleModalOpen(true)}
                     className="fixed bottom-6 right-6 !bg-green-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"

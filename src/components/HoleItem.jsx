@@ -9,6 +9,7 @@ export default function HoleItem({
     setEditingHoleData,
     onToggleEdit,
     onSave,
+
     onDelete,
 }) {
     return (
@@ -51,16 +52,20 @@ export default function HoleItem({
                                     }
                                     className="w-full mt-2 p-2 border rounded"
                                 />
+
                                 <div className="flex gap-2 mt-2">
+
                                     <button
                                         onClick={onSave}
                                         className="!bg-green-600 text-white py-1 px-4 rounded hover:bg-blue-700"
                                     >
                                         Save Changes
                                     </button>
+
                                     {/* Delete Button */}
                                     <button
                                         onClick={onDelete}
+
                                         className="!bg-red-600 text-white py-1 px-4 rounded hover:bg-red-700 flex items-center gap-1"
                                     >
                                         <Trash size={16} /> Delete

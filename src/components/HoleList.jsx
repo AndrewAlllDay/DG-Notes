@@ -32,7 +32,9 @@ export default function HoleList({
                                 setEditingHoleData={setEditingHoleData}
                                 onToggleEdit={() => toggleEditing(hole.id)}
                                 onSave={() => saveHoleChanges(hole.id)}
+
                                 onDelete={() => onDeleteClick(hole.id)}
+
                             />
                         ))}
                         {provided.placeholder}
