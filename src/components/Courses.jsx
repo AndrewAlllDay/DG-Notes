@@ -7,7 +7,9 @@ import AddCourseModal from './AddCourseModal';
 import AddHoleModal from './AddHoleModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 
-// CORRECTED IMPORT PATH AND NAME: firestoreService.jsx
+// Import ChevronLeft icon
+import { ChevronLeft } from 'lucide-react'; // <-- ADDED THIS IMPORT
+
 import {
     subscribeToCourses,
     addCourse,
@@ -16,7 +18,7 @@ import {
     updateHoleInCourse,
     deleteHoleFromCourse,
     reorderHolesInCourse,
-} from '../services/firestoreService.jsx'; // <-- This should be correct based on your last confirmation
+} from '../services/firestoreService.jsx';
 
 export default function Courses() {
     const [courses, setCourses] = useState([]);
@@ -46,7 +48,21 @@ export default function Courses() {
             if (selectedCourse) {
                 const updatedSelected = fetchedCourses.find(c => c.id === selectedCourse.id);
                 if (updatedSelected) {
-                    setSelectedCourse(updatedSelected);
+                    // When the selected course is updated from Firestore, ensure 'editing' flags are preserved for current view
+                    setSelectedCourse(prevSelected => {
+                        if (!prevSelected || !prevSelected.holes || !updatedSelected.holes) {
+                            return updatedSelected;
+                        }
+
+                        // Map 'editing' flags from the previous state to the newly fetched holes
+                        const mergedHoles = updatedSelected.holes.map(fetchedHole => {
+                            const prevHole = prevSelected.holes.find(h => h.id === fetchedHole.id);
+                            return { ...fetchedHole, editing: prevHole ? prevHole.editing : false };
+                        });
+
+                        return { ...updatedSelected, holes: mergedHoles };
+                    });
+
                 } else {
                     // If the selected course was deleted in Firestore
                     setSelectedCourse(null);
@@ -61,9 +77,11 @@ export default function Courses() {
     // Effect for click-outside detection when a course is selected
     useEffect(() => {
         function handleClickOutside(event) {
+            // Check if the click is outside the holeListRef and not on any modal or hole item specific element
             if (selectedCourse && holeListRef.current && !holeListRef.current.contains(event.target)) {
+                // Ensure clicks on modals or actual hole items (when editing) don't close everything
                 const isClickOnModal = event.target.closest('.modal-overlay') || event.target.closest('.modal-content');
-                const isClickOnHoleItem = event.target.closest('.HoleItem') || event.target.closest('li.mb-4');
+                const isClickOnHoleItem = event.target.closest('.HoleItem') || event.target.closest('li.mb-4'); // Added li.mb-4 for parent HoleItem
 
                 if (!isClickOnModal && !isClickOnHoleItem) {
                     closeAllHoleEdits();
@@ -82,11 +100,10 @@ export default function Courses() {
     }, [selectedCourse]); // Depend on selectedCourse
 
     // Function to close all editing holes
+    // This function is now mostly for external triggers (like clicking outside), not internal toggling.
     const closeAllHoleEdits = () => {
         if (!selectedCourse) return;
 
-        // 'editing' is a transient UI state, not stored in Firestore.
-        // We only need to update the 'selectedCourse' state for the current view.
         setSelectedCourse(prev => {
             if (!prev) return null; // Defensive check
             return {
@@ -238,27 +255,34 @@ export default function Courses() {
     };
 
     const handleToggleEditingHole = (holeId) => {
-        // Close other open edits when one is toggled
-        closeAllHoleEdits();
-
         setSelectedCourse(prev => {
             if (!prev) return null; // Defensive check
 
-            const updatedHoles = prev.holes.map(hole =>
-                hole.id === holeId
-                    ? { ...hole, editing: !hole.editing }
-                    : { ...hole, editing: false } // Ensures only one is editing at a time
-            );
+            const updatedHoles = prev.holes.map(hole => {
+                if (hole.id === holeId) {
+                    // If it's the target hole, toggle its editing state
+                    return { ...hole, editing: !hole.editing };
+                } else {
+                    // If it's any other hole, ensure it's not in editing mode
+                    return { ...hole, editing: false };
+                }
+            });
+
+            // Find the hole that will be in editing mode after this update
             const holeToEdit = updatedHoles.find((h) => h.id === holeId);
-            if (holeToEdit && holeToEdit.editing) { // If now editing, set data
+
+            // Update editingHoleData based on whether the specific hole is now in editing mode
+            if (holeToEdit && holeToEdit.editing) {
                 setEditingHoleData({
                     number: holeToEdit.number,
                     par: holeToEdit.par,
                     note: holeToEdit.note,
                 });
-            } else { // If toggling off, clear data
+            } else {
+                // If toggling off or no hole is in edit mode, clear editing data
                 setEditingHoleData({});
             }
+
             return { ...prev, holes: updatedHoles };
         });
     };
@@ -317,8 +341,12 @@ export default function Courses() {
     if (selectedCourse) {
         return (
             <div className="relative min-h-screen bg-gray-100 p-4 pt-5">
-                <button onClick={backToList} className="mb-4 px-3 py-1 border border-black text-black rounded hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200">
-                    ← Back to Courses
+                {/* UPDATED BACK BUTTON */}
+                <button
+                    onClick={backToList}
+                    className="mb-4 px-3 py-1 border border-black text-black rounded hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200 flex items-center gap-1"
+                >
+                    <ChevronLeft size={16} /> Back
                 </button>
 
                 <div className="text-center mb-6 pt-5">
