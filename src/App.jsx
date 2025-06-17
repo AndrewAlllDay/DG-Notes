@@ -1,30 +1,30 @@
-// src/App.jsx (assuming this is your main app component)
 import React, { useState } from 'react';
-import Header from './components/Header'; // Assuming Header is here
+import Header from './components/Header';
 import Courses from './components/Courses';
-import SettingsPage from './components/SettingsPage'; // Import the new SettingsPage
+import EncouragementModal from './components/EncouragementModal';
+import './styles/EncouragementModal.css'; // <-- RE-ADDED THIS IMPORT
 
 function App() {
-  // State to manage which page is currently active
-  const [currentPage, setCurrentPage] = useState('courses'); // 'courses' or 'settings'
+  const [isEncouragementModalOpen, setIsEncouragementModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState('courses'); // Manage current page state
 
-  // Function to render the correct component based on currentPage state
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'courses':
-        return <Courses />;
-      case 'settings':
-        return <SettingsPage />;
-      default:
-        return <Courses />; // Fallback
-    }
+  const handleNavigate = (page) => {
+    setCurrentPage(page);
   };
 
   return (
-    <div className="App">
-      {/* Pass setCurrentPage down to Header so it can change the view */}
-      <Header onNavigate={setCurrentPage} />
-      {renderPage()}
+    <div className="App min-h-screen flex flex-col bg-gray-100">
+      <Header onNavigate={handleNavigate} onOpenEncouragement={() => setIsEncouragementModalOpen(true)} />
+
+      <main className="flex-grow">
+        {currentPage === 'courses' && <Courses />}
+        {currentPage === 'settings' && <div>Settings Page Content (Coming Soon!)</div>}
+      </main>
+
+      <EncouragementModal
+        isOpen={isEncouragementModalOpen}
+        onClose={() => setIsEncouragementModalOpen(false)}
+      />
     </div>
   );
 }
