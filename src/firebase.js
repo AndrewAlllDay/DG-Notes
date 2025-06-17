@@ -1,7 +1,7 @@
 // src/firebase.js
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore"; // Import getFirestore for database access
-// import { getAnalytics } from "firebase/analytics"; // Keep this if you want Analytics
+import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth"; // <--- ADD THIS LINE to import Auth service
 
 const firebaseConfig = {
     apiKey: "AIzaSyB66h7I1mfB2Hc3c_Isr1nGiRWM9fUVusY",
@@ -15,9 +15,11 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-// const analytics = getAnalytics(app); // Uncomment this line if you want to use Analytics
 
 // Initialize Cloud Firestore and get a reference to the service
 const db = getFirestore(app);
 
-export { db }; // Export db so you can use it in other files
+// <--- ADD THIS LINE to initialize and export Auth service
+export const auth = getAuth(app);
+
+export { db };

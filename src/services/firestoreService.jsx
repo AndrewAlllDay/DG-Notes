@@ -1,104 +1,83 @@
-// src/services/firestoreService.js
+// src/services/firestoreService.jsx
+
 import { db } from '../firebase';
 import {
     collection,
-    addDoc,
-    getDocs,
     doc,
+    addDoc,
     updateDoc,
-    deleteDoc,
+    deleteDoc, // <-- This function
     query,
     orderBy,
     onSnapshot,
-    arrayUnion, // To add elements to an array field
-    arrayRemove // To remove elements from an array field
+    arrayUnion,
+    runTransaction
 } from 'firebase/firestore';
 
-const COURSES_COLLECTION = 'courses';
+export const subscribeToCourses = (callback, userId) => {
+    if (!userId) {
+        console.warn("No userId provided for course subscription. User is likely logged out.");
+        callback([]);
+        return () => { };
+    }
 
-// --- CREATE COURSE ---
-export const addCourse = async (courseName, tournamentName) => {
+    const coursesCollectionRef = collection(db, 'users', userId, 'courses');
+    const q = query(coursesCollectionRef, orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const courses = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                holes: data.holes ? [...data.holes].sort((a, b) => a.number - b.number) : [],
+            };
+        });
+        callback(courses);
+    }, (error) => {
+        console.error("Error subscribing to courses:", error);
+    });
+
+    return unsubscribe;
+};
+
+
+export const addCourse = async (courseName, tournamentName, userId) => {
+    if (!userId) throw new Error("User ID is required to add a course.");
     try {
-        // Generate default 18 holes
-        const defaultHoles = Array.from({ length: 18 }, (_, index) => ({
-            // Use a combination of Date.now() and index for a more robust temporary ID
-            // This is a client-side ID for holes *within* a course document.
-            id: Date.now() + index,
-            number: (index + 1).toString(),
-            par: '3',
-            note: '',
-        }));
-
-        const newCourseData = {
+        const docRef = await addDoc(collection(db, 'users', userId, 'courses'), {
             name: courseName,
-            tournamentName: tournamentName,
-            holes: defaultHoles,
-            createdAt: new Date(), // Add a timestamp for ordering
-        };
-
-        const docRef = await addDoc(collection(db, COURSES_COLLECTION), newCourseData);
+            tournamentName: tournamentName || '',
+            holes: [],
+            createdAt: new Date(),
+        });
         console.log("Course added with ID: ", docRef.id);
-        return { id: docRef.id, ...newCourseData }; // Return the new course with its Firestore ID
     } catch (e) {
         console.error("Error adding course: ", e);
         throw e;
     }
 };
 
-// --- READ COURSES (Real-time listener) ---
-// This is the preferred method for React to keep UI in sync
-export const subscribeToCourses = (callback) => {
-    // Order courses by their creation date, newest first
-    const q = query(collection(db, COURSES_COLLECTION), orderBy('createdAt', 'desc'));
-
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const courses = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-        callback(courses); // Call the provided callback with the updated courses
-    }, (error) => {
-        console.error("Error subscribing to courses: ", error);
-        // You might want to pass this error to the callback too
-    });
-
-    return unsubscribe; // Return the unsubscribe function to clean up the listener
-};
-
-// --- UPDATE COURSE (e.g., updating course details or an entire holes array) ---
-export const updateCourse = async (courseId, newData) => {
+export const deleteCourse = async (courseId, userId) => {
+    // --- CONSOLE.LOG ADDED HERE FOR DEBUGGING ---
+    console.log("firestoreService.jsx: deleteCourse called for courseId:", courseId, "with userId:", userId);
+    // --- END CONSOLE.LOG ---
+    if (!userId) throw new Error("User ID is required to delete a course.");
     try {
-        const courseDocRef = doc(db, COURSES_COLLECTION, courseId);
-        await updateDoc(courseDocRef, newData);
-        console.log("Course updated successfully!");
-    } catch (e) {
-        console.error("Error updating course: ", e);
-        throw e;
-    }
-};
-
-// --- DELETE COURSE ---
-export const deleteCourse = async (courseId) => {
-    try {
-        const courseDocRef = doc(db, COURSES_COLLECTION, courseId);
-        await deleteDoc(courseDocRef);
-        console.log("Course deleted successfully!");
+        await deleteDoc(doc(db, 'users', userId, 'courses', courseId));
+        console.log("Course successfully deleted!");
     } catch (e) {
         console.error("Error deleting course: ", e);
         throw e;
     }
 };
 
-// --- HOLE-SPECIFIC OPERATIONS (within a course document) ---
-
-// Add a hole to an existing course's 'holes' array
-// This uses arrayUnion, which adds an element only if it's not already present.
-// For hole objects, this means the entire object must be unique.
-export const addHoleToCourse = async (courseId, holeData) => {
+export const addHoleToCourse = async (courseId, newHole, userId) => {
+    if (!userId) throw new Error("User ID is required to add a hole.");
     try {
-        const courseDocRef = doc(db, COURSES_COLLECTION, courseId);
-        await updateDoc(courseDocRef, {
-            holes: arrayUnion(holeData) // Add the new hole object to the 'holes' array
+        const courseRef = doc(db, 'users', userId, 'courses', courseId);
+        await updateDoc(courseRef, {
+            holes: arrayUnion(newHole)
         });
         console.log("Hole added to course successfully!");
     } catch (e) {
@@ -107,63 +86,64 @@ export const addHoleToCourse = async (courseId, holeData) => {
     }
 };
 
-// Update a specific hole within a course's 'holes' array
-// This requires reading the document, updating the array in memory, then writing it back.
-// This is because Firestore doesn't have direct array element update by index or partial object.
-export const updateHoleInCourse = async (courseId, holeId, updatedHoleData) => {
-    try {
-        const courseDocRef = doc(db, COURSES_COLLECTION, courseId);
-        const courseSnapshot = await getDocs(query(collection(db, COURSES_COLLECTION))); // Fetch all courses
-        const currentCourse = courseSnapshot.docs.find(doc => doc.id === courseId)?.data();
+export const updateHoleInCourse = async (courseId, holeIdToUpdate, updatedHoleData, userId) => {
+    if (!userId) throw new Error("User ID is required to update a hole.");
+    const courseRef = doc(db, 'users', userId, 'courses', courseId);
 
-        if (currentCourse && currentCourse.holes) {
-            const updatedHoles = currentCourse.holes.map(hole =>
-                hole.id === holeId ? { ...hole, ...updatedHoleData } : hole
+    try {
+        await runTransaction(db, async (transaction) => {
+            const courseDoc = await transaction.get(courseRef);
+            if (!courseDoc.exists()) {
+                throw new Error("Course does not exist!");
+            }
+
+            const currentHoles = courseDoc.data().holes || [];
+            const updatedHoles = currentHoles.map(hole =>
+                hole.id === holeIdToUpdate
+                    ? { ...hole, ...updatedHoleData }
+                    : hole
             );
-            await updateDoc(courseDocRef, { holes: updatedHoles });
-            console.log("Hole updated in course successfully!");
-        } else {
-            console.warn("Course or holes array not found for update:", courseId);
-        }
+
+            transaction.update(courseRef, { holes: updatedHoles });
+        });
+        console.log("Hole successfully updated!");
     } catch (e) {
         console.error("Error updating hole in course: ", e);
         throw e;
     }
 };
 
-// Delete a specific hole from a course's 'holes' array
-export const deleteHoleFromCourse = async (courseId, holeId) => {
-    try {
-        const courseDocRef = doc(db, COURSES_COLLECTION, courseId);
-        const courseSnapshot = await getDocs(query(collection(db, COURSES_COLLECTION))); // Fetch all courses
-        const currentCourse = courseSnapshot.docs.find(doc => doc.id === courseId)?.data();
+export const deleteHoleFromCourse = async (courseId, holeIdToDelete, userId) => {
+    if (!userId) throw new Error("User ID is required to delete a hole.");
+    const courseRef = doc(db, 'users', userId, 'courses', courseId);
 
-        if (currentCourse && currentCourse.holes) {
-            const holeToRemove = currentCourse.holes.find(hole => hole.id === holeId);
-            if (holeToRemove) {
-                await updateDoc(courseDocRef, {
-                    holes: arrayRemove(holeToRemove) // Remove the specific hole object from the array
-                });
-                console.log("Hole deleted from course successfully!");
-            } else {
-                console.warn("Hole not found in course for deletion:", holeId);
+    try {
+        await runTransaction(db, async (transaction) => {
+            const courseDoc = await transaction.get(courseRef);
+            if (!courseDoc.exists()) {
+                throw new Error("Course does not exist!");
             }
-        } else {
-            console.warn("Course or holes array not found for hole deletion:", courseId);
-        }
+
+            const currentHoles = courseDoc.data().holes || [];
+            const updatedHoles = currentHoles.filter(hole => hole.id !== holeIdToDelete);
+
+            transaction.update(courseRef, { holes: updatedHoles });
+        });
+        console.log("Hole successfully deleted from course!");
     } catch (e) {
         console.error("Error deleting hole from course: ", e);
         throw e;
     }
 };
 
-// Reorder holes within a course's 'holes' array
-// This replaces the entire 'holes' array with the new reordered array.
-export const reorderHolesInCourse = async (courseId, reorderedHolesArray) => {
+export const reorderHolesInCourse = async (courseId, reorderedHolesArray, userId) => {
+    if (!userId) throw new Error("User ID is required to reorder holes.");
     try {
-        const courseDocRef = doc(db, COURSES_COLLECTION, courseId);
-        await updateDoc(courseDocRef, { holes: reorderedHolesArray });
-        console.log("Holes reordered in course successfully!");
+        const courseRef = doc(db, 'users', userId, 'courses', courseId);
+        await updateDoc(courseRef, {
+            holes: reorderedHolesArray
+        });
+        console.log("Holes reordered successfully!");
     } catch (e) {
         console.error("Error reordering holes:", e);
         throw e;
