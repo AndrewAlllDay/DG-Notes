@@ -1,3 +1,4 @@
+/** @type {import('tailwindcss').Config} */
 module.exports = {
     content: [
         './src/**/*.{html,js,jsx,ts,tsx}', // Tell Tailwind where to look for your files
@@ -19,6 +20,7 @@ module.exports = {
                 darkButtonHoverBg: '#444444', // Dark mode button hover background
                 darkButtonHoverText: '#CCCCCC', // Dark mode button hover text color
             },
+            // --- REMOVED KEYFRAMES AND ANIMATION BLOCKS FROM HERE ---
         },
     },
     plugins: [],
