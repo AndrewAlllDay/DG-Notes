@@ -7,11 +7,19 @@ import AddCourseModal from './AddCourseModal';
 import AddHoleModal from './AddHoleModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 
+// CORRECTED IMPORT PATH AND NAME: firestoreService.jsx
+import {
+    subscribeToCourses,
+    addCourse,
+    deleteCourse,
+    addHoleToCourse,
+    updateHoleInCourse,
+    deleteHoleFromCourse,
+    reorderHolesInCourse,
+} from '../services/firestoreService.jsx'; // <-- This should be correct based on your last confirmation
+
 export default function Courses() {
-    const [courses, setCourses] = useState(() => {
-        const saved = localStorage.getItem('courses');
-        return saved ? JSON.parse(saved) : [];
-    });
+    const [courses, setCourses] = useState([]);
     const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
     const [newCourseName, setNewCourseName] = useState('');
     const [newCourseTournamentName, setNewCourseTournamentName] = useState('');
@@ -27,30 +35,43 @@ export default function Courses() {
     const swipeRefs = useRef({});
     const holeListRef = useRef(null); // Ref for the HoleList container
 
+    // --- Firestore Data Subscription ---
     useEffect(() => {
-        localStorage.setItem('courses', JSON.stringify(courses));
-    }, [courses]);
+        // This effect will subscribe to real-time updates from Firestore
+        const unsubscribe = subscribeToCourses((fetchedCourses) => {
+            console.log("Fetched courses in Courses.jsx:", fetchedCourses); // Critical Debug Log
+            setCourses(fetchedCourses);
+            // If a course was selected, find its updated version from fetchedCourses
+            // and update selectedCourse state to reflect real-time changes
+            if (selectedCourse) {
+                const updatedSelected = fetchedCourses.find(c => c.id === selectedCourse.id);
+                if (updatedSelected) {
+                    setSelectedCourse(updatedSelected);
+                } else {
+                    // If the selected course was deleted in Firestore
+                    setSelectedCourse(null);
+                }
+            }
+        });
+
+        // Cleanup the subscription when the component unmounts
+        return () => unsubscribe();
+    }, [selectedCourse]); // Re-run if selectedCourse changes to update its state with latest data
 
     // Effect for click-outside detection when a course is selected
     useEffect(() => {
         function handleClickOutside(event) {
-            // Only act if a course is selected and an edit is potentially open
             if (selectedCourse && holeListRef.current && !holeListRef.current.contains(event.target)) {
-                // Check if the click was not on an editing hole or any related modal
                 const isClickOnModal = event.target.closest('.modal-overlay') || event.target.closest('.modal-content');
-                // Assuming HoleItem has a class 'HoleItem' or similar structure
                 const isClickOnHoleItem = event.target.closest('.HoleItem') || event.target.closest('li.mb-4');
 
-                // If not clicking inside hole list, and not clicking on a modal (AddHoleModal, DeleteConfirmationModal)
-                // and not clicking on a HoleItem itself (to allow editing to happen),
-                // then close all editing holes.
                 if (!isClickOnModal && !isClickOnHoleItem) {
                     closeAllHoleEdits();
                 }
             }
         }
 
-        // Attach event listener only when a course is selected
+        // Add event listener only if a course is selected to avoid unnecessary checks
         if (selectedCourse) {
             document.addEventListener('mousedown', handleClickOutside);
         }
@@ -58,151 +79,121 @@ export default function Courses() {
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [selectedCourse, courses]); // Depend on selectedCourse and courses to re-evaluate listener
+    }, [selectedCourse]); // Depend on selectedCourse
 
     // Function to close all editing holes
     const closeAllHoleEdits = () => {
         if (!selectedCourse) return;
 
-        setCourses(prevCourses => prevCourses.map(course => {
-            if (course.id === selectedCourse.id) {
-                return {
-                    ...course,
-                    holes: course.holes.map(hole => ({
-                        ...hole,
-                        editing: false // Set all holes to not editing
-                    }))
-                };
-            }
-            return course;
-        }));
-        setSelectedCourse(prev => ({
-            ...prev,
-            holes: prev.holes.map(hole => ({
-                ...hole,
-                editing: false // Set all holes to not editing in selectedCourse state
-            }))
-        }));
+        // 'editing' is a transient UI state, not stored in Firestore.
+        // We only need to update the 'selectedCourse' state for the current view.
+        setSelectedCourse(prev => {
+            if (!prev) return null; // Defensive check
+            return {
+                ...prev,
+                holes: prev.holes.map(hole => ({
+                    ...hole,
+                    editing: false // Set all holes to not editing in selectedCourse state
+                }))
+            };
+        });
         setEditingHoleData({}); // Clear editing data
     };
 
-
-    // --- REVISED SWIPE HANDLING FUNCTIONS WITH DEBUGGING LOGS ---
+    // --- REVISED SWIPE HANDLING FUNCTIONS ---
+    // These functions manipulate the DOM directly for smooth swiping
+    // and then update React state (swipedCourseId) for conditional rendering.
     const handleTouchStart = (e, id) => {
-        console.log(`[TOUCH START] ID: ${id}`);
         swipeRefs.current[id] = { startX: e.touches[0].clientX, currentX: 0 };
 
         if (swipedCourseId && swipedCourseId !== id) {
-            console.log(`[TOUCH START] Closing previous swiped item: ${swipedCourseId}`);
+            // If another item was swiped, reset its position visually
+            const prevEl = document.getElementById(`course-${swipedCourseId}`);
+            if (prevEl) {
+                prevEl.style.transition = 'transform 0.3s ease';
+                prevEl.style.transform = 'translateX(0)';
+            }
             setSwipedCourseId(null);
         }
 
         const el = document.getElementById(`course-${id}`);
         if (el) {
-            console.log(`[TOUCH START] Setting transition to ease for ID: ${id}`);
-            el.style.transition = 'transform 0.3s ease';
-            setTimeout(() => {
-                if (el && swipeRefs.current[id]) {
-                    console.log(`[TOUCH START] Setting transition to none for ID: ${id}`);
-                    el.style.transition = 'none';
-                }
-            }, 0);
-        } else {
-            console.error(`[TOUCH START] Element not found for ID: ${id}`);
+            el.style.transition = 'transform 0.0s ease'; // Instant transition for start
         }
     };
 
     const handleTouchMove = (e, id) => {
         const swipeRef = swipeRefs.current[id];
-        if (!swipeRef) {
-            console.warn(`[TOUCH MOVE] No swipeRef for ID: ${id}. TouchStart may not have fired.`);
-            return;
-        }
+        if (!swipeRef) return;
 
         const deltaX = e.touches[0].clientX - swipeRef.startX;
         const el = document.getElementById(`course-${id}`);
-        if (!el) {
-            console.error(`[TOUCH MOVE] Element not found for ID: ${id}`);
-            return;
-        }
+        if (!el) return;
 
-        const transformX = Math.max(-80, Math.min(0, deltaX));
+        const transformX = Math.max(-80, Math.min(0, deltaX)); // Limit swipe to -80px
         el.style.transform = `translateX(${transformX}px)`;
-        el.style.transition = 'none';
 
         swipeRef.currentX = transformX;
-        console.log(`[TOUCH MOVE] ID: ${id}, deltaX: ${deltaX}, transformX: ${transformX}`);
     };
 
     const handleTouchEnd = (id) => {
         const swipeRef = swipeRefs.current[id];
-        if (!swipeRef) {
-            console.warn(`[TOUCH END] No swipeRef for ID: ${id}. TouchStart/Move may not have fired or ref cleared.`);
-            return;
-        }
+        if (!swipeRef) return;
 
         const el = document.getElementById(`course-${id}`);
-        if (!el) {
-            console.error(`[TOUCH END] Element not found for ID: ${id}`);
-            return;
+        if (el) {
+            el.style.transition = 'transform 0.3s ease'; // Re-enable transition for snap-back
         }
 
-        console.log(`[TOUCH END] Re-enabling transition for ID: ${id}`);
-        el.style.transition = 'transform 0.5s ease';
-
-        if (swipeRef.currentX <= -40) {
-            console.log(`[TOUCH END] Swiped past threshold. Setting swipedCourseId to: ${id}`);
-            setSwipedCourseId(id);
+        if (swipeRef.currentX <= -40) { // If swiped more than 40px left
+            if (el) el.style.transform = `translateX(-80px)`;
+            setSwipedCourseId(id); // Set the ID of the swiped course
         } else {
-            console.log(`[TOUCH END] Not swiped past threshold. Setting swipedCourseId to: null`);
-            setSwipedCourseId(null);
+            if (el) el.style.transform = `translateX(0)`;
+            setSwipedCourseId(null); // Clear swiped state
         }
-
-        swipeRefs.current[id] = null;
-        console.log(`[TOUCH END] Cleared swipeRef for ID: ${id}`);
+        swipeRefs.current[id] = null; // Clear ref for this swipe
     };
 
-    // --- Course Management Functions ---
+    // --- Course Management Functions (using Firestore service) ---
 
-    const handleAddCourse = (courseName, tournamentName) => {
-
-        const defaultHoles = Array.from({ length: 18 }, (_, index) => ({
-            id: Date.now() + index,
-            number: (index + 1).toString(),
-            par: '3',
-            note: '',
-            editing: false,
-        }));
-        setCourses([...courses, { id: Date.now(), name: courseName, tournamentName: tournamentName, holes: defaultHoles }]);
-        setIsAddCourseModalOpen(false);
-        setNewCourseName('');
-        setNewCourseTournamentName('');
+    const handleAddCourse = async (courseName, tournamentName) => {
+        try {
+            await addCourse(courseName, tournamentName); // Call Firestore service
+            setIsAddCourseModalOpen(false);
+            setNewCourseName('');
+            setNewCourseTournamentName('');
+            // The subscribeToCourses useEffect will automatically update 'courses' state
+        } catch (error) {
+            console.error("Failed to add course:", error);
+            alert("Failed to add course. Please try again.");
+        }
     };
 
-    const handleDeleteCourse = (id) => {
-        setCourses(courses.filter((course) => course.id !== id));
-        if (swipedCourseId === id) setSwipedCourseId(null);
+    const handleDeleteCourse = async (id) => {
+        try {
+            await deleteCourse(id); // Call Firestore service
+            if (swipedCourseId === id) setSwipedCourseId(null);
+            if (selectedCourse?.id === id) setSelectedCourse(null); // Deselect if deleted
+            // The subscribeToCourses useEffect will automatically update 'courses' state
+        } catch (error) {
+            console.error("Failed to delete course:", error);
+            alert("Failed to delete course. Please try again.");
+        }
     };
-
 
     // Function to delete a specific hole from the selected course
-    const deleteHoleConfirmed = (holeIdToDelete) => {
+    const deleteHoleConfirmed = async (holeIdToDelete) => {
         if (!selectedCourse) return;
 
-
-        const updatedHoles = selectedCourse.holes.filter(
-            (hole) => hole.id !== holeIdToDelete
-        );
-
-        const updatedCourses = courses.map((course) =>
-            course.id === selectedCourse.id
-                ? { ...course, holes: updatedHoles }
-                : course
-        );
-
-        setCourses(updatedCourses);
-
-        setSelectedCourse((prev) => ({ ...prev, holes: updatedHoles }));
+        try {
+            await deleteHoleFromCourse(selectedCourse.id, holeIdToDelete); // Call Firestore service
+            // The `subscribeToCourses` useEffect will update `selectedCourse` automatically
+            // so no need for manual `setSelectedCourse` update here.
+        } catch (error) {
+            console.error("Failed to delete hole:", error);
+            alert("Failed to delete hole. Please try again.");
+        }
     };
 
     const handleDeleteHoleClick = (holeId) => {
@@ -215,7 +206,7 @@ export default function Courses() {
             deleteHoleConfirmed(holeToDeleteId);
             setIsDeleteConfirmationModalOpen(false);
             setHoleToDeleteId(null);
-            handleToggleEditingHole(holeToDeleteId); // Ensure edit mode is closed for the deleted hole
+            closeAllHoleEdits(); // Ensure edit mode is closed for the deleted hole
         }
     };
 
@@ -225,97 +216,74 @@ export default function Courses() {
     };
 
 
-    const handleAddHole = (holeNumber, holePar, holeNote) => {
-        if (!holeNumber.trim() || !holePar.trim()) return;
+    const handleAddHole = async (holeNumber, holePar, holeNote) => {
+        if (!holeNumber.trim() || !holePar.trim() || !selectedCourse) return;
+
+        // Use a more robust ID generation for holes to avoid potential conflicts
         const newHole = {
-            id: Date.now(),
+            id: `${selectedCourse.id}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`, // Unique ID
             number: holeNumber,
             par: holePar,
             note: holeNote || '',
-            editing: false,
         };
-        const updatedCourses = courses.map((course) => {
-            if (course.id === selectedCourse.id) {
-                return { ...course, holes: [...(course.holes || []), newHole] };
-            }
-            return course;
-        });
-        setCourses(updatedCourses);
-        setSelectedCourse((prev) => ({
-            ...prev,
-            holes: [...(prev.holes || []), newHole],
-        }));
+
+        try {
+            await addHoleToCourse(selectedCourse.id, newHole); // Call Firestore service
+            setIsAddHoleModalOpen(false);
+            // `subscribeToCourses` will handle updating the state automatically
+        } catch (error) {
+            console.error("Failed to add hole:", error);
+            alert("Failed to add hole. Please try again.");
+        }
     };
 
     const handleToggleEditingHole = (holeId) => {
         // Close other open edits when one is toggled
         closeAllHoleEdits();
 
-        const holeToEdit = selectedCourse.holes.find((h) => h.id === holeId);
-        if (holeToEdit) {
-            setEditingHoleData({
-                number: holeToEdit.number,
-                par: holeToEdit.par,
-                note: holeToEdit.note,
-            });
-        }
-        setCourses((prevCourses) =>
-            prevCourses.map((course) => {
-                if (course.id === selectedCourse.id) {
-                    const updatedHoles = course.holes.map((hole) => ({
-                        ...hole,
-                        editing: hole.id === holeId ? !hole.editing : false,
-                    }));
-                    return { ...course, holes: updatedHoles };
-                }
-                return course;
-            })
-        );
-        setSelectedCourse((prev) => ({
-            ...prev,
-            holes: prev.holes.map((hole) =>
+        setSelectedCourse(prev => {
+            if (!prev) return null; // Defensive check
+
+            const updatedHoles = prev.holes.map(hole =>
                 hole.id === holeId
                     ? { ...hole, editing: !hole.editing }
                     : { ...hole, editing: false } // Ensures only one is editing at a time
-            ),
-        }));
+            );
+            const holeToEdit = updatedHoles.find((h) => h.id === holeId);
+            if (holeToEdit && holeToEdit.editing) { // If now editing, set data
+                setEditingHoleData({
+                    number: holeToEdit.number,
+                    par: holeToEdit.par,
+                    note: holeToEdit.note,
+                });
+            } else { // If toggling off, clear data
+                setEditingHoleData({});
+            }
+            return { ...prev, holes: updatedHoles };
+        });
     };
 
-    const handleSaveHoleChanges = (holeId) => {
-        setCourses((prevCourses) =>
-            prevCourses.map((course) => {
-                if (course.id === selectedCourse.id) {
-                    const updatedHoles = course.holes.map((hole) =>
-                        hole.id === holeId
-                            ? {
-                                ...hole,
-                                number: editingHoleData.number,
-                                par: editingHoleData.par,
-                                note: editingHoleData.note,
-                                editing: false,
-                            }
-                            : hole
-                    );
-                    return { ...course, holes: updatedHoles };
-                }
-                return course;
-            })
-        );
-        setSelectedCourse((prev) => ({
-            ...prev,
-            holes: prev.holes.map((hole) =>
-                hole.id === holeId
-                    ? {
-                        ...hole,
-                        number: editingHoleData.number,
-                        par: editingHoleData.par,
-                        note: editingHoleData.note,
-                        editing: false,
-                    }
-                    : hole
-            ),
-        }));
-        setEditingHoleData({});
+
+    const handleSaveHoleChanges = async (holeId) => {
+        if (!selectedCourse) return;
+
+        // The updatedHole object needs to contain the ID and all fields that might be updated
+        const updatedHole = {
+            id: holeId,
+            number: editingHoleData.number,
+            par: editingHoleData.par,
+            note: editingHoleData.note,
+        };
+
+        try {
+            await updateHoleInCourse(selectedCourse.id, holeId, updatedHole); // Call Firestore service
+            setEditingHoleData({});
+            closeAllHoleEdits(); // Close edit mode for the saved hole
+        }
+        catch (error) {
+            console.error("Failed to save hole changes:", error);
+            alert("Failed to save hole changes. Please try again.");
+        }
     };
 
     const backToList = () => {
@@ -323,25 +291,26 @@ export default function Courses() {
         setSelectedCourse(null);
     };
 
-    const onDragEnd = (result) => {
+    const onDragEnd = async (result) => {
         const { source, destination } = result;
-        if (!destination || source.index === destination.index) {
+        if (!destination || source.index === destination.index || !selectedCourse) {
             return;
         }
+
         const currentHoles = Array.from(selectedCourse.holes);
         const [reorderedHole] = currentHoles.splice(source.index, 1);
         currentHoles.splice(destination.index, 0, reorderedHole);
-        setCourses((prevCourses) =>
-            prevCourses.map((course) =>
-                course.id === selectedCourse.id
-                    ? { ...course, holes: currentHoles }
-                    : course
-            )
-        );
-        setSelectedCourse((prev) => ({
-            ...prev,
-            holes: currentHoles,
-        }));
+
+        // Remove the transient 'editing' property before sending to Firestore
+        const holesToSave = currentHoles.map(({ editing, ...rest }) => rest);
+
+        try {
+            await reorderHolesInCourse(selectedCourse.id, holesToSave); // Call Firestore service
+            // `subscribeToCourses` will handle updating `selectedCourse`
+        } catch (error) {
+            console.error("Failed to reorder holes:", error);
+            alert("Failed to reorder holes. Please try again.");
+        }
     };
 
     // --- Conditional Rendering for Course List vs. Hole List ---
@@ -362,6 +331,7 @@ export default function Courses() {
                 </div>
                 <div ref={holeListRef}> {/* Attach ref to the HoleList's container */}
                     <HoleList
+                        // Ensure 'holes' array is always present for HoleList
                         holes={selectedCourse.holes || []}
                         editingHoleData={editingHoleData}
                         setEditingHoleData={setEditingHoleData}
@@ -416,7 +386,7 @@ export default function Courses() {
                 setNewCourseTournamentName={setNewCourseTournamentName}
             />
             <CourseList
-                courses={courses}
+                courses={courses} // Pass the 'courses' state to CourseList
                 setSelectedCourse={setSelectedCourse}
                 deleteCourse={handleDeleteCourse}
                 swipedCourseId={swipedCourseId}
