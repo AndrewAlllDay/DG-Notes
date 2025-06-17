@@ -8,9 +8,12 @@ import AddHoleModal from './AddHoleModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 // Import ChevronLeft icon
 import { ChevronLeft } from 'lucide-react'; // <-- ADDED THIS IMPORT
 
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 import {
@@ -23,6 +26,11 @@ import {
     reorderHolesInCourse,
 } from '../services/firestoreService.jsx';
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+
+import { useAuth } from '../context/AuthContext.jsx';
+>>>>>>> Stashed changes
 =======
 
 import { useAuth } from '../context/AuthContext.jsx';
@@ -48,6 +56,7 @@ export default function Courses() {
 
     // --- Firestore Data Subscription (now dependent on currentUser) ---
     useEffect(() => {
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
         // This effect will subscribe to real-time updates from Firestore
         const unsubscribe = subscribeToCourses((fetchedCourses) => {
@@ -77,6 +86,8 @@ export default function Courses() {
                     // If the selected course was deleted in Firestore
                     setSelectedCourse(null);
 =======
+=======
+>>>>>>> Stashed changes
         let unsubscribe;
         if (currentUser && !loading) {
             console.log("Courses.jsx: Subscribing to courses for user ID:", currentUser.uid);
@@ -90,6 +101,9 @@ export default function Courses() {
                     } else {
                         setSelectedCourse(null);
                     }
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
                 }
             }, currentUser.uid);
@@ -129,8 +143,11 @@ export default function Courses() {
     }, [selectedCourse]);
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     // Function to close all editing holes
     // This function is now mostly for external triggers (like clicking outside), not internal toggling.
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
     const closeAllHoleEdits = () => {
@@ -281,7 +298,10 @@ export default function Courses() {
 
     const handleToggleEditingHole = (holeId) => {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+=======
+>>>>>>> Stashed changes
         closeAllHoleEdits();
 
 >>>>>>> Stashed changes
@@ -310,6 +330,9 @@ export default function Courses() {
                     : { ...hole, editing: false }
             );
             const holeToEdit = updatedHoles.find((h) => h.id === holeId);
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
             if (holeToEdit && holeToEdit.editing) {
                 setEditingHoleData({
@@ -319,7 +342,10 @@ export default function Courses() {
                 });
             } else {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
                 // If toggling off or no hole is in edit mode, clear editing data
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
                 setEditingHoleData({});

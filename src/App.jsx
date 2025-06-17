@@ -1,5 +1,9 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 // src/App.jsx (assuming this is your main app component)
+=======
+// src/App.jsx
+>>>>>>> Stashed changes
 =======
 // src/App.jsx
 >>>>>>> Stashed changes
@@ -23,6 +27,9 @@ function App() {
   const [isEncouragementModalOpen, setIsEncouragementModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false); // NEW STATE FOR AUTH MODAL
   const [currentPage, setCurrentPage] = useState('courses');
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
   // Function to render the correct component based on currentPage state
@@ -39,12 +46,15 @@ function App() {
 
   return (
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     <div className="App">
       {/* Pass setCurrentPage down to Header so it can change the view */}
       <Header onNavigate={setCurrentPage} />
       {renderPage()}
     </div>
 =======
+=======
+>>>>>>> Stashed changes
     <AuthProvider>
       <div className="App min-h-screen flex flex-col bg-gray-100">
         <Header
@@ -72,6 +82,9 @@ function App() {
 
       </div>
     </AuthProvider>
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
   );
 }

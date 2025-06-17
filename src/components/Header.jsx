@@ -2,11 +2,20 @@
 
 import React, { useState } from "react";
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import { Menu, X } from "lucide-react";
 import LogoImage from '../assets/DG Logo.svg'; // Or '../assets/DG Logo.svg' if using img route
 
 // Accept onNavigate prop from App.jsx
 const Header = ({ onNavigate }) => {
+=======
+import { Menu, X, ThumbsUp, LogIn, LogOut } from "lucide-react";
+import LogoImage from '../assets/DG Logo.svg';
+import { useAuth } from '../context/AuthContext';
+
+// Add onOpenAuthModal to props
+const Header = ({ onNavigate, onOpenEncouragement, onOpenAuthModal }) => { // <-- UPDATED PROPS
+>>>>>>> Stashed changes
 =======
 import { Menu, X, ThumbsUp, LogIn, LogOut } from "lucide-react";
 import LogoImage from '../assets/DG Logo.svg';
@@ -42,10 +51,13 @@ const Header = ({ onNavigate, onOpenEncouragement, onOpenAuthModal }) => { // <-
                 </div>
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
                 {/* Placeholder for alignment (ensure it matches the width of the left-side element if needed for perfect centering) */}
                 <div className="absolute right-4 md:static"> {/* Positioned absolutely for centering */}
                     <div className="w-7 md:hidden" /> {/* This div's width should ideally match the hamburger menu's width */}
 =======
+=======
+>>>>>>> Stashed changes
                 {/* Right side (Encourage Me! icon for desktop) */}
                 <div className="absolute right-4 md:static flex items-center pr-2 md:gap-4">
                     <button
@@ -98,6 +110,9 @@ const Header = ({ onNavigate, onOpenEncouragement, onOpenAuthModal }) => { // <-
                                 Logged in as: {currentUser.email || currentUser.displayName || 'User'}
                             </li>
                         )}
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
                     </ul>
                 </nav>
@@ -131,6 +146,9 @@ const Header = ({ onNavigate, onOpenEncouragement, onOpenAuthModal }) => { // <-
                         {currentUser.email || currentUser.displayName || 'User'}
                     </li>
                 )}
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
             </nav>
         </header>
