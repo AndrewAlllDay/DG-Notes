@@ -12,7 +12,7 @@ import {
     arrayUnion,
     arrayRemove,
     getDoc,
-    where // Import 'where' for querying
+    where
 } from 'firebase/firestore';
 
 import { appId } from '../firebase';
@@ -20,7 +20,7 @@ import { appId } from '../firebase';
 // Function to get the user-specific courses collection path
 const getUserCoursesCollection = (userId) => {
     if (!userId) {
-        console.error("Attempted to access Firestore collection without a userId.");
+        console.error("DEBUG firestoreService: Attempted to access Firestore courses collection without a userId.");
         throw new Error("User not authenticated or userId is missing.");
     }
     return collection(db, `artifacts/${appId}/users/${userId}/courses`);
@@ -54,10 +54,10 @@ export const addCourse = async (courseName, tournamentName, userId) => {
         };
 
         const docRef = await addDoc(getUserCoursesCollection(userId), newCourseData);
-        console.log("Course added with ID: ", docRef.id);
+        console.log("DEBUG firestoreService: Course added with ID: ", docRef.id);
         return { id: docRef.id, ...newCourseData };
     } catch (e) {
-        console.error("Error adding course: ", e);
+        console.error("DEBUG firestoreService: Error adding course: ", e);
         throw e;
     }
 };
@@ -65,7 +65,7 @@ export const addCourse = async (courseName, tournamentName, userId) => {
 // --- READ COURSES (Real-time listener) ---
 export const subscribeToCourses = (userId, callback) => {
     if (!userId) {
-        console.warn("Attempted to subscribe to courses without a userId. Returning no courses.");
+        console.warn("DEBUG firestoreService: Attempted to subscribe to courses without a userId. Returning no courses.");
         callback([]);
         return () => { };
     }
@@ -77,9 +77,10 @@ export const subscribeToCourses = (userId, callback) => {
             id: doc.id,
             ...doc.data()
         }));
+        console.log("DEBUG firestoreService: Fetched courses in Courses.jsx (count):", courses.length);
         callback(courses);
     }, (error) => {
-        console.error("Error subscribing to courses: ", error);
+        console.error("DEBUG firestoreService: Error subscribing to courses: ", error);
     });
 
     return unsubscribe;
@@ -93,9 +94,9 @@ export const updateCourse = async (courseId, newData, userId) => {
         }
         const courseDocRef = doc(getUserCoursesCollection(userId), courseId);
         await updateDoc(courseDocRef, newData);
-        console.log("Course updated successfully!");
+        console.log("DEBUG firestoreService: Course updated successfully!");
     } catch (e) {
-        console.error("Error updating course: ", e);
+        console.error("DEBUG firestoreService: Error updating course: ", e);
         throw e;
     }
 };
@@ -108,9 +109,9 @@ export const deleteCourse = async (courseId, userId) => {
         }
         const courseDocRef = doc(getUserCoursesCollection(userId), courseId);
         await deleteDoc(courseDocRef);
-        console.log("Course deleted successfully!");
+        console.log("DEBUG firestoreService: Course deleted successfully!");
     } catch (e) {
-        console.error("Error deleting course: ", e);
+        console.error("DEBUG firestoreService: Error deleting course: ", e);
         throw e;
     }
 };
@@ -125,9 +126,9 @@ export const addHoleToCourse = async (courseId, holeData, userId) => {
         await updateDoc(courseDocRef, {
             holes: arrayUnion(holeData)
         });
-        console.log("Hole added to course successfully!");
+        console.log("DEBUG firestoreService: Hole added to course successfully!");
     } catch (e) {
-        console.error("Error adding hole to course: ", e);
+        console.error("DEBUG firestoreService: Error adding hole to course: ", e);
         throw e;
     }
 };
@@ -146,12 +147,12 @@ export const updateHoleInCourse = async (courseId, holeId, updatedHoleData, user
                 hole.id === holeId ? { ...hole, ...updatedHoleData } : hole
             );
             await updateDoc(courseDocRef, { holes: updatedHoles });
-            console.log("Hole updated in course successfully!");
+            console.log("DEBUG firestoreService: Hole updated in course successfully!");
         } else {
-            console.warn("Course or holes array not found for update:", courseId);
+            console.warn("DEBUG firestoreService: Course or holes array not found for update:", courseId);
         }
     } catch (e) {
-        console.error("Error updating hole in course: ", e);
+        console.error("DEBUG firestoreService: Error updating hole in course: ", e);
         throw e;
     }
 };
@@ -171,15 +172,15 @@ export const deleteHoleFromCourse = async (courseId, holeId, userId) => {
                 await updateDoc(courseDocRef, {
                     holes: arrayRemove(holeToRemove)
                 });
-                console.log("Hole deleted from course successfully!");
+                console.log("DEBUG firestoreService: Hole deleted from course successfully!");
             } else {
-                console.warn("Hole not found in course for deletion:", holeId);
+                console.warn("DEBUG firestoreService: Hole not found in course for deletion:", holeId);
             }
         } else {
-            console.warn("Course or holes array not found for hole deletion:", courseId);
+            console.warn("DEBUG firestoreService: Course or holes array not found for hole deletion:", courseId);
         }
     } catch (e) {
-        console.error("Error deleting hole from course: ", e);
+        console.error("DEBUG firestoreService: Error deleting hole from course: ", e);
         throw e;
     }
 };
@@ -191,9 +192,9 @@ export const reorderHolesInCourse = async (courseId, reorderedHolesArray, userId
         }
         const courseDocRef = doc(getUserCoursesCollection(userId), courseId);
         await updateDoc(courseDocRef, { holes: reorderedHolesArray });
-        console.log("Holes reordered in course successfully!");
+        console.log("DEBUG firestoreService: Holes reordered in course successfully!");
     } catch (e) {
-        console.error("Error reordering holes:", e);
+        console.error("DEBUG firestoreService: Error reordering holes:", e);
         throw e;
     }
 };
@@ -223,10 +224,10 @@ export const addEncouragementNote = async (senderId, receiverId, noteText) => {
         };
 
         const docRef = await addDoc(getEncouragementNotesCollection(), newNoteData);
-        console.log("Encouragement note added with ID: ", docRef.id);
+        console.log("DEBUG firestoreService: Encouragement note added with ID: ", docRef.id, "to receiver:", receiverId);
         return { id: docRef.id, ...newNoteData };
     } catch (e) {
-        console.error("Error adding encouragement note: ", e);
+        console.error("DEBUG firestoreService: Error adding encouragement note: ", e);
         throw e;
     }
 };
@@ -239,11 +240,12 @@ export const addEncouragementNote = async (senderId, receiverId, noteText) => {
  */
 export const subscribeToEncouragementNotes = (receiverId, callback) => {
     if (!receiverId) {
-        console.warn("Attempted to subscribe to encouragement notes without a receiverId.");
+        console.warn("DEBUG firestoreService: Attempted to subscribe to encouragement notes without a receiverId.");
         callback([]);
         return () => { };
     }
 
+    console.log(`DEBUG firestoreService: Setting up onSnapshot listener for receiverId: ${receiverId}`);
     // Query for notes where the current user is the receiver AND the note is unread
     const q = query(
         getEncouragementNotesCollection(),
@@ -257,11 +259,10 @@ export const subscribeToEncouragementNotes = (receiverId, callback) => {
             id: doc.id,
             ...doc.data()
         }));
-        console.log("DEBUG: Fetched unread encouragement notes:", notes);
+        console.log("DEBUG firestoreService: onSnapshot callback triggered. Fetched unread encouragement notes (count):", notes.length, "Notes:", notes);
         callback(notes);
     }, (error) => {
-        console.error("Error subscribing to encouragement notes: ", error);
-        // You might want to handle this error in the callback or component
+        console.error("DEBUG firestoreService: Error during onSnapshot subscription: ", error);
     });
 
     return unsubscribe;
@@ -281,9 +282,9 @@ export const markEncouragementNoteAsRead = async (noteId, userId) => {
         // This relies on Firestore security rules to ensure only the receiver can update 'read'
         const noteDocRef = doc(getEncouragementNotesCollection(), noteId);
         await updateDoc(noteDocRef, { read: true });
-        console.log(`Encouragement note ${noteId} marked as read by ${userId}.`);
+        console.log(`DEBUG firestoreService: Encouragement note ${noteId} marked as read by ${userId}.`);
     } catch (e) {
-        console.error("Error marking encouragement note as read: ", e);
+        console.error("DEBUG firestoreService: Error marking encouragement note as read: ", e);
         throw e;
     }
 };

@@ -5,7 +5,7 @@ import EncouragementModal from './components/EncouragementModal';
 import LoginPage from './components/LoginPage';
 import SettingsPage from './components/SettingsPage';
 import SendEncouragementModal from './components/SendEncouragementModal';
-import NotificationToast from './components/NotificationToast'; // Uncommented import
+import NotificationToast from './components/NotificationToast';
 
 import './styles/EncouragementModal.css';
 
@@ -14,7 +14,7 @@ import { useFirebase, auth } from './firebase';
 import { subscribeToEncouragementNotes, markEncouragementNoteAsRead } from './services/firestoreService';
 
 function App() {
-  const { user, isAuthReady } = useFirebase();
+  const { user, isAuthReady, userId: currentUserId } = useFirebase(); // Renamed userId to currentUserId for clarity here
 
   const [isEncouragementModalOpen, setIsEncouragementModalOpen] = useState(false);
   const [isSendEncouragementModalOpen, setIsSendEncouragementModalOpen] = useState(false);
@@ -35,23 +35,29 @@ function App() {
 
   useEffect(() => {
     let unsubscribeNotes;
+    console.log("DEBUG App.jsx useEffect: Checking user and authReady status for note subscription.");
+    console.log("DEBUG App.jsx useEffect: User UID:", user?.uid, "isAuthReady:", isAuthReady);
+
     if (user?.uid && isAuthReady) {
-      // Subscribe to unread notes for the current user
+      console.log(`DEBUG App.jsx useEffect: Subscribing to unread notes for receiverId: ${user.uid}`);
       unsubscribeNotes = subscribeToEncouragementNotes(user.uid, (notes) => {
+        console.log("DEBUG App.jsx useEffect: received notes from subscribeToEncouragementNotes callback:", notes);
         setUnreadNotes(notes);
-        // If there are new unread notes, potentially show one as a notification
         if (notes.length > 0) {
-          // You might want more sophisticated logic here (e.g., a queue, only showing the latest)
-          // For now, let's just show the first unread note
+          console.log("DEBUG App.jsx useEffect: Setting currentNotification to:", notes[0]);
           setCurrentNotification(notes[0]);
         } else {
+          console.log("DEBUG App.jsx useEffect: No unread notes, clearing currentNotification.");
           setCurrentNotification(null);
         }
       });
+    } else {
+      console.log("DEBUG App.jsx useEffect: Conditions not met for note subscription (user.uid or isAuthReady false).");
     }
 
     return () => {
       if (unsubscribeNotes) {
+        console.log("DEBUG App.jsx useEffect: Unsubscribing from notes listener.");
         unsubscribeNotes();
       }
     };
@@ -89,18 +95,20 @@ function App() {
   const handleNotificationRead = async (noteId) => {
     if (user?.uid && noteId) {
       try {
+        console.log(`DEBUG App.jsx: Marking note ${noteId} as read for user ${user.uid}`);
         await markEncouragementNoteAsRead(noteId, user.uid);
         setCurrentNotification(null); // Hide the current toast
         // The `subscribeToEncouragementNotes` will automatically refresh unreadNotes
       } catch (error) {
-        console.error("Error marking note as read:", error);
+        console.error("DEBUG App.jsx: Error marking note as read:", error);
         showAppMessage('error', 'Failed to mark note as read.');
       }
+    } else {
+      console.warn("DEBUG App.jsx: Cannot mark note as read: user.uid or noteId missing.");
     }
   };
 
   // Define who can send encouragement notes. For now, any logged-in user.
-  // This can be expanded (e.g., specific user IDs, roles from Firestore profile)
   const canSendEncouragement = !!user;
 
   if (!isAuthReady) {
