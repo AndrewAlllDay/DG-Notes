@@ -37,7 +37,7 @@ export default function Courses() {
     const [isAddHoleModalOpen, setIsAddHoleModalOpen] = useState(false);
 
     // State for delete confirmation modal
-    const [isDeleteConfirmationModalOpen, setIsDeleteConfirmationModalOpen] = useState(false);
+    const [isDeleteConfirmationModalOpen, setIsDeleteConfirmationModal] = useState(false);
     const [holeToDeleteId, setHoleToDeleteId] = useState(null);
 
     const swipeRefs = useRef({});
@@ -243,20 +243,20 @@ export default function Courses() {
 
     const handleDeleteHoleClick = (holeId) => {
         setHoleToDeleteId(holeId);
-        setIsDeleteConfirmationModalOpen(true);
+        setIsDeleteConfirmationModal(true);
     };
 
     const handleConfirmDeleteHole = () => {
         if (holeToDeleteId) {
             deleteHoleConfirmed(holeIdToDelete);
-            setIsDeleteConfirmationModalOpen(false);
+            setIsDeleteConfirmationModal(false);
             setHoleToDeleteId(null);
             closeAllHoleEdits(); // Ensure edit mode is closed for the deleted hole
         }
     };
 
     const handleCancelDeleteHole = () => {
-        setIsDeleteConfirmationModalOpen(false);
+        setIsDeleteConfirmationModal(false);
         setHoleToDeleteId(null);
     };
 
@@ -431,7 +431,7 @@ export default function Courses() {
                 />
 
                 <DeleteConfirmationModal
-                    isOpen={isDeleteConfirmationModalOpen}
+                    isOpen={isDeleteConfirmationModal}
                     onClose={handleCancelDeleteHole}
                     onConfirm={handleConfirmDeleteHole}
                     message={`Are you sure you want to delete Hole ${selectedCourse.holes.find(h => h.id === holeToDeleteId)?.number || ''}? This action cannot be undone.`}
@@ -444,8 +444,6 @@ export default function Courses() {
         <div className="min-h-screen bg-gray-100 p-4">
             <h2 className="text-2xl font-bold mb-4 text-center pt-5">DG Courses</h2>
             <p className='text-center mb-6'>This is a list of courses that you've taken notes for.</p>
-            {/* Display UserId for debugging/identification */}
-            {userId && <p className="text-center text-sm text-gray-500 mb-4">Your User ID: {userId}</p>}
             <button
                 onClick={() => setIsAddCourseModalOpen(true)}
                 className="fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
