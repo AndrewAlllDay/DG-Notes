@@ -1,7 +1,7 @@
 // src/components/SendEncouragementModal.jsx
 import React, { useState } from 'react';
-import { addEncouragementNote } from '../services/firestoreService';
-import { useFirebase } from '../firebase'; // To get the current user's ID and Display Name
+import { addEncouragementNote, getUserProfile } from '../services/firestoreService'; // Import getUserProfile
+import { useFirebase } from '../firebase'; // To get the current user's ID
 import { X } from 'lucide-react'; // Import the X icon
 
 const SendEncouragementModal = ({ isOpen, onClose, onSendSuccess }) => {
@@ -44,16 +44,16 @@ const SendEncouragementModal = ({ isOpen, onClose, onSendSuccess }) => {
 
         setSendingMessage("Sending note...");
         try {
-            // Get sender's display name from the user object
-            const senderDisplayName = user?.displayName || 'Anonymous User';
+            // Fetch the very latest sender display name just before sending the note
+            const senderProfile = await getUserProfile(userId);
+            const senderDisplayName = senderProfile?.displayName || 'Anonymous User';
 
             console.log("DEBUG SendEncouragementModal: Attempting to send note with the following data:");
             console.log("  senderId:", userId);
             console.log("  receiverId:", receiverId.trim());
-            console.log("  senderDisplayName:", senderDisplayName);
+            console.log("  senderDisplayName (fetched):", senderDisplayName);
             console.log("  noteText:", noteText.trim());
 
-            // Pass senderDisplayName to the addEncouragementNote function
             await addEncouragementNote(userId, receiverId.trim(), senderDisplayName, '', noteText.trim()); // Receiver display name is optional for now
             setSendingMessage("Note sent successfully!");
             if (onSendSuccess) {
