@@ -47,6 +47,12 @@ const SendEncouragementModal = ({ isOpen, onClose, onSendSuccess }) => {
             // Get sender's display name from the user object
             const senderDisplayName = user?.displayName || 'Anonymous User';
 
+            console.log("DEBUG SendEncouragementModal: Attempting to send note with the following data:");
+            console.log("  senderId:", userId);
+            console.log("  receiverId:", receiverId.trim());
+            console.log("  senderDisplayName:", senderDisplayName);
+            console.log("  noteText:", noteText.trim());
+
             // Pass senderDisplayName to the addEncouragementNote function
             await addEncouragementNote(userId, receiverId.trim(), senderDisplayName, '', noteText.trim()); // Receiver display name is optional for now
             setSendingMessage("Note sent successfully!");
