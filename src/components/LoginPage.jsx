@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useFirebase } from '../firebase'; // Import useFirebase hook
 import { LogIn } from 'lucide-react'; // Import LogIn icon from lucide-react
+import GoogleLogo from '../assets/google-logo.svg'; // Import your Google logo image
 
 export default function LoginPage() {
     const { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithGoogle, auth } = useFirebase();
@@ -10,11 +11,14 @@ export default function LoginPage() {
     const [error, setError] = useState(null);
     const [isRegistering, setIsRegistering] = useState(false); // To toggle between login and register forms
 
+    // Determine if the form is valid (both email and password have content)
+    const isFormValid = email.trim() !== '' && password.trim() !== '';
+
     const handleAuth = async (e) => {
         e.preventDefault();
         setError(null); // Clear previous errors
 
-        if (!email || !password) {
+        if (!isFormValid) { // Use the isFormValid check
             setError('Please enter both email and password.');
             return;
         }
@@ -101,7 +105,13 @@ export default function LoginPage() {
                     />
                     <button
                         type="submit"
-                        className="w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={!isFormValid} // Disable button if form is not valid
+                        className={`w-full text-white p-3 rounded-md font-semibold transition-colors duration-200 focus:outline-none focus:ring-2
+                            ${isFormValid
+                                ? '!bg-green-600 hover:bg-green-700 focus:ring-green-500' // Green when valid
+                                : '!bg-gray-400 cursor-not-allowed' // Gray and disabled when invalid
+                            }`
+                        }
                     >
                         {isRegistering ? 'Register Account' : 'Login'}
                     </button>
@@ -117,18 +127,18 @@ export default function LoginPage() {
                 </div>
 
                 <div className="relative flex py-5 items-center">
-                    <div className="flex-grow border-t border-gray-300"></div>
-                    <span className="flex-shrink mx-4 text-gray-500">OR</span>
-                    <div className="flex-grow border-t border-gray-300"></div>
+                    <div className="flex-grow border-t !border-gray-300"></div>
+                    <span className="flex-shrink mx-4 !text-gray-500">OR</span>
+                    <div className="flex-grow border-t !border-gray-300"></div>
                 </div>
 
                 <button
                     onClick={handleGoogleSignIn}
-                    className="w-full !bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center gap-2"
+                    className="w-full bg-red-600 text-black p-3 rounded-md font-semibold hover:bg-red-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center gap-2"
                     aria-label="Sign in with Google"
                 >
-                    {/* Updated SVG for Google Logo */}
-
+                    {/* Replaced SVG with img tag using imported GoogleLogo */}
+                    <img src={GoogleLogo} alt="Google logo" className="w-5 h-5" />
                     Sign in with Google
                 </button>
             </div>
