@@ -25,8 +25,9 @@ export default function LoginPage() {
 
         try {
             if (isRegistering) {
+                console.log("DEBUG LoginPage: Attempting to register user with email:", email);
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                console.log('User registered successfully!');
+                console.log('DEBUG LoginPage: User registered successfully! UserCredential:', userCredential);
 
                 // --- NEW: Create a default user profile in Firestore ---
                 if (userCredential.user) {
@@ -35,19 +36,21 @@ export default function LoginPage() {
                         role: 'user', // Default role for new users
                         email: userCredential.user.email // Store email for easier lookup/display
                     };
+                    console.log("DEBUG LoginPage: Attempting to set user profile for UID:", userCredential.user.uid, "with data:", defaultProfileData);
                     await setUserProfile(userCredential.user.uid, defaultProfileData);
-                    console.log("Default user profile created in Firestore for new user.");
+                    console.log("DEBUG LoginPage: Default user profile created in Firestore for new user.");
                 }
                 // --- END NEW ---
 
                 alert('Registration successful! You are now logged in.');
             } else {
+                console.log("DEBUG LoginPage: Attempting to log in user with email:", email);
                 await signInWithEmailAndPassword(auth, email, password);
-                console.log('User logged in successfully!');
+                console.log('DEBUG LoginPage: User logged in successfully!');
                 alert('Login successful!');
             }
         } catch (err) {
-            console.error("Authentication error:", err);
+            console.error("DEBUG LoginPage: Authentication error during email/password flow:", err);
             // More user-friendly error messages
             let errorMessage = 'An unexpected error occurred. Please try again.';
             if (err.code === 'auth/invalid-email') {
@@ -68,25 +71,28 @@ export default function LoginPage() {
     const handleGoogleSignIn = async () => {
         setError(null); // Clear previous errors
         try {
+            console.log("DEBUG LoginPage: Attempting Google sign-in.");
             const userCredential = await signInWithGoogle(); // Call the Google sign-in function from useFirebase
-            console.log('Signed in with Google successfully!');
+            console.log('DEBUG LoginPage: Signed in with Google successfully! UserCredential:', userCredential);
 
             // --- NEW: Create a default user profile for Google Sign-in if it doesn't exist ---
             // This is important because Google sign-in might not immediately have a profile
             // or we want to ensure our custom role/displayName is set.
             if (userCredential.user) {
-                const profile = await setUserProfile(userCredential.user.uid, {
+                const profileDataForGoogleUser = {
                     displayName: userCredential.user.displayName || userCredential.user.email.split('@')[0],
                     role: 'user', // Default role for new Google users
                     email: userCredential.user.email // Store email
-                });
-                console.log("Default user profile ensured for Google user.");
+                };
+                console.log("DEBUG LoginPage: Attempting to set user profile for Google UID:", userCredential.user.uid, "with data:", profileDataForGoogleUser);
+                await setUserProfile(userCredential.user.uid, profileDataForGoogleUser);
+                console.log("DEBUG LoginPage: Default user profile ensured for Google user.");
             }
             // --- END NEW ---
 
             alert('Google login successful!');
         } catch (err) {
-            console.error("Google authentication error:", err);
+            console.error("DEBUG LoginPage: Google authentication error:", err);
             let errorMessage = 'Failed to sign in with Google. Please try again.';
             if (err.code === 'auth/popup-closed-by-user') {
                 errorMessage = 'Google login window closed.';

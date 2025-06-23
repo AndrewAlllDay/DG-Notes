@@ -1,6 +1,6 @@
 // src/firebase.js
 import { initializeApp } from 'firebase/app';
-import { getFirestore, initializeFirestore, enableIndexedDbPersistence, doc, getDoc } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, enableIndexedDbPersistence, doc, getDoc } from 'firebase/firestore'; // Import doc and getDoc
 // Import all necessary auth functions: email/password sign-in/up, onAuthStateChanged, signOut, Google
 import { getAuth, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { useEffect, useState, createContext, useContext } from 'react';
@@ -148,8 +148,9 @@ export const useFirebase = () => {
     // Function to sign in with Google
     const signInWithGoogle = async () => {
         try {
-            await signInWithPopup(auth, googleProvider);
+            const userCredential = await signInWithPopup(auth, googleProvider); // Capture the userCredential
             console.log("DEBUG: Signed in with Google successfully!");
+            return userCredential; // RETURN the userCredential
         } catch (error) {
             console.error("DEBUG: Error signing in with Google:", error);
             throw error; // Re-throw the error for the component to handle
