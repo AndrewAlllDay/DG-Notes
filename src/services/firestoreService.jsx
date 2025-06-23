@@ -4,6 +4,7 @@ import {
     collection,
     addDoc,
     doc,
+    setDoc, // Import setDoc for creating/overwriting specific documents
     updateDoc,
     deleteDoc,
     query,
@@ -12,7 +13,7 @@ import {
     arrayUnion,
     arrayRemove,
     getDoc,
-    where
+    where // Import 'where' for querying
 } from 'firebase/firestore';
 
 import { appId } from '../firebase';
@@ -29,6 +30,11 @@ const getUserCoursesCollection = (userId) => {
 // Function to get the encouragement notes collection path
 const getEncouragementNotesCollection = () => {
     return collection(db, `artifacts/${appId}/encouragement_notes`);
+};
+
+// NEW: Function to get the user profiles collection path
+const getUserProfilesCollection = () => {
+    return collection(db, `artifacts/${appId}/user_profiles`);
 };
 
 // --- CREATE COURSE ---
@@ -200,7 +206,7 @@ export const reorderHolesInCourse = async (courseId, reorderedHolesArray, userId
 };
 
 
-// --- NEW ENCOURAGEMENT NOTE FUNCTIONS ---
+// --- ENCOURAGEMENT NOTE FUNCTIONS (UNCHANGED) ---
 
 /**
  * Adds an encouragement note to Firestore.
@@ -289,6 +295,57 @@ export const markEncouragementNoteAsRead = async (noteId, userId) => {
         console.log(`DEBUG firestoreService: Encouragement note ${noteId} marked as read by ${userId}.`);
     } catch (e) {
         console.error("DEBUG firestoreService: Error marking encouragement note as read: ", e);
+        throw e;
+    }
+};
+
+// --- NEW USER PROFILE FUNCTIONS ---
+
+/**
+ * Sets (creates or updates) a user's profile document.
+ * This is designed to be upserted (set without merging if it's new, or merging if it exists).
+ * @param {string} userId - The UID of the user whose profile is being set.
+ * @param {Object} profileData - The data for the user's profile (e.g., { displayName: 'John Doe' }).
+ * @returns {Promise<void>} A promise that resolves when the profile is set.
+ */
+export const setUserProfile = async (userId, profileData) => {
+    try {
+        if (!userId) {
+            throw new Error("User ID is required to set profile.");
+        }
+        const profileDocRef = doc(getUserProfilesCollection(), userId);
+        // Using setDoc with merge:true will create the document if it doesn't exist,
+        // or merge the new data with existing data if it does.
+        await setDoc(profileDocRef, profileData, { merge: true });
+        console.log("DEBUG firestoreService: User profile set for userId:", userId, "Data:", profileData);
+    } catch (e) {
+        console.error("DEBUG firestoreService: Error setting user profile: ", e);
+        throw e;
+    }
+};
+
+/**
+ * Gets a user's profile document.
+ * @param {string} userId - The UID of the user whose profile is being retrieved.
+ * @returns {Promise<Object|null>} A promise that resolves with the profile data or null if not found.
+ */
+export const getUserProfile = async (userId) => {
+    try {
+        if (!userId) {
+            throw new Error("User ID is required to get profile.");
+        }
+        const profileDocRef = doc(getUserProfilesCollection(), userId);
+        const docSnap = await getDoc(profileDocRef);
+
+        if (docSnap.exists()) {
+            console.log("DEBUG firestoreService: User profile fetched for userId:", userId, "Data:", docSnap.data());
+            return { id: docSnap.id, ...docSnap.data() };
+        } else {
+            console.log("DEBUG firestoreService: User profile not found for userId:", userId);
+            return null;
+        }
+    } catch (e) {
+        console.error("DEBUG firestoreService: Error getting user profile: ", e);
         throw e;
     }
 };

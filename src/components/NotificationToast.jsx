@@ -7,18 +7,11 @@ const NotificationToast = ({ note, onClose }) => {
 
     useEffect(() => {
         // Show the toast when the note prop changes (a new notification arrives)
+        // Removed the setTimeout here, so it will not auto-hide
         if (note) {
             setIsVisible(true);
-            // Automatically hide after 5 seconds
-            const timer = setTimeout(() => {
-                setIsVisible(false);
-                // Optionally call onClose here if you want it to disappear and mark as read automatically
-                // However, the `App.jsx` handles this based on `currentNotification` state change.
-            }, 5000);
-
-            return () => clearTimeout(timer);
         } else {
-            setIsVisible(false); // Hide if no note is passed
+            setIsVisible(false); // Hide if no note is passed (e.g., after being marked as read by parent)
         }
     }, [note]);
 
@@ -32,10 +25,13 @@ const NotificationToast = ({ note, onClose }) => {
     if (!isVisible || !note) return null;
 
     return (
-        <div className="fixed top-4 right-4 z-[1001] bg-blue-600 text-white p-4 rounded-lg shadow-xl flex items-start space-x-3 max-w-xs transition-transform duration-300 ease-out transform translate-x-0 opacity-100">
+        <div className="fixed top-4 left-0 right-0 z-[1001] bg-blue-600 text-white p-4 rounded-lg shadow-xl flex items-start space-x-3 w-full transition-transform duration-300 ease-out transform opacity-100">
+            {/* The 'left-0 right-0' and 'w-full' classes ensure it spans 100% width. */}
+            {/* 'p-4' provides padding from the screen edges to the content. */}
             <div className="flex-grow">
                 <p className="font-semibold text-lg mb-1">New Encouragement!</p>
-                <p className="text-sm">From: {note.senderId}</p>
+                {/* Display sender's display name, defaulting to "Someone" if not available */}
+                <p className="text-sm">From: {note.senderDisplayName || 'Someone'}</p>
                 <p className="text-sm mt-1">{note.noteText}</p>
             </div>
             <button

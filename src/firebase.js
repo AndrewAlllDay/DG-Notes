@@ -1,6 +1,7 @@
 // src/firebase.js
 import { initializeApp } from 'firebase/app';
-import { getFirestore, initializeFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, enableIndexedDbPersistence, doc, getDoc } from 'firebase/firestore'; // Import doc and getDoc
+// Import all necessary auth functions: email/password sign-in/up, onAuthStateChanged, signOut, Google
 import { getAuth, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { useEffect, useState, createContext, useContext } from 'react';
 
@@ -44,6 +45,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // Enable offline persistence (optional, but good for PWAs)
+// Note: This needs to be called *before* any Firestore operations
 try {
     enableIndexedDbPersistence(db)
         .then(() => {
@@ -51,8 +53,10 @@ try {
         })
         .catch((err) => {
             if (err.code === 'failed-precondition') {
+                // Multiple tabs open, persistence can only be enabled in one.
                 console.warn('DEBUG: Firestore persistence failed: Multiple tabs open or another instance already enabled persistence.');
             } else if (err.code === 'unimplemented') {
+                // The browser doesn't support all of the features required to enable persistence.
                 console.warn('DEBUG: Firestore persistence failed: Browser does not support persistence.');
             } else {
                 console.error('DEBUG: Firestore persistence failed:', err);
@@ -73,64 +77,95 @@ const FirebaseContext = createContext(null);
 
 // Custom hook to provide Firebase services and authentication state
 export const useFirebase = () => {
-    const [user, setUser] = useState(null);
-    const [isAuthReady, setIsAuthReady] = useState(false);
+    const [user, setUser] = useState(null); // Store the full user object
+    const [isAuthReady, setIsAuthReady] = useState(false); // New state to indicate auth readiness
 
     useEffect(() => {
         let unsubscribeAuth;
 
         const setupAuth = async () => {
             try {
+                // Use __initial_auth_token provided by Canvas environment for initial sign-in
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                     console.log("DEBUG: Signed in with custom token.");
                 }
+                // IMPORTANT: No automatic anonymous sign-in here. User must log in via LoginPage.
 
-                unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-                    setUser(currentUser);
+                // Set up auth state change listener
+                unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => { // Added async here
                     if (currentUser) {
                         console.log("DEBUG: Auth State Changed: User UID:", currentUser.uid);
+
+                        // Fetch user profile from Firestore
+                        const profileDocRef = doc(db, `artifacts/${appId}/user_profiles`, currentUser.uid);
+                        const profileSnap = await getDoc(profileDocRef);
+
+                        let displayN = currentUser.displayName; // Start with Firebase Auth display name
+
+                        if (profileSnap.exists()) {
+                            const profileData = profileSnap.data();
+                            if (profileData.displayName) {
+                                displayN = profileData.displayName; // Override with Firestore profile display name if it exists
+                                console.log("DEBUG: Fetched custom display name from profile:", displayN);
+                            }
+                        } else {
+                            console.log("DEBUG: User profile not found in Firestore for UID:", currentUser.uid);
+                        }
+
+                        // Create a combined user object with auth data and custom profile data
+                        setUser({
+                            ...currentUser, // Spread existing auth user properties
+                            displayName: displayN, // Override or set displayName
+                            // Add any other profile fields you might store in the future
+                        });
+
                     } else {
+                        // User is signed out
+                        setUser(null);
                         console.log("DEBUG: Auth State Changed: User signed out.");
                     }
-                    setIsAuthReady(true);
+                    setIsAuthReady(true); // Auth state has been checked at least once
                 });
 
             } catch (error) {
                 console.error("DEBUG: Firebase Auth setup error:", error);
-                setIsAuthReady(true);
+                setIsAuthReady(true); // Still set to true so the app can attempt to proceed even on auth error
             }
         };
 
         setupAuth();
 
+        // Cleanup listener on component unmount
         return () => {
             if (unsubscribeAuth) {
                 unsubscribeAuth();
             }
         };
-    }, []);
+    }, []); // Empty dependency array means this runs once on mount
 
+    // Function to sign in with Google
     const signInWithGoogle = async () => {
         try {
             await signInWithPopup(auth, googleProvider);
             console.log("DEBUG: Signed in with Google successfully!");
         } catch (error) {
             console.error("DEBUG: Error signing in with Google:", error);
-            throw error;
+            throw error; // Re-throw the error for the component to handle
         }
     };
 
+
     const returnedValue = {
         db,
-        auth,
-        user,
-        userId: user ? user.uid : null,
+        auth, // Explicitly return the auth object
+        user, // This is the enhanced user object with Firestore displayName
+        userId: user ? user.uid : null, // userId remains the raw UID
         isAuthReady,
         signInWithEmailAndPassword,
         createUserWithEmailAndPassword,
-        signOut,
-        signInWithGoogle
+        signOut, // Export the signOut function
+        signInWithGoogle // Export the new Google sign-in function
     };
     console.log("DEBUG: useFirebase hook returning:", returnedValue);
     return returnedValue;
@@ -138,6 +173,7 @@ export const useFirebase = () => {
 
 // You can export db and auth directly if you prefer, but useFirebase is the recommended way to get auth state
 export { db, auth };
+// Also, ensure signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup are exported if needed globally
 
 // Use the __app_id global variable if available, otherwise use a default
 // IMPORTANT: This export is crucial for firestoreService.jsx
