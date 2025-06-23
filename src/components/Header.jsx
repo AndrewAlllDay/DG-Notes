@@ -1,10 +1,10 @@
 // src/components/Header.jsx
 
 import React, { useState } from "react";
-import { Menu, X, ThumbsUp } from "lucide-react";
+import { Menu, X, ThumbsUp, LogOut } from "lucide-react"; // Import LogOut icon
 import LogoImage from '../assets/DG Logo.svg';
 
-const Header = ({ onNavigate, onOpenEncouragement }) => {
+const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user }) => {
     const [isOpen, setIsOpen] = useState(false);
 
     return (
@@ -29,18 +29,18 @@ const Header = ({ onNavigate, onOpenEncouragement }) => {
                     />
                 </div>
 
-                {/* Right side (Encourage Me! icon for desktop, placeholder for mobile alignment) */}
-                {/* Adjusted positioning and icon color */}
-                <div className="absolute right-4 md:static flex items-center"> {/* Added pr-4 for more right padding */}
+                {/* Right side (Encourage Me! icon) */}
+                {/* Removed the logout button from the main header here */}
+                <div className="absolute right-4 md:static flex items-center gap-2">
                     <button
                         onClick={onOpenEncouragement}
-                        className="text-black hover:text-gray-700 !bg-transparent border-none focus:outline-none active:bg-transparent p-1 rounded-full hover:bg-gray-100 transition-colors" // Changed text-purple-600 to text-black, adjusted hover
+                        className="text-black hover:text-gray-700 !bg-transparent border-none focus:outline-none active:bg-transparent p-1 rounded-full hover:bg-gray-100 transition-colors"
                         aria-label="Encourage Me!"
                     >
                         <ThumbsUp size={24} />
                     </button>
 
-                    <div className="w-7 md:hidden" />
+                    <div className="w-7 md:hidden" /> {/* This div helps align the right-side elements on mobile if needed */}
                 </div>
             </div>
 
@@ -51,6 +51,13 @@ const Header = ({ onNavigate, onOpenEncouragement }) => {
                         <li className="nav-links"><a href="#" onClick={() => { onNavigate('courses'); setIsOpen(false); }}>Courses</a></li>
                         <li className="nav-links"><a href="#" onClick={() => { onNavigate('settings'); setIsOpen(false); }}>Settings</a></li>
                         <li className="nav-links"><a href="#" onClick={() => { onOpenEncouragement(); setIsOpen(false); }}>Encourage Me!</a></li>
+                        {user && ( // Show logout link in mobile menu if user is logged in
+                            <li className="nav-links">
+                                <a href="#" onClick={() => { onSignOut(); setIsOpen(false); }} aria-label="Logout">
+                                    <LogOut size={24} /> {/* Only the icon */}
+                                </a>
+                            </li>
+                        )}
                     </ul>
                 </nav>
             )}
@@ -60,6 +67,7 @@ const Header = ({ onNavigate, onOpenEncouragement }) => {
                 <li><a href="#" onClick={() => onNavigate('courses')} className="hover:text-blue-600 transition-colors duration-150">Courses</a></li>
                 <li><a href="#" onClick={() => onNavigate('settings')} className="hover:text-blue-600 transition-colors duration-150">Settings</a></li>
                 <li><a href="#" onClick={onOpenEncouragement} className="hover:text-purple-600 transition-colors duration-150">Encourage Me!</a></li>
+                {/* Removed the logout link from desktop navigation */}
             </nav>
         </header>
     );

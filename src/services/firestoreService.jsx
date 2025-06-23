@@ -3,27 +3,39 @@ import { db } from '../firebase';
 import {
     collection,
     addDoc,
-    getDocs,
     doc,
     updateDoc,
     deleteDoc,
     query,
     orderBy,
     onSnapshot,
-    arrayUnion, // To add elements to an array field
-    arrayRemove // To remove elements from an array field
+    arrayUnion,
+    arrayRemove,
+    getDoc,
 } from 'firebase/firestore';
 
-const COURSES_COLLECTION = 'courses';
+// IMPORTANT: Ensure appId is imported correctly from firebase.js
+import { appId } from '../firebase';
+
+// Function to get the user-specific courses collection path
+const getUserCoursesCollection = (userId) => {
+    if (!userId) {
+        console.error("Attempted to access Firestore collection without a userId.");
+        throw new Error("User not authenticated or userId is missing.");
+    }
+    // Assuming a collection structure like artifacts/app_id/users/user_id/courses
+    return collection(db, `artifacts/${appId}/users/${userId}/courses`);
+};
 
 // --- CREATE COURSE ---
-export const addCourse = async (courseName, tournamentName) => {
+export const addCourse = async (courseName, tournamentName, userId) => {
     try {
-        // Generate default 18 holes
+        if (!userId) {
+            throw new Error("Cannot add course: User ID is missing.");
+        }
+
         const defaultHoles = Array.from({ length: 18 }, (_, index) => ({
-            // Use a combination of Date.now() and index for a more robust temporary ID
-            // This is a client-side ID for holes *within* a course document.
-            id: Date.now() + index,
+            id: `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 9)}`,
             number: (index + 1).toString(),
             par: '3',
             note: '',
@@ -33,12 +45,13 @@ export const addCourse = async (courseName, tournamentName) => {
             name: courseName,
             tournamentName: tournamentName,
             holes: defaultHoles,
-            createdAt: new Date(), // Add a timestamp for ordering
+            createdAt: new Date(),
+            userId: userId, // Add the userId to the document to match security rules
         };
 
-        const docRef = await addDoc(collection(db, COURSES_COLLECTION), newCourseData);
+        const docRef = await addDoc(getUserCoursesCollection(userId), newCourseData);
         console.log("Course added with ID: ", docRef.id);
-        return { id: docRef.id, ...newCourseData }; // Return the new course with its Firestore ID
+        return { id: docRef.id, ...newCourseData };
     } catch (e) {
         console.error("Error adding course: ", e);
         throw e;
@@ -46,29 +59,35 @@ export const addCourse = async (courseName, tournamentName) => {
 };
 
 // --- READ COURSES (Real-time listener) ---
-// This is the preferred method for React to keep UI in sync
-export const subscribeToCourses = (callback) => {
-    // Order courses by their creation date, newest first
-    const q = query(collection(db, COURSES_COLLECTION), orderBy('createdAt', 'desc'));
+export const subscribeToCourses = (userId, callback) => {
+    if (!userId) {
+        console.warn("Attempted to subscribe to courses without a userId. Returning no courses.");
+        callback([]);
+        return () => { };
+    }
+
+    const q = query(getUserCoursesCollection(userId), orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const courses = querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
-        callback(courses); // Call the provided callback with the updated courses
+        callback(courses);
     }, (error) => {
         console.error("Error subscribing to courses: ", error);
-        // You might want to pass this error to the callback too
     });
 
-    return unsubscribe; // Return the unsubscribe function to clean up the listener
+    return unsubscribe;
 };
 
-// --- UPDATE COURSE (e.g., updating course details or an entire holes array) ---
-export const updateCourse = async (courseId, newData) => {
+// --- UPDATE COURSE ---
+export const updateCourse = async (courseId, newData, userId) => {
     try {
-        const courseDocRef = doc(db, COURSES_COLLECTION, courseId);
+        if (!userId) {
+            throw new Error("Cannot update course: User ID is missing.");
+        }
+        const courseDocRef = doc(getUserCoursesCollection(userId), courseId);
         await updateDoc(courseDocRef, newData);
         console.log("Course updated successfully!");
     } catch (e) {
@@ -78,9 +97,12 @@ export const updateCourse = async (courseId, newData) => {
 };
 
 // --- DELETE COURSE ---
-export const deleteCourse = async (courseId) => {
+export const deleteCourse = async (courseId, userId) => {
     try {
-        const courseDocRef = doc(db, COURSES_COLLECTION, courseId);
+        if (!userId) {
+            throw new Error("Cannot delete course: User ID is missing.");
+        }
+        const courseDocRef = doc(getUserCoursesCollection(userId), courseId);
         await deleteDoc(courseDocRef);
         console.log("Course deleted successfully!");
     } catch (e) {
@@ -89,16 +111,15 @@ export const deleteCourse = async (courseId) => {
     }
 };
 
-// --- HOLE-SPECIFIC OPERATIONS (within a course document) ---
-
-// Add a hole to an existing course's 'holes' array
-// This uses arrayUnion, which adds an element only if it's not already present.
-// For hole objects, this means the entire object must be unique.
-export const addHoleToCourse = async (courseId, holeData) => {
+// --- HOLE-SPECIFIC OPERATIONS ---
+export const addHoleToCourse = async (courseId, holeData, userId) => {
     try {
-        const courseDocRef = doc(db, COURSES_COLLECTION, courseId);
+        if (!userId) {
+            throw new Error("Cannot add hole: User ID is missing.");
+        }
+        const courseDocRef = doc(getUserCoursesCollection(userId), courseId);
         await updateDoc(courseDocRef, {
-            holes: arrayUnion(holeData) // Add the new hole object to the 'holes' array
+            holes: arrayUnion(holeData)
         });
         console.log("Hole added to course successfully!");
     } catch (e) {
@@ -107,16 +128,16 @@ export const addHoleToCourse = async (courseId, holeData) => {
     }
 };
 
-// Update a specific hole within a course's 'holes' array
-// This requires reading the document, updating the array in memory, then writing it back.
-// This is because Firestore doesn't have direct array element update by index or partial object.
-export const updateHoleInCourse = async (courseId, holeId, updatedHoleData) => {
+export const updateHoleInCourse = async (courseId, holeId, updatedHoleData, userId) => {
     try {
-        const courseDocRef = doc(db, COURSES_COLLECTION, courseId);
-        const courseSnapshot = await getDocs(query(collection(db, COURSES_COLLECTION))); // Fetch all courses
-        const currentCourse = courseSnapshot.docs.find(doc => doc.id === courseId)?.data();
+        if (!userId) {
+            throw new Error("Cannot update hole: User ID is missing.");
+        }
+        const courseDocRef = doc(getUserCoursesCollection(userId), courseId);
+        const courseSnapshot = await getDoc(courseDocRef);
 
-        if (currentCourse && currentCourse.holes) {
+        if (courseSnapshot.exists() && courseSnapshot.data().holes) {
+            const currentCourse = courseSnapshot.data();
             const updatedHoles = currentCourse.holes.map(hole =>
                 hole.id === holeId ? { ...hole, ...updatedHoleData } : hole
             );
@@ -131,18 +152,20 @@ export const updateHoleInCourse = async (courseId, holeId, updatedHoleData) => {
     }
 };
 
-// Delete a specific hole from a course's 'holes' array
-export const deleteHoleFromCourse = async (courseId, holeId) => {
+export const deleteHoleFromCourse = async (courseId, holeId, userId) => {
     try {
-        const courseDocRef = doc(db, COURSES_COLLECTION, courseId);
-        const courseSnapshot = await getDocs(query(collection(db, COURSES_COLLECTION))); // Fetch all courses
-        const currentCourse = courseSnapshot.docs.find(doc => doc.id === courseId)?.data();
+        if (!userId) {
+            throw new Error("Cannot delete hole: User ID is missing.");
+        }
+        const courseDocRef = doc(getUserCoursesCollection(userId), courseId);
+        const courseSnapshot = await getDoc(courseDocRef);
 
-        if (currentCourse && currentCourse.holes) {
+        if (courseSnapshot.exists() && courseSnapshot.data().holes) {
+            const currentCourse = courseSnapshot.data();
             const holeToRemove = currentCourse.holes.find(hole => hole.id === holeId);
             if (holeToRemove) {
                 await updateDoc(courseDocRef, {
-                    holes: arrayRemove(holeToRemove) // Remove the specific hole object from the array
+                    holes: arrayRemove(holeToRemove)
                 });
                 console.log("Hole deleted from course successfully!");
             } else {
@@ -157,11 +180,12 @@ export const deleteHoleFromCourse = async (courseId, holeId) => {
     }
 };
 
-// Reorder holes within a course's 'holes' array
-// This replaces the entire 'holes' array with the new reordered array.
-export const reorderHolesInCourse = async (courseId, reorderedHolesArray) => {
+export const reorderHolesInCourse = async (courseId, reorderedHolesArray, userId) => {
     try {
-        const courseDocRef = doc(db, COURSES_COLLECTION, courseId);
+        if (!userId) {
+            throw new Error("Cannot reorder holes: User ID is missing.");
+        }
+        const courseDocRef = doc(getUserCoursesCollection(userId), courseId);
         await updateDoc(courseDocRef, { holes: reorderedHolesArray });
         console.log("Holes reordered in course successfully!");
     } catch (e) {

@@ -8,7 +8,7 @@ import AddHoleModal from './AddHoleModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 
 // Import ChevronLeft icon
-import { ChevronLeft } from 'lucide-react'; // <-- ADDED THIS IMPORT
+import { ChevronLeft } from 'lucide-react';
 
 import {
     subscribeToCourses,
@@ -18,9 +18,15 @@ import {
     updateHoleInCourse,
     deleteHoleFromCourse,
     reorderHolesInCourse,
-} from '../services/firestoreService.jsx';
+} from '../services/firestoreService.jsx'; // Ensure correct path and extension
+
+// Import the useFirebase hook
+import { useFirebase } from '../firebase.js'; // Ensure correct path and extension
 
 export default function Courses() {
+    // Destructure userId and isAuthReady from the useFirebase hook
+    const { userId, isAuthReady } = useFirebase();
+
     const [courses, setCourses] = useState([]);
     const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
     const [newCourseName, setNewCourseName] = useState('');
@@ -39,9 +45,17 @@ export default function Courses() {
 
     // --- Firestore Data Subscription ---
     useEffect(() => {
-        // This effect will subscribe to real-time updates from Firestore
-        const unsubscribe = subscribeToCourses((fetchedCourses) => {
-            console.log("Fetched courses in Courses.jsx:", fetchedCourses); // Critical Debug Log
+        // Only subscribe if authentication is ready and userId is available
+        if (!isAuthReady || !userId) {
+            console.log("Auth not ready or userId not available, skipping course subscription.");
+            setCourses([]); // Clear courses if not authenticated or not ready
+            return;
+        }
+
+        console.log("Service Worker: Subscribing to courses for userId:", userId);
+        // Pass userId to the subscribeToCourses function
+        const unsubscribe = subscribeToCourses(userId, (fetchedCourses) => {
+            console.log("Fetched courses in Courses.jsx:", fetchedCourses);
             setCourses(fetchedCourses);
             // If a course was selected, find its updated version from fetchedCourses
             // and update selectedCourse state to reflect real-time changes
@@ -70,9 +84,9 @@ export default function Courses() {
             }
         });
 
-        // Cleanup the subscription when the component unmounts
+        // Cleanup the subscription when the component unmounts or userId changes
         return () => unsubscribe();
-    }, [selectedCourse]); // Re-run if selectedCourse changes to update its state with latest data
+    }, [isAuthReady, userId, selectedCourse]); // Add isAuthReady and userId to dependencies
 
     // Effect for click-outside detection when a course is selected
     useEffect(() => {
@@ -175,41 +189,55 @@ export default function Courses() {
     // --- Course Management Functions (using Firestore service) ---
 
     const handleAddCourse = async (courseName, tournamentName) => {
+        if (!userId) {
+            alert("User not authenticated. Please wait for authentication to complete or refresh the page.");
+            return;
+        }
         try {
-            await addCourse(courseName, tournamentName); // Call Firestore service
+            // Pass the userId to the Firestore service function
+            await addCourse(courseName, tournamentName, userId);
             setIsAddCourseModalOpen(false);
             setNewCourseName('');
             setNewCourseTournamentName('');
             // The subscribeToCourses useEffect will automatically update 'courses' state
         } catch (error) {
             console.error("Failed to add course:", error);
-            alert("Failed to add course. Please try again.");
+            alert("Failed to add course. Please try again. Error: " + error.message);
         }
     };
 
     const handleDeleteCourse = async (id) => {
+        if (!userId) {
+            alert("User not authenticated. Please wait for authentication to complete or refresh the page.");
+            return;
+        }
         try {
-            await deleteCourse(id); // Call Firestore service
+            // Pass the userId to the Firestore service function
+            await deleteCourse(id, userId);
             if (swipedCourseId === id) setSwipedCourseId(null);
             if (selectedCourse?.id === id) setSelectedCourse(null); // Deselect if deleted
             // The subscribeToCourses useEffect will automatically update 'courses' state
         } catch (error) {
             console.error("Failed to delete course:", error);
-            alert("Failed to delete course. Please try again.");
+            alert("Failed to delete course. Please try again. Error: " + error.message);
         }
     };
 
     // Function to delete a specific hole from the selected course
     const deleteHoleConfirmed = async (holeIdToDelete) => {
-        if (!selectedCourse) return;
+        if (!selectedCourse || !userId) {
+            alert("User not authenticated or course not selected.");
+            return;
+        }
 
         try {
-            await deleteHoleFromCourse(selectedCourse.id, holeIdToDelete); // Call Firestore service
+            // Pass the userId to the Firestore service function
+            await deleteHoleFromCourse(selectedCourse.id, holeIdToDelete, userId);
             // The `subscribeToCourses` useEffect will update `selectedCourse` automatically
             // so no need for manual `setSelectedCourse` update here.
         } catch (error) {
             console.error("Failed to delete hole:", error);
-            alert("Failed to delete hole. Please try again.");
+            alert("Failed to delete hole. Please try again. Error: " + error.message);
         }
     };
 
@@ -220,7 +248,7 @@ export default function Courses() {
 
     const handleConfirmDeleteHole = () => {
         if (holeToDeleteId) {
-            deleteHoleConfirmed(holeToDeleteId);
+            deleteHoleConfirmed(holeIdToDelete);
             setIsDeleteConfirmationModalOpen(false);
             setHoleToDeleteId(null);
             closeAllHoleEdits(); // Ensure edit mode is closed for the deleted hole
@@ -234,7 +262,10 @@ export default function Courses() {
 
 
     const handleAddHole = async (holeNumber, holePar, holeNote) => {
-        if (!holeNumber.trim() || !holePar.trim() || !selectedCourse) return;
+        if (!holeNumber.trim() || !holePar.trim() || !selectedCourse || !userId) {
+            alert("Hole number and par are required, a course must be selected, and user must be authenticated.");
+            return;
+        }
 
         // Use a more robust ID generation for holes to avoid potential conflicts
         const newHole = {
@@ -245,12 +276,13 @@ export default function Courses() {
         };
 
         try {
-            await addHoleToCourse(selectedCourse.id, newHole); // Call Firestore service
+            // Pass the userId to the Firestore service function
+            await addHoleToCourse(selectedCourse.id, newHole, userId);
             setIsAddHoleModalOpen(false);
             // `subscribeToCourses` will handle updating the state automatically
         } catch (error) {
             console.error("Failed to add hole:", error);
-            alert("Failed to add hole. Please try again.");
+            alert("Failed to add hole. Please try again. Error: " + error.message);
         }
     };
 
@@ -289,7 +321,10 @@ export default function Courses() {
 
 
     const handleSaveHoleChanges = async (holeId) => {
-        if (!selectedCourse) return;
+        if (!selectedCourse || !userId) {
+            alert("User not authenticated or course not selected.");
+            return;
+        }
 
         // The updatedHole object needs to contain the ID and all fields that might be updated
         const updatedHole = {
@@ -300,13 +335,14 @@ export default function Courses() {
         };
 
         try {
-            await updateHoleInCourse(selectedCourse.id, holeId, updatedHole); // Call Firestore service
+            // Pass the userId to the Firestore service function
+            await updateHoleInCourse(selectedCourse.id, holeId, updatedHole, userId);
             setEditingHoleData({});
             closeAllHoleEdits(); // Close edit mode for the saved hole
         }
         catch (error) {
             console.error("Failed to save hole changes:", error);
-            alert("Failed to save hole changes. Please try again.");
+            alert("Failed to save hole changes. Please try again. Error: " + error.message);
         }
     };
 
@@ -317,7 +353,8 @@ export default function Courses() {
 
     const onDragEnd = async (result) => {
         const { source, destination } = result;
-        if (!destination || source.index === destination.index || !selectedCourse) {
+        if (!destination || source.index === destination.index || !selectedCourse || !userId) {
+            // No destination, no change, or no selected course/user authenticated
             return;
         }
 
@@ -329,13 +366,23 @@ export default function Courses() {
         const holesToSave = currentHoles.map(({ editing, ...rest }) => rest);
 
         try {
-            await reorderHolesInCourse(selectedCourse.id, holesToSave); // Call Firestore service
+            // Pass the userId to the Firestore service function
+            await reorderHolesInCourse(selectedCourse.id, holesToSave, userId);
             // `subscribeToCourses` will handle updating `selectedCourse`
         } catch (error) {
             console.error("Failed to reorder holes:", error);
-            alert("Failed to reorder holes. Please try again.");
+            alert("Failed to reorder holes. Please try again. Error: " + error.message);
         }
     };
+
+    // Show a loading/authentication message if auth is not ready
+    if (!isAuthReady) {
+        return (
+            <div className="flex justify-center items-center min-h-screen text-xl text-gray-700">
+                Loading authentication...
+            </div>
+        );
+    }
 
     // --- Conditional Rendering for Course List vs. Hole List ---
     if (selectedCourse) {
@@ -397,6 +444,8 @@ export default function Courses() {
         <div className="min-h-screen bg-gray-100 p-4">
             <h2 className="text-2xl font-bold mb-4 text-center pt-5">DG Courses</h2>
             <p className='text-center mb-6'>This is a list of courses that you've taken notes for.</p>
+            {/* Display UserId for debugging/identification */}
+            {userId && <p className="text-center text-sm text-gray-500 mb-4">Your User ID: {userId}</p>}
             <button
                 onClick={() => setIsAddCourseModalOpen(true)}
                 className="fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
