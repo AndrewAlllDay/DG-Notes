@@ -1,10 +1,10 @@
 // src/components/Header.jsx
 
 import React, { useState } from "react";
-import { Menu, X, ThumbsUp, LogOut } from "lucide-react"; // Import LogOut icon
+import { Menu, X, ThumbsUp, LogOut, Send } from "lucide-react"; // Import LogOut icon, and Send icon for the new button
 import LogoImage from '../assets/DG Logo.svg';
 
-const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user }) => {
+const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEncouragement, canSendEncouragement }) => {
     const [isOpen, setIsOpen] = useState(false);
 
     return (
@@ -30,7 +30,7 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user }) => {
                 </div>
 
                 {/* Right side (Encourage Me! icon) */}
-                {/* Removed the logout button from the main header here */}
+                {/* Removed the Send Note button from the main header here, it will only be in mobile nav */}
                 <div className="absolute right-4 md:static flex items-center gap-2">
                     <button
                         onClick={onOpenEncouragement}
@@ -50,11 +50,18 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user }) => {
                     <ul className="flex flex-col gap-2 text-gray-700">
                         <li className="nav-links"><a href="#" onClick={() => { onNavigate('courses'); setIsOpen(false); }}>Courses</a></li>
                         <li className="nav-links"><a href="#" onClick={() => { onNavigate('settings'); setIsOpen(false); }}>Settings</a></li>
+                        {user && canSendEncouragement && ( // Show send note link in mobile menu if user is logged in AND can send
+                            <li className="nav-links">
+                                <a href="#" onClick={() => { onOpenSendEncouragement(); setIsOpen(false); }} className="flex items-center justify-center p-2 rounded-full hover:bg-gray-100 transition-colors">
+                                    <Send size={24} /> {/* Only the icon */}
+                                </a>
+                            </li>
+                        )}
                         <li className="nav-links"><a href="#" onClick={() => { onOpenEncouragement(); setIsOpen(false); }}>Encourage Me!</a></li>
                         {user && ( // Show logout link in mobile menu if user is logged in
                             <li className="nav-links">
-                                <a href="#" onClick={() => { onSignOut(); setIsOpen(false); }} aria-label="Logout">
-                                    <LogOut size={24} /> {/* Only the icon */}
+                                <a href="#" onClick={() => { onSignOut(); setIsOpen(false); }} aria-label="Logout" className="flex items-center gap-2 text-red-600 hover:text-red-800">
+                                    <LogOut size={20} /> Logout
                                 </a>
                             </li>
                         )}
@@ -66,8 +73,8 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user }) => {
             <nav className="hidden md:flex justify-center gap-8 py-2 text-gray-700">
                 <li><a href="#" onClick={() => onNavigate('courses')} className="hover:text-blue-600 transition-colors duration-150">Courses</a></li>
                 <li><a href="#" onClick={() => onNavigate('settings')} className="hover:text-blue-600 transition-colors duration-150">Settings</a></li>
+                {/* Removed the Send Note link from desktop navigation */}
                 <li><a href="#" onClick={onOpenEncouragement} className="hover:text-purple-600 transition-colors duration-150">Encourage Me!</a></li>
-                {/* Removed the logout link from desktop navigation */}
             </nav>
         </header>
     );
