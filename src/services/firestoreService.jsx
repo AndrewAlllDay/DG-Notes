@@ -206,10 +206,12 @@ export const reorderHolesInCourse = async (courseId, reorderedHolesArray, userId
  * Adds an encouragement note to Firestore.
  * @param {string} senderId - The UID of the user sending the note.
  * @param {string} receiverId - The UID of the user receiving the note.
+ * @param {string} senderDisplayName - The display name of the user sending the note.
+ * @param {string} receiverDisplayName - The display name of the user receiving the note (can be empty if not provided).
  * @param {string} noteText - The encouragement message.
  * @returns {Promise<Object>} A promise that resolves with the new note's ID and data.
  */
-export const addEncouragementNote = async (senderId, receiverId, noteText) => {
+export const addEncouragementNote = async (senderId, receiverId, senderDisplayName, receiverDisplayName, noteText) => {
     try {
         if (!senderId || !receiverId || !noteText) {
             throw new Error("Sender ID, Receiver ID, and Note Text are required.");
@@ -218,6 +220,8 @@ export const addEncouragementNote = async (senderId, receiverId, noteText) => {
         const newNoteData = {
             senderId: senderId,
             receiverId: receiverId,
+            senderDisplayName: senderDisplayName || 'Anonymous', // Default to 'Anonymous' if no display name
+            receiverDisplayName: receiverDisplayName || '', // Store receiver's display name if provided
             noteText: noteText,
             timestamp: new Date(), // Use Firestore timestamp
             read: false, // Mark as unread by default

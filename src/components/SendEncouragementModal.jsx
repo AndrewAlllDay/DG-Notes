@@ -1,11 +1,12 @@
 // src/components/SendEncouragementModal.jsx
 import React, { useState } from 'react';
 import { addEncouragementNote } from '../services/firestoreService';
-import { useFirebase } from '../firebase'; // To get the current user's ID
+import { useFirebase } from '../firebase'; // To get the current user's ID and Display Name
 import { X } from 'lucide-react'; // Import the X icon
 
 const SendEncouragementModal = ({ isOpen, onClose, onSendSuccess }) => {
-    const { userId } = useFirebase(); // Get current authenticated user's ID
+    const { user, userId } = useFirebase(); // Get current authenticated user's ID and full user object
+
     const [receiverId, setReceiverId] = useState('');
     const [noteText, setNoteText] = useState('');
     const [sendingError, setSendingError] = useState(null);
@@ -43,7 +44,11 @@ const SendEncouragementModal = ({ isOpen, onClose, onSendSuccess }) => {
 
         setSendingMessage("Sending note...");
         try {
-            await addEncouragementNote(userId, receiverId.trim(), noteText.trim());
+            // Get sender's display name from the user object
+            const senderDisplayName = user?.displayName || 'Anonymous User';
+
+            // Pass senderDisplayName to the addEncouragementNote function
+            await addEncouragementNote(userId, receiverId.trim(), senderDisplayName, '', noteText.trim()); // Receiver display name is optional for now
             setSendingMessage("Note sent successfully!");
             if (onSendSuccess) {
                 onSendSuccess(`Note sent to ${receiverId.trim()}`); // Callback for success notification in App.jsx
