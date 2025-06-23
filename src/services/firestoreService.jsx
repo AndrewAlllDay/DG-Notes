@@ -206,7 +206,7 @@ export const reorderHolesInCourse = async (courseId, reorderedHolesArray, userId
 };
 
 
-// --- ENCOURAGEMENT NOTE FUNCTIONS (UNCHANGED) ---
+// --- ENCOURAGEMENT NOTE FUNCTIONS ---
 
 /**
  * Adds an encouragement note to Firestore.
@@ -299,13 +299,13 @@ export const markEncouragementNoteAsRead = async (noteId, userId) => {
     }
 };
 
-// --- NEW USER PROFILE FUNCTIONS ---
+// --- USER PROFILE FUNCTIONS ---
 
 /**
  * Sets (creates or updates) a user's profile document.
  * This is designed to be upserted (set without merging if it's new, or merging if it exists).
  * @param {string} userId - The UID of the user whose profile is being set.
- * @param {Object} profileData - The data for the user's profile (e.g., { displayName: 'John Doe' }).
+ * @param {Object} profileData - The data for the user's profile (e.g., { displayName: 'John Doe', role: 'admin' }).
  * @returns {Promise<void>} A promise that resolves when the profile is set.
  */
 export const setUserProfile = async (userId, profileData) => {
@@ -348,4 +348,49 @@ export const getUserProfile = async (userId) => {
         console.error("DEBUG firestoreService: Error getting user profile: ", e);
         throw e;
     }
+};
+
+// Function to subscribe to a single user's profile for real-time updates
+export const subscribeToUserProfile = (userId, callback) => {
+    if (!userId) {
+        console.warn("DEBUG firestoreService: Attempted to subscribe to user profile without a userId.");
+        callback(null);
+        return () => { };
+    }
+
+    const profileDocRef = doc(getUserProfilesCollection(), userId);
+
+    const unsubscribe = onSnapshot(profileDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const profileData = { id: docSnap.id, ...docSnap.data() };
+            console.log("DEBUG firestoreService: Real-time user profile update for userId:", userId, "Data:", profileData);
+            callback(profileData);
+        } else {
+            console.log("DEBUG firestoreService: User profile does not exist for userId:", userId);
+            callback(null);
+        }
+    }, (error) => {
+        console.error("DEBUG firestoreService: Error subscribing to user profile: ", error);
+        callback(null); // Indicate an error or no profile
+    });
+
+    return unsubscribe;
+};
+
+// NEW: Function to subscribe to ALL user profiles for admin view
+export const subscribeToAllUserProfiles = (callback) => {
+    const q = query(getUserProfilesCollection(), orderBy('displayName', 'asc')); // Order by display name
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const profiles = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        console.log("DEBUG firestoreService: Fetched all user profiles (count):", profiles.length, "Profiles:", profiles);
+        callback(profiles);
+    }, (error) => {
+        console.error("DEBUG firestoreService: Error subscribing to all user profiles: ", error);
+    });
+
+    return unsubscribe;
 };

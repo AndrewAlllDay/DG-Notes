@@ -52,8 +52,8 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEn
                         <li className="nav-links"><a href="#" onClick={() => { onNavigate('settings'); setIsOpen(false); }}>Settings</a></li>
                         {user && canSendEncouragement && ( // Show send note link in mobile menu if user is logged in AND can send
                             <li className="nav-links">
-                                <a href="#" onClick={() => { onOpenSendEncouragement(); setIsOpen(false); }} className="flex items-center justify-center p-2 rounded-full hover:bg-gray-100 transition-colors">
-                                    <Send size={24} /> {/* Only the icon */}
+                                <a href="#" onClick={() => { onOpenSendEncouragement(); setIsOpen(false); }} className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors">
+                                    <Send size={20} /> Send Note
                                 </a>
                             </li>
                         )}
@@ -73,8 +73,18 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEn
             <nav className="hidden md:flex justify-center gap-8 py-2 text-gray-700">
                 <li><a href="#" onClick={() => onNavigate('courses')} className="hover:text-blue-600 transition-colors duration-150">Courses</a></li>
                 <li><a href="#" onClick={() => onNavigate('settings')} className="hover:text-blue-600 transition-colors duration-150">Settings</a></li>
-                {/* Removed the Send Note link from desktop navigation */}
+                {/* Conditionally render Send Note link for desktop nav as well */}
+                {user && canSendEncouragement && (
+                    <li>
+                        <a href="#" onClick={() => onOpenSendEncouragement()} className="flex items-center gap-1 hover:text-blue-600 transition-colors duration-150">
+                            <Send size={20} /> Send Note
+                        </a>
+                    </li>
+                )}
                 <li><a href="#" onClick={onOpenEncouragement} className="hover:text-purple-600 transition-colors duration-150">Encourage Me!</a></li>
+                {user && ( // Show logout link in desktop menu if user is logged in
+                    <li><a href="#" onClick={onSignOut} className="hover:text-red-600 transition-colors duration-150">Logout</a></li>
+                )}
             </nav>
         </header>
     );

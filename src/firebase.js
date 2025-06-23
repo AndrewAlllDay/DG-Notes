@@ -1,9 +1,12 @@
 // src/firebase.js
 import { initializeApp } from 'firebase/app';
-import { getFirestore, initializeFirestore, enableIndexedDbPersistence, doc, getDoc } from 'firebase/firestore'; // Import doc and getDoc
+import { getFirestore, initializeFirestore, enableIndexedDbPersistence, doc, getDoc } from 'firebase/firestore';
 // Import all necessary auth functions: email/password sign-in/up, onAuthStateChanged, signOut, Google
 import { getAuth, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { useEffect, useState, createContext, useContext } from 'react';
+
+// Import the subscribeToUserProfile function from firestoreService
+import { subscribeToUserProfile } from './services/firestoreService';
 
 
 // Firebase configuration - This comes from your Firebase project settings
@@ -79,9 +82,11 @@ const FirebaseContext = createContext(null);
 export const useFirebase = () => {
     const [user, setUser] = useState(null); // Store the full user object
     const [isAuthReady, setIsAuthReady] = useState(false); // New state to indicate auth readiness
+    const [userProfile, setUserProfileState] = useState(null); // New state for user's custom profile
 
     useEffect(() => {
         let unsubscribeAuth;
+        let unsubscribeProfile;
 
         const setupAuth = async () => {
             try {
@@ -97,32 +102,25 @@ export const useFirebase = () => {
                     if (currentUser) {
                         console.log("DEBUG: Auth State Changed: User UID:", currentUser.uid);
 
-                        // Fetch user profile from Firestore
-                        const profileDocRef = doc(db, `artifacts/${appId}/user_profiles`, currentUser.uid);
-                        const profileSnap = await getDoc(profileDocRef);
+                        // Subscribe to user profile for real-time updates on displayName and role
+                        unsubscribeProfile = subscribeToUserProfile(currentUser.uid, (profileData) => {
+                            console.log("DEBUG: subscribeToUserProfile callback. Profile Data:", profileData);
+                            setUserProfileState(profileData); // Update userProfileState
 
-                        let displayN = currentUser.displayName; // Start with Firebase Auth display name
-
-                        if (profileSnap.exists()) {
-                            const profileData = profileSnap.data();
-                            if (profileData.displayName) {
-                                displayN = profileData.displayName; // Override with Firestore profile display name if it exists
-                                console.log("DEBUG: Fetched custom display name from profile:", displayN);
-                            }
-                        } else {
-                            console.log("DEBUG: User profile not found in Firestore for UID:", currentUser.uid);
-                        }
-
-                        // Create a combined user object with auth data and custom profile data
-                        setUser({
-                            ...currentUser, // Spread existing auth user properties
-                            displayName: displayN, // Override or set displayName
-                            // Add any other profile fields you might store in the future
+                            // Combine Firebase Auth user data with Firestore profile data
+                            setUser({
+                                ...currentUser, // Spread existing auth user properties
+                                // Override or set displayName and role from Firestore profile
+                                displayName: profileData?.displayName || currentUser.displayName || null,
+                                role: profileData?.role || 'user', // Default to 'user' role if not set
+                                profileData: profileData // Keep the raw profile data too if needed
+                            });
                         });
 
                     } else {
                         // User is signed out
                         setUser(null);
+                        setUserProfileState(null); // Clear profile state on sign out
                         console.log("DEBUG: Auth State Changed: User signed out.");
                     }
                     setIsAuthReady(true); // Auth state has been checked at least once
@@ -136,10 +134,13 @@ export const useFirebase = () => {
 
         setupAuth();
 
-        // Cleanup listener on component unmount
+        // Cleanup listeners on component unmount
         return () => {
             if (unsubscribeAuth) {
                 unsubscribeAuth();
+            }
+            if (unsubscribeProfile) {
+                unsubscribeProfile();
             }
         };
     }, []); // Empty dependency array means this runs once on mount
@@ -159,7 +160,7 @@ export const useFirebase = () => {
     const returnedValue = {
         db,
         auth, // Explicitly return the auth object
-        user, // This is the enhanced user object with Firestore displayName
+        user, // This is the enhanced user object with Firestore displayName and role
         userId: user ? user.uid : null, // userId remains the raw UID
         isAuthReady,
         signInWithEmailAndPassword,

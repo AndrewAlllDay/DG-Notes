@@ -2,22 +2,48 @@
 import React, { useState, useEffect } from 'react';
 import { useFirebase } from '../firebase'; // Import the useFirebase hook
 import { Copy } from 'lucide-react'; // Import the Copy icon for clipboard functionality
-import { setUserProfile, getUserProfile } from '../services/firestoreService'; // Import new profile functions
+import { setUserProfile, getUserProfile, subscribeToAllUserProfiles } from '../services/firestoreService'; // Import new profile functions and subscribe to all
 
 export default function SettingsPage() {
-    const { user, userId, isAuthReady } = useFirebase(); // Get user and userId from the hook
+    const { user, userId, isAuthReady } = useFirebase(); // Get user, userId, and isAuthReady from the hook. User now includes 'role'.
     const [copyMessage, setCopyMessage] = useState('');
     const [displayNameInput, setDisplayNameInput] = useState('');
     const [saveMessage, setSaveMessage] = useState({ type: '', text: '' }); // { type: 'success' | 'error', text: 'message' }
 
+    // State for Admin Role Management
+    const [allUserProfiles, setAllUserProfiles] = useState([]);
+    const [selectedRole, setSelectedRole] = useState({}); // Stores { userId: 'role' } for pending changes
+    const [roleSaveMessage, setRoleSaveMessage] = useState({ type: '', text: '' });
+
     // Effect to load the user's current display name when the component mounts or user changes
     useEffect(() => {
         if (user && user.uid && isAuthReady) {
-            // The user object from useFirebase already includes the fetched displayName
-            // from Firebase Auth or Firestore profile. Use that to populate the input.
             setDisplayNameInput(user.displayName || '');
         }
     }, [user, isAuthReady]); // Depend on user and auth readiness
+
+    // Effect to subscribe to all user profiles for admin role management
+    useEffect(() => {
+        let unsubscribe;
+        // Only subscribe if user is an admin and auth is ready
+        if (user?.role === 'admin' && isAuthReady) {
+            console.log("DEBUG SettingsPage: Subscribing to all user profiles for admin view.");
+            unsubscribe = subscribeToAllUserProfiles((profiles) => {
+                setAllUserProfiles(profiles);
+            });
+        } else if (unsubscribe) { // If user is no longer admin or logged out, unsubscribe
+            unsubscribe();
+            setAllUserProfiles([]);
+        }
+
+        return () => {
+            if (unsubscribe) {
+                console.log("DEBUG SettingsPage: Unsubscribing from all user profiles.");
+                unsubscribe();
+            }
+        };
+    }, [user?.role, isAuthReady]); // Re-subscribe when admin status or auth changes
+
 
     const handleCopyUserId = () => {
         if (userId) {
@@ -49,9 +75,6 @@ export default function SettingsPage() {
         try {
             await setUserProfile(userId, { displayName: displayNameInput.trim() });
             setSaveMessage({ type: 'success', text: 'Display Name saved successfully!' });
-            // Optionally, force re-fetch user in useFirebase if needed, though onAuthStateChanged
-            // might already trigger it if the underlying Firebase Auth displayName changes,
-            // or the useFirebase hook is already set up to check Firestore profile on auth change.
         } catch (error) {
             console.error("Failed to save display name:", error);
             setSaveMessage({ type: 'error', text: `Failed to save display name: ${error.message}` });
@@ -59,6 +82,39 @@ export default function SettingsPage() {
             setTimeout(() => setSaveMessage({ type: '', text: '' }), 3000); // Clear message after 3 seconds
         }
     };
+
+    const handleRoleChange = (targetUserId, role) => {
+        setSelectedRole(prev => ({
+            ...prev,
+            [targetUserId]: role
+        }));
+    };
+
+    const handleSaveRole = async (targetUserId) => {
+        const roleToSave = selectedRole[targetUserId];
+        if (!roleToSave || !targetUserId) {
+            setRoleSaveMessage({ type: 'error', text: 'Invalid role or user ID.' });
+            setTimeout(() => setRoleSaveMessage({ type: '', text: '' }), 3000);
+            return;
+        }
+
+        try {
+            // Only admins can set roles due to security rules
+            await setUserProfile(targetUserId, { role: roleToSave });
+            setRoleSaveMessage({ type: 'success', text: `Role for ${targetUserId} updated to ${roleToSave}!` });
+            setSelectedRole(prev => {
+                const newState = { ...prev };
+                delete newState[targetUserId]; // Clear pending change for this user
+                return newState;
+            });
+        } catch (error) {
+            console.error("Failed to save role:", error);
+            setRoleSaveMessage({ type: 'error', text: `Failed to save role: ${error.message}. Check admin UID in Firestore rules.` });
+        } finally {
+            setTimeout(() => setRoleSaveMessage({ type: '', text: '' }), 3000);
+        }
+    };
+
 
     // Show loading state if auth is not ready
     if (!isAuthReady) {
@@ -110,7 +166,7 @@ export default function SettingsPage() {
                     )}
                 </div>
 
-                {/* User ID Section */}
+                {/* User ID and Role Display Section */}
                 <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md border border-gray-200 mt-4">
                     <span className="font-medium text-gray-700 truncate mr-2">
                         User ID: {userId || 'N/A'}
@@ -130,21 +186,71 @@ export default function SettingsPage() {
                     </button>
                 </div>
                 {user.email && <p className="text-gray-600 text-sm mt-3">Logged in as: {user.email}</p>}
-                {/* Note: user.displayName from Auth object might not be updated instantly after saving Firestore profile,
-                   but the `useFirebase` hook re-fetches it. The input will show the latest. */}
-                {user.displayName && <p className="text-gray-600 text-sm">Current Auth Display Name: {user.displayName}</p>}
+                {/* Display the role fetched from useFirebase */}
+                <p className="text-gray-600 text-sm">Your Role: <span className="font-semibold capitalize">{user.role || 'user'}</span></p>
 
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-md max-w-md mx-auto">
+            {/* Admin Role Management Section - Only visible to admin users */}
+            {user.role === 'admin' && (
+                <div className="bg-white p-6 rounded-lg shadow-md max-w-md mx-auto mt-6">
+                    <h3 className="text-xl font-semibold mb-4 text-gray-800">User Role Management (Admin)</h3>
+                    {roleSaveMessage.text && (
+                        <p className={`mt-2 mb-4 text-sm ${roleSaveMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                            {roleSaveMessage.text}
+                        </p>
+                    )}
+                    <ul className="space-y-4">
+                        {allUserProfiles.length > 0 ? (
+                            allUserProfiles.map(profile => (
+                                <li key={profile.id} className="border-b pb-2 last:border-b-0">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="font-semibold text-gray-800">{profile.displayName || 'No Name'}</p>
+                                            <p className="text-sm text-gray-500 truncate" title={profile.id}>ID: {profile.id}</p>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <select
+                                                className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                value={selectedRole[profile.id] || profile.role || 'user'}
+                                                onChange={(e) => handleRoleChange(profile.id, e.target.value)}
+                                            >
+                                                <option value="user">User</option>
+                                                <option value="admin">Admin</option>
+                                                {/* Add other roles here as needed */}
+                                            </select>
+                                            <button
+                                                onClick={() => handleSaveRole(profile.id)}
+                                                className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                disabled={
+                                                    (selectedRole[profile.id] === (profile.role || 'user')) || // No change
+                                                    (!selectedRole[profile.id] && !profile.role) || // No role selected
+                                                    (profile.id === user.uid) // Prevent admin from changing their own role (good practice)
+                                                }
+                                            >
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {profile.id === user.uid && (
+                                        <p className="text-xs text-red-500 mt-1">You cannot change your own role here.</p>
+                                    )}
+                                </li>
+                            ))
+                        ) : (
+                            <p className="text-gray-600">No other user profiles found.</p>
+                        )}
+                    </ul>
+                </div>
+            )}
+
+            <div className="bg-white p-6 rounded-lg shadow-md max-w-md mx-auto mt-6">
                 <h3 className="text-xl font-semibold mb-4 text-gray-800">Data Management</h3>
 
                 <p className="text-gray-700 mb-4">
                     Your course and hole data is securely stored in Google Firebase. Automatic backups and synchronization are handled by Firebase. You can manage your data via the Firebase Console (console.firebase.google.com).
                 </p>
             </div>
-
-            {/* You can add more settings sections here in the future */}
         </div>
     );
 }
