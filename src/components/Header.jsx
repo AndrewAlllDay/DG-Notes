@@ -57,14 +57,7 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEn
                                 </a>
                             </li>
                         )}
-                        <li className="nav-links"><a href="#" onClick={() => { onOpenEncouragement(); setIsOpen(false); }}>Encourage Me!</a></li>
-                        {user && ( // Show logout link in mobile menu if user is logged in
-                            <li className="nav-links">
-                                <a href="#" onClick={() => { onSignOut(); setIsOpen(false); }} aria-label="Logout" className="flex items-center gap-2 text-red-600 hover:text-red-800">
-                                    <LogOut size={20} /> Logout
-                                </a>
-                            </li>
-                        )}
+
                     </ul>
                 </nav>
             )}
