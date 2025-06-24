@@ -12,8 +12,8 @@ import {
     arrayUnion,
     arrayRemove,
     getDoc,
-    setDoc, // Import setDoc for user profiles
-    where // Import 'where' for querying
+    setDoc,
+    where
 } from 'firebase/firestore';
 
 import { appId } from '../firebase';
@@ -134,7 +134,7 @@ export const subscribeToAllUserProfiles = (callback) => {
 
 
 /**
- * NEW: Subscribes to real-time updates for a PUBLIC list of all user display names and UIDs.
+ * Subscribes to real-time updates for a PUBLIC list of all user display names and UIDs.
  * This function should have more relaxed security rules to allow any authenticated user to read it.
  * It fetches only the necessary fields to display a list of recipients.
  * @param {function} callback - Callback function to receive an array of simplified user profile data ({id, displayName, email}).
@@ -337,10 +337,12 @@ export const reorderHolesInCourse = async (courseId, reorderedHolesArray, userId
  * Adds an encouragement note to Firestore.
  * @param {string} senderId - The UID of the user sending the note.
  * @param {string} receiverId - The UID of the user receiving the note.
+ * @param {string} senderDisplayName - The display name of the user sending the note.
+ * @param {string} receiverDisplayName - The display name of the user receiving the note (can be empty if not provided).
  * @param {string} noteText - The encouragement message.
  * @returns {Promise<Object>} A promise that resolves with the new note's ID and data.
  */
-export const addEncouragementNote = async (senderId, receiverId, noteText) => {
+export const addEncouragementNote = async (senderId, receiverId, senderDisplayName, receiverDisplayName, noteText) => {
     try {
         if (!senderId || !receiverId || !noteText) {
             throw new Error("Sender ID, Receiver ID, and Note Text are required.");
@@ -349,13 +351,15 @@ export const addEncouragementNote = async (senderId, receiverId, noteText) => {
         const newNoteData = {
             senderId: senderId,
             receiverId: receiverId,
-            noteText: noteText,
+            senderDisplayName: senderDisplayName || 'Anonymous', // Default to 'Anonymous' if no display name
+            receiverDisplayName: receiverDisplayName || '', // Store receiver's display name if provided
+            noteText: noteText, // This now correctly receives the noteText
             timestamp: new Date(), // Use Firestore timestamp
             read: false, // Mark as unread by default
         };
 
         const docRef = await addDoc(getEncouragementNotesCollection(), newNoteData);
-        console.log("Encouragement note added with ID: ", docRef.id);
+        console.log("Encouragement note added with ID: ", docRef.id, "to receiver:", receiverId);
         return { id: docRef.id, ...newNoteData };
     } catch (e) {
         console.error("Error adding encouragement note: ", e);

@@ -4,13 +4,11 @@ import Courses from './components/Courses';
 import EncouragementModal from './components/EncouragementModal';
 import LoginPage from './components/LoginPage';
 import SettingsPage from './components/SettingsPage';
-// IMPORTANT: This import will be for the refactored non-modal component
-import SendEncouragement from './components/SendEncouragement'; // Will replace SendEncouragementModal
+import SendEncouragement from './components/SendEncouragement';
 import NotificationToast from './components/NotificationToast';
 
 import './styles/EncouragementModal.css';
 
-// Import useFirebase and the auth instance directly from firebase.js
 import { useFirebase, auth } from './firebase';
 import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService';
 
@@ -32,15 +30,14 @@ function App() {
   console.log(`DEBUG App.jsx Render: user=${user?.uid || 'null'}, isAuthReady=${isAuthReady}`);
 
   const [isEncouragementModalOpen, setIsEncouragementModalOpen] = useState(false);
-  // Removed isSendEncouragementModalOpen state as it will be a direct page now
   const [currentPage, setCurrentPage] = useState('courses');
 
   // State for in-app notifications
-  const [unreadNotes, setUnreadNotes] = useState([]);
+  const [unreadNotesFromFirestore, setUnreadNotesFromFirestore] = useState([]); // Raw notes from Firestore
   const [currentNotification, setCurrentNotification] = useState(null); // The note currently displayed as a toast
   const [allPublicUserProfiles, setAllPublicUserProfiles] = useState([]); // State for all public user profiles
 
-  // NEW: State to track if the non-player's initial redirection has happened
+  // State to track if the non-player's initial redirection has happened
   const [hasInitialNonPlayerRedirected, setHasInitialNonPlayerRedirected] = useState(false);
 
 
@@ -59,6 +56,7 @@ function App() {
     if (isAuthReady) {
       console.log("DEBUG App.jsx useEffect [isAuthReady]: Subscribing to all public user display names.");
       unsubscribePublicProfiles = subscribeToAllUserDisplayNames((profiles) => {
+        console.log("DEBUG App.jsx: Fetched public user profiles:", profiles);
         setAllPublicUserProfiles(profiles);
       });
     }
@@ -71,45 +69,58 @@ function App() {
     };
   }, [isAuthReady]);
 
-  // Effect for subscribing to notes and updating notifications
+  // Effect for subscribing to raw unread notes from Firestore
   useEffect(() => {
     let unsubscribeNotes;
-    console.log("DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: Checking user and authReady status for note subscription.");
-    console.log(`DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: User UID=${user?.uid || 'null'}, isAuthReady=${isAuthReady}, allPublicUserProfiles.length=${allPublicUserProfiles.length}`);
-
+    console.log("DEBUG App.jsx useEffect [user, isAuthReady]: Checking user and authReady status for raw note subscription.");
     if (user?.uid && isAuthReady) {
-      console.log(`DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: Subscribing to unread notes for receiverId: ${user.uid}`);
+      console.log(`DEBUG App.jsx useEffect [user, isAuthReady]: Subscribing to raw unread notes for receiverId: ${user.uid}`);
       unsubscribeNotes = subscribeToEncouragementNotes(user.uid, (notes) => {
-        console.log("DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: Received notes from subscribeToEncouragementNotes callback:", notes);
-        const notesWithSenderNames = notes.map((note) => {
-          const senderProfile = allPublicUserProfiles.find(profile => profile.id === note.senderId);
-          return {
-            ...note,
-            senderDisplayName: senderProfile?.displayName || 'Someone',
-          };
-        });
-        setUnreadNotes(notesWithSenderNames);
-        if (notesWithSenderNames.length > 0) {
-          console.log("DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: Setting currentNotification to:", notesWithSenderNames[0]);
-          setCurrentNotification(notesWithSenderNames[0]);
-        } else {
-          console.log("DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: No unread notes, clearing currentNotification.");
-          setCurrentNotification(null);
-        }
+        console.log("DEBUG App.jsx useEffect [user, isAuthReady]: Received raw notes from subscribeToEncouragementNotes callback:", notes);
+        setUnreadNotesFromFirestore(notes); // Store raw notes
       });
     } else {
-      console.log("DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: Conditions not met for note subscription (user.uid or isAuthReady false).");
+      console.log("DEBUG App.jsx useEffect [user, isAuthReady]: Conditions not met for raw note subscription (user.uid or isAuthReady false).");
+      setUnreadNotesFromFirestore([]); // Clear raw notes on logout or not ready
     }
 
     return () => {
       if (unsubscribeNotes) {
-        console.log("DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: Unsubscribing from notes listener.");
+        console.log("DEBUG App.jsx useEffect [user, isAuthReady]: Unsubscribing from raw notes listener.");
         unsubscribeNotes();
       }
     };
-  }, [user?.uid, isAuthReady, allPublicUserProfiles]); // Add allPublicUserProfiles to dependencies
+  }, [user?.uid, isAuthReady]);
 
-  // NEW: useEffect for initial non-player page display
+
+  // NEW Effect to process unread notes with sender display names
+  // This effect now explicitly waits for both raw notes and public profiles to be ready
+  useEffect(() => {
+    console.log("DEBUG App.jsx useEffect [unreadNotesFromFirestore, allPublicUserProfiles]: Processing notes for notification.");
+    console.log(`DEBUG App.jsx: unreadNotesFromFirestore.length=${unreadNotesFromFirestore.length}, allPublicUserProfiles.length=${allPublicUserProfiles.length}`);
+
+    if (unreadNotesFromFirestore.length > 0 && allPublicUserProfiles.length > 0) {
+      const firstUnreadNote = unreadNotesFromFirestore[0];
+      const senderProfile = allPublicUserProfiles.find(profile => profile.id === firstUnreadNote.senderId);
+      const senderDisplayName = senderProfile?.displayName || 'Unknown Sender'; // Fallback for safety
+
+      const noteWithSenderName = {
+        ...firstUnreadNote,
+        senderDisplayName: senderDisplayName,
+      };
+      console.log("DEBUG App.jsx useEffect [unreadNotesFromFirestore, allPublicUserProfiles]: Setting currentNotification to:", noteWithSenderName);
+      setCurrentNotification(noteWithSenderName);
+    } else if (unreadNotesFromFirestore.length > 0 && allPublicUserProfiles.length === 0) {
+      console.log("DEBUG App.jsx useEffect [unreadNotesFromFirestore, allPublicUserProfiles]: Notes available but public profiles not yet loaded. Waiting for profiles to populate before setting notification.");
+      setCurrentNotification(null); // Explicitly ensure no notification is shown while waiting for profiles
+    } else {
+      console.log("DEBUG App.jsx useEffect [unreadNotesFromFirestore, allPublicUserProfiles]: No unread notes or profiles not loaded, clearing currentNotification.");
+      setCurrentNotification(null);
+    }
+  }, [unreadNotesFromFirestore, allPublicUserProfiles]);
+
+
+  // useEffect for initial non-player page display
   useEffect(() => {
     // Check if auth is ready, user is logged in, has 'non-player' role, and hasn't been redirected yet
     if (isAuthReady && user && user.role === 'non-player' && !hasInitialNonPlayerRedirected) {
@@ -135,7 +146,7 @@ function App() {
         await auth.signOut();
         console.log("DEBUG App.jsx handleSignOut: User signed out successfully (Firebase event triggered).");
         setCurrentPage('courses'); // Go back to courses page after sign out
-        setUnreadNotes([]); // Clear notes on logout
+        setUnreadNotesFromFirestore([]); // Clear raw notes on logout
         setCurrentNotification(null); // Clear notification on logout
         setAllPublicUserProfiles([]); // Clear public profiles on logout
         setHasInitialNonPlayerRedirected(false); // Reset for next login
@@ -144,9 +155,6 @@ function App() {
         console.error("DEBUG App.jsx handleSignOut: Error signing out:", error);
         showAppMessage('error', `Failed to sign out: ${error.message}`);
       }
-    } else {
-      console.error("DEBUG App.jsx handleSignOut: Firebase Auth instance is not available for signOut.");
-      showAppMessage('error', 'Logout failed: Authentication service not ready.');
     }
   };
 
@@ -161,8 +169,7 @@ function App() {
       try {
         console.log(`DEBUG App.jsx: Marking note ${noteId} as read for user ${user.uid}`);
         await markEncouragementNoteAsRead(noteId, user.uid);
-        setCurrentNotification(null); // Hide the current toast
-        // The `subscribeToEncouragementNotes` will automatically refresh unreadNotes
+        // No need to manually clear currentNotification here, the `unreadNotesFromFirestore` listener will update it
       } catch (error) {
         console.error("DEBUG App.jsx: Error marking note as read:", error);
         showAppMessage('error', 'Failed to mark note as read.');
@@ -208,7 +215,7 @@ function App() {
       {/* In-app message display, positioned globally */}
       {appMessage.text && (
         <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-lg shadow-lg text-white
-            ${appMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
+                    ${appMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
           {appMessage.text}
         </div>
       )}
@@ -239,13 +246,6 @@ function App() {
         isOpen={isEncouragementModalOpen}
         onClose={() => setIsEncouragementModalOpen(false)}
       />
-
-      {/* Removed SendEncouragementModal as it's now a direct page */}
-      {/* <SendEncouragementModal
-        isOpen={isSendEncouragementModalOpen}
-        onClose={() => setIsSendEncouragementModalOpen(false)}
-        onSendSuccess={handleSendNoteSuccess}
-      /> */}
     </div>
   );
 }

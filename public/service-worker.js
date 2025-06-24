@@ -1,6 +1,6 @@
 // public/service-worker.js
 
-const CACHE_NAME = 'dgnotes-cache-v1.0.52';
+const CACHE_NAME = 'dgnotes-cache-v1.0.57';
 const urlsToCache = [
     '/',
     '/index.html',

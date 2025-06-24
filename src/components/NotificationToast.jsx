@@ -1,36 +1,40 @@
 // src/components/NotificationToast.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react'; // Corrected import syntax here
 import { X } from 'lucide-react';
 
 const NotificationToast = ({ note, onClose }) => {
     const [isVisible, setIsVisible] = useState(false);
 
+    console.log("DEBUG NotificationToast: Prop 'note' received:", note);
+    console.log("DEBUG NotificationToast: Current isVisible state (before useEffect):", isVisible);
+
     useEffect(() => {
-        // Show the toast when the note prop changes (a new notification arrives)
-        // Removed the setTimeout here, so it will not auto-hide
         if (note) {
+            console.log("DEBUG NotificationToast: Setting isVisible to true due to new 'note' prop.");
             setIsVisible(true);
         } else {
-            setIsVisible(false); // Hide if no note is passed (e.g., after being marked as read by parent)
+            console.log("DEBUG NotificationToast: Setting isVisible to false as 'note' prop is null/undefined.");
+            setIsVisible(false);
         }
     }, [note]);
 
     const handleClose = () => {
+        console.log("DEBUG NotificationToast: Close button clicked. Setting isVisible to false.");
         setIsVisible(false);
         if (onClose) {
-            onClose(); // Call the parent's onClose handler (e.g., handleNotificationRead in App.jsx)
+            console.log("DEBUG NotificationToast: Calling parent's onClose handler.");
+            onClose();
         }
     };
+
+    console.log("DEBUG NotificationToast: Render condition check - isVisible:", isVisible, "note:", note, "Result:", !isVisible || !note ? "NOT RENDERING" : "RENDERING");
 
     if (!isVisible || !note) return null;
 
     return (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[1001] bg-blue-600 text-white py-8 px-4 rounded-lg shadow-xl flex items-start space-x-3 w-[90%] max-w-lg transition-transform duration-300 ease-out transform opacity-100">
-            {/* Increased vertical padding (py-8) and added max-width for better responsiveness */}
-            {/* The 'left-1/2 -translate-x-1/2' classes center the toast horizontally. */}
             <div className="flex-grow">
                 <p className="font-semibold text-lg mb-1">New Encouragement!</p>
-                {/* Display sender's display name, defaulting to "Someone" if not available */}
                 <p className="text-sm">From: {note.senderDisplayName || 'Someone'}</p>
                 <p className="text-sm mt-1">{note.noteText}</p>
             </div>
