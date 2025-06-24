@@ -62,7 +62,7 @@ export default function EncouragementModal({ isOpen, onClose }) {
 
                 <div
                     id="modalEncouragementText"
-                    className="text-2xl font-normal text-blue-700 my-5 leading-tight opacity-100 transition-opacity duration-400"
+                    className="text-2xl font-normal text-blue-700 pt-5 my-5 leading-tight opacity-100 transition-opacity duration-400"
                     dangerouslySetInnerHTML={{ __html: currentEncouragement }}
                 ></div>
 
