@@ -37,8 +37,19 @@ export default function Courses() {
     const [isAddHoleModalOpen, setIsAddHoleModalOpen] = useState(false);
 
     // State for delete confirmation modal
-    const [isDeleteConfirmationModalOpen, setIsDeleteConfirmationModal] = useState(false);
+    const [isDeleteConfirmationModalOpen, setIsDeleteConfirmationModalOpen] = useState(false); // Corrected name here
     const [holeToDeleteId, setHoleToDeleteId] = useState(null);
+
+    // New state for in-app messages
+    const [appMessage, setAppMessage] = useState({ type: '', text: '' }); // type: 'success' or 'error'
+
+    // Function to show a temporary in-app message
+    const showAppMessage = (type, text) => {
+        setAppMessage({ type, text });
+        setTimeout(() => {
+            setAppMessage({ type: '', text: '' }); // Clear message after 5 seconds
+        }, 5000);
+    };
 
     const swipeRefs = useRef({});
     const holeListRef = useRef(null); // Ref for the HoleList container
@@ -190,80 +201,78 @@ export default function Courses() {
 
     const handleAddCourse = async (courseName, tournamentName) => {
         if (!userId) {
-            alert("User not authenticated. Please wait for authentication to complete or refresh the page.");
+            showAppMessage('error', "User not authenticated. Please wait for authentication to complete or refresh the page.");
             return;
         }
         try {
-            // Pass the userId to the Firestore service function
             await addCourse(courseName, tournamentName, userId);
             setIsAddCourseModalOpen(false);
             setNewCourseName('');
             setNewCourseTournamentName('');
-            // The subscribeToCourses useEffect will automatically update 'courses' state
+            showAppMessage('success', `Course "${courseName}" added successfully!`);
         } catch (error) {
             console.error("Failed to add course:", error);
-            alert("Failed to add course. Please try again. Error: " + error.message);
+            showAppMessage('error', `Failed to add course: ${error.message}`);
         }
     };
 
     const handleDeleteCourse = async (id) => {
         if (!userId) {
-            alert("User not authenticated. Please wait for authentication to complete or refresh the page.");
+            showAppMessage('error', "User not authenticated. Please wait for authentication to complete or refresh the page.");
             return;
         }
         try {
-            // Pass the userId to the Firestore service function
+            const courseName = courses.find(c => c.id === id)?.name || 'selected course';
             await deleteCourse(id, userId);
             if (swipedCourseId === id) setSwipedCourseId(null);
             if (selectedCourse?.id === id) setSelectedCourse(null); // Deselect if deleted
-            // The subscribeToCourses useEffect will automatically update 'courses' state
+            showAppMessage('success', `Course "${courseName}" deleted successfully!`);
         } catch (error) {
             console.error("Failed to delete course:", error);
-            alert("Failed to delete course. Please try again. Error: " + error.message);
+            showAppMessage('error', `Failed to delete course: ${error.message}`);
         }
     };
 
     // Function to delete a specific hole from the selected course
     const deleteHoleConfirmed = async (holeIdToDelete) => {
         if (!selectedCourse || !userId) {
-            alert("User not authenticated or course not selected.");
+            showAppMessage('error', "User not authenticated or course not selected.");
             return;
         }
 
         try {
-            // Pass the userId to the Firestore service function
+            const holeNumber = selectedCourse.holes.find(h => h.id === holeIdToDelete)?.number || '';
             await deleteHoleFromCourse(selectedCourse.id, holeIdToDelete, userId);
-            // The `subscribeToCourses` useEffect will update `selectedCourse` automatically
-            // so no need for manual `setSelectedCourse` update here.
+            showAppMessage('success', `Hole ${holeNumber} deleted successfully!`);
         } catch (error) {
             console.error("Failed to delete hole:", error);
-            alert("Failed to delete hole. Please try again. Error: " + error.message);
+            showAppMessage('error', `Failed to delete hole: ${error.message}`);
         }
     };
 
     const handleDeleteHoleClick = (holeId) => {
         setHoleToDeleteId(holeId);
-        setIsDeleteConfirmationModal(true);
+        setIsDeleteConfirmationModalOpen(true); // Corrected this line to use 'Open'
     };
 
     const handleConfirmDeleteHole = () => {
         if (holeToDeleteId) {
-            deleteHoleConfirmed(holeIdToDelete);
-            setIsDeleteConfirmationModal(false);
+            deleteHoleConfirmed(holeToDeleteId);
+            setIsDeleteConfirmationModalOpen(false); // Corrected this line to use 'Open'
             setHoleToDeleteId(null);
             closeAllHoleEdits(); // Ensure edit mode is closed for the deleted hole
         }
     };
 
     const handleCancelDeleteHole = () => {
-        setIsDeleteConfirmationModal(false);
+        setIsDeleteConfirmationModalOpen(false); // Corrected this line to use 'Open'
         setHoleToDeleteId(null);
     };
 
 
     const handleAddHole = async (holeNumber, holePar, holeNote) => {
         if (!holeNumber.trim() || !holePar.trim() || !selectedCourse || !userId) {
-            alert("Hole number and par are required, a course must be selected, and user must be authenticated.");
+            showAppMessage('error', "Hole number and par are required, a course must be selected, and user must be authenticated.");
             return;
         }
 
@@ -276,13 +285,12 @@ export default function Courses() {
         };
 
         try {
-            // Pass the userId to the Firestore service function
             await addHoleToCourse(selectedCourse.id, newHole, userId);
             setIsAddHoleModalOpen(false);
-            // `subscribeToCourses` will handle updating the state automatically
+            showAppMessage('success', `Hole ${holeNumber} added successfully!`);
         } catch (error) {
             console.error("Failed to add hole:", error);
-            alert("Failed to add hole. Please try again. Error: " + error.message);
+            showAppMessage('error', `Failed to add hole: ${error.message}`);
         }
     };
 
@@ -322,11 +330,10 @@ export default function Courses() {
 
     const handleSaveHoleChanges = async (holeId) => {
         if (!selectedCourse || !userId) {
-            alert("User not authenticated or course not selected.");
+            showAppMessage('error', "User not authenticated or course not selected.");
             return;
         }
 
-        // The updatedHole object needs to contain the ID and all fields that might be updated
         const updatedHole = {
             id: holeId,
             number: editingHoleData.number,
@@ -335,14 +342,14 @@ export default function Courses() {
         };
 
         try {
-            // Pass the userId to the Firestore service function
             await updateHoleInCourse(selectedCourse.id, holeId, updatedHole, userId);
             setEditingHoleData({});
             closeAllHoleEdits(); // Close edit mode for the saved hole
+            showAppMessage('success', `Hole ${updatedHole.number} changes saved!`);
         }
         catch (error) {
             console.error("Failed to save hole changes:", error);
-            alert("Failed to save hole changes. Please try again. Error: " + error.message);
+            showAppMessage('error', `Failed to save hole changes: ${error.message}`);
         }
     };
 
@@ -366,109 +373,117 @@ export default function Courses() {
         const holesToSave = currentHoles.map(({ editing, ...rest }) => rest);
 
         try {
-            // Pass the userId to the Firestore service function
             await reorderHolesInCourse(selectedCourse.id, holesToSave, userId);
-            // `subscribeToCourses` will handle updating `selectedCourse`
+            showAppMessage('success', 'Holes reordered successfully!');
         } catch (error) {
             console.error("Failed to reorder holes:", error);
-            alert("Failed to reorder holes. Please try again. Error: " + error.message);
+            showAppMessage('error', `Failed to reorder holes: ${error.message}`);
         }
     };
 
     // Show a loading/authentication message if auth is not ready
     if (!isAuthReady) {
         return (
-            <div className="flex justify-center items-center min-h-screen text-xl text-gray-700">
+            <div className="flex justify-center items-center min-h-screen bg-gray-100 text-xl text-gray-700">
                 Loading authentication...
-            </div>
-        );
-    }
-
-    // --- Conditional Rendering for Course List vs. Hole List ---
-    if (selectedCourse) {
-        return (
-            <div className="relative min-h-screen bg-gray-100 p-4 pt-5">
-                {/* UPDATED BACK BUTTON */}
-                <button
-                    onClick={backToList}
-                    className="mb-4 px-3 py-1 border border-black text-black rounded hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200 flex items-center gap-1"
-                >
-                    <ChevronLeft size={16} /> Back
-                </button>
-
-                <div className="text-center mb-6 pt-5">
-                    <h2 className="text-2xl font-bold mb-3">
-                        {selectedCourse.name}
-                    </h2>
-                    {selectedCourse.tournamentName && (
-                        <p className="text-lg text-gray-600">{selectedCourse.tournamentName}</p>
-                    )}
-                </div>
-                <div ref={holeListRef}> {/* Attach ref to the HoleList's container */}
-                    <HoleList
-                        // Ensure 'holes' array is always present for HoleList
-                        holes={selectedCourse.holes || []}
-                        editingHoleData={editingHoleData}
-                        setEditingHoleData={setEditingHoleData}
-                        toggleEditing={handleToggleEditingHole}
-                        saveHoleChanges={handleSaveHoleChanges}
-                        onDeleteClick={handleDeleteHoleClick}
-                        onDragEnd={onDragEnd}
-                    />
-                </div>
-
-                <button
-                    onClick={() => setIsAddHoleModalOpen(true)}
-                    className="fixed bottom-6 right-6 !bg-green-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
-                    aria-label="Add Hole"
-                >
-                    <span className="text-2xl">＋</span>
-                </button>
-                <AddHoleModal
-                    isOpen={isAddHoleModalOpen}
-                    onClose={() => setIsAddHoleModalOpen(false)}
-                    onAddHole={handleAddHole}
-                />
-
-                <DeleteConfirmationModal
-                    isOpen={isDeleteConfirmationModal}
-                    onClose={handleCancelDeleteHole}
-                    onConfirm={handleConfirmDeleteHole}
-                    message={`Are you sure you want to delete Hole ${selectedCourse.holes.find(h => h.id === holeToDeleteId)?.number || ''}? This action cannot be undone.`}
-                />
             </div>
         );
     }
 
     return (
         <div className="min-h-screen bg-gray-100 p-4">
-            <h2 className="text-2xl font-bold mb-4 text-center pt-5">DG Courses</h2>
-            <p className='text-center mb-6'>This is a list of courses that you've taken notes for.</p>
-            <button
-                onClick={() => setIsAddCourseModalOpen(true)}
-                className="fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
-                aria-label="Add Course"
-            >
-                <span className="text-2xl">＋</span>
-            </button>
-            <AddCourseModal
-                isOpen={isAddCourseModalOpen}
-                onClose={() => setIsAddCourseModalOpen(false)}
-                onSubmit={handleAddCourse}
-                newCourseName={newCourseName}
-                setNewCourseName={setNewCourseName}
-                newCourseTournamentName={newCourseTournamentName}
-                setNewCourseTournamentName={setNewCourseTournamentName}
-            />
-            <CourseList
-                courses={courses} // Pass the 'courses' state to CourseList
-                setSelectedCourse={setSelectedCourse}
-                deleteCourse={handleDeleteCourse}
-                swipedCourseId={swipedCourseId}
-                handleTouchStart={handleTouchStart}
-                handleTouchMove={handleTouchMove}
-                handleTouchEnd={handleTouchEnd}
-            />
+            {/* New in-app message display at the top of the component */}
+            {appMessage.text && (
+                <div className={`px-4 py-3 rounded relative mb-4
+                    ${appMessage.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700' : 'bg-red-100 border border-red-400 text-red-700'}`}
+                    role="alert">
+                    <span className="block sm:inline">{appMessage.text}</span>
+                </div>
+            )}
+
+            {/* --- Conditional Rendering for Course List vs. Hole List --- */}
+            {selectedCourse ? (
+                <div className="relative min-h-screen bg-gray-100 p-4 pt-5">
+                    {/* UPDATED BACK BUTTON */}
+                    <button
+                        onClick={backToList}
+                        className="mb-4 px-3 py-1 border border-black text-black rounded hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200 flex items-center gap-1"
+                    >
+                        <ChevronLeft size={16} /> Back
+                    </button>
+
+                    <div className="text-center mb-6 pt-5">
+                        <h2 className="text-2xl font-bold mb-3">
+                            {selectedCourse.name}
+                        </h2>
+                        {selectedCourse.tournamentName && (
+                            <p className="text-lg text-gray-600">{selectedCourse.tournamentName}</p>
+                        )}
+                    </div>
+                    <div ref={holeListRef}> {/* Attach ref to the HoleList's container */}
+                        <HoleList
+                            holes={selectedCourse.holes || []}
+                            editingHoleData={editingHoleData}
+                            setEditingHoleData={setEditingHoleData}
+                            toggleEditing={handleToggleEditingHole}
+                            saveHoleChanges={handleSaveHoleChanges}
+                            onDeleteClick={handleDeleteHoleClick}
+                            onDragEnd={onDragEnd}
+                        />
+                    </div>
+
+                    <button
+                        onClick={() => setIsAddHoleModalOpen(true)}
+                        className="fixed bottom-6 right-6 !bg-green-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
+                        aria-label="Add Hole"
+                    >
+                        <span className="text-2xl">＋</span>
+                    </button>
+                    <AddHoleModal
+                        isOpen={isAddHoleModalOpen}
+                        onClose={() => setIsAddHoleModalOpen(false)}
+                        onAddHole={handleAddHole}
+                    />
+
+                    <DeleteConfirmationModal
+                        isOpen={isDeleteConfirmationModalOpen} // Corrected this line to use 'Open'
+                        onClose={handleCancelDeleteHole}
+                        onConfirm={handleConfirmDeleteHole}
+                        message={`Are you sure you want to delete Hole ${selectedCourse.holes.find(h => h.id === holeToDeleteId)?.number || ''}? This action cannot be undone.`}
+                    />
+                </div>
+            ) : (
+                <> {/* Fragment for the course list view */}
+                    <h2 className="text-2xl font-bold mb-4 text-center pt-5">DG Courses</h2>
+                    <p className='text-center mb-6'>This is a list of courses that you've taken notes for.</p>
+                    {/* Removed the userId display from here */}
+                    <button
+                        onClick={() => setIsAddCourseModalOpen(true)}
+                        className="fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
+                        aria-label="Add Course"
+                    >
+                        <span className="text-2xl">＋</span>
+                    </button>
+                    <AddCourseModal
+                        isOpen={isAddCourseModalOpen}
+                        onClose={() => setIsAddCourseModalOpen(false)}
+                        onSubmit={handleAddCourse}
+                        newCourseName={newCourseName}
+                        setNewCourseName={setNewCourseName}
+                        newCourseTournamentName={newCourseTournamentName}
+                        setNewCourseTournamentName={setNewCourseTournamentName}
+                    />
+                    <CourseList
+                        courses={courses} // Pass the 'courses' state to CourseList
+                        setSelectedCourse={setSelectedCourse}
+                        deleteCourse={handleDeleteCourse}
+                        swipedCourseId={swipedCourseId}
+                        handleTouchStart={handleTouchStart}
+                        handleTouchMove={handleTouchMove}
+                        handleTouchEnd={handleTouchEnd}
+                    />
+                </>
+            )}
         </div>
     );
 }

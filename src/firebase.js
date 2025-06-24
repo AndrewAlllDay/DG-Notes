@@ -1,6 +1,6 @@
 // src/firebase.js
 import { initializeApp } from 'firebase/app';
-import { getFirestore, initializeFirestore, enableIndexedDbPersistence, doc, getDoc } from 'firebase/firestore'; // Import doc and getDoc
+import { getFirestore, initializeFirestore, enableIndexedDbPersistence, doc, getDoc } from 'firebase/firestore';
 // Import all necessary auth functions: email/password sign-in/up, onAuthStateChanged, signOut, Google
 import { getAuth, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { useEffect, useState, createContext, useContext } from 'react';
@@ -82,11 +82,11 @@ const FirebaseContext = createContext(null);
 export const useFirebase = () => {
     const [user, setUser] = useState(null); // Store the full user object
     const [isAuthReady, setIsAuthReady] = useState(false); // New state to indicate auth readiness
-    const [userProfile, setUserProfileState] = useState(null); // New state for user's custom profile
+    const [userProfile, setUserProfileState] = useState(null); // Re-introducing state for user's custom profile
 
     useEffect(() => {
         let unsubscribeAuth;
-        let unsubscribeProfile;
+        let unsubscribeProfile; // Unsubscribe for the profile listener
 
         const setupAuth = async () => {
             try {
@@ -103,6 +103,7 @@ export const useFirebase = () => {
                         console.log("DEBUG: Auth State Changed: User UID:", currentUser.uid);
 
                         // Subscribe to user profile for real-time updates on displayName and role
+                        // This is crucial for consistently calling hooks.
                         unsubscribeProfile = subscribeToUserProfile(currentUser.uid, (profileData) => {
                             console.log("DEBUG: subscribeToUserProfile callback. Profile Data:", profileData);
                             setUserProfileState(profileData); // Update userProfileState
@@ -122,6 +123,11 @@ export const useFirebase = () => {
                         setUser(null);
                         setUserProfileState(null); // Clear profile state on sign out
                         console.log("DEBUG: Auth State Changed: User signed out.");
+                        // Ensure to unsubscribe from profile listener when user signs out
+                        if (unsubscribeProfile) {
+                            unsubscribeProfile();
+                            unsubscribeProfile = null; // Clear the reference
+                        }
                     }
                     setIsAuthReady(true); // Auth state has been checked at least once
                 });
@@ -139,7 +145,7 @@ export const useFirebase = () => {
             if (unsubscribeAuth) {
                 unsubscribeAuth();
             }
-            if (unsubscribeProfile) {
+            if (unsubscribeProfile) { // Ensure cleanup for profile listener
                 unsubscribeProfile();
             }
         };
@@ -166,7 +172,7 @@ export const useFirebase = () => {
         isAuthReady,
         signInWithEmailAndPassword,
         createUserWithEmailAndPassword,
-        signOut, // Export the signOut function
+        signOut, // <<-- This line ensures signOut is returned!
         signInWithGoogle // Export the new Google sign-in function
     };
     console.log("DEBUG: useFirebase hook returning:", returnedValue);
@@ -175,8 +181,7 @@ export const useFirebase = () => {
 
 // You can export db and auth directly if you prefer, but useFirebase is the recommended way to get auth state
 export { db, auth };
-// Also, ensure signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup are exported if needed globally
 
 // Use the __app_id global variable if available, otherwise use a default
-// IMPORTANT: This export is crucial for firestoreService.jsx
+// This is required for Firestore rules pathing, e.g., /artifacts/{appId}/users/{userId}/...
 export const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
