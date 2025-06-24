@@ -23,7 +23,7 @@ import {
 // Import the useFirebase hook
 import { useFirebase } from '../firebase.js'; // Ensure correct path and extension
 
-export default function Courses() {
+export default function Courses() { // No setIsEncouragementModalOpen prop here
     // Destructure userId and isAuthReady from the useFirebase hook
     const { userId, isAuthReady } = useFirebase();
 
@@ -37,7 +37,7 @@ export default function Courses() {
     const [isAddHoleModalOpen, setIsAddHoleModalOpen] = useState(false);
 
     // State for delete confirmation modal
-    const [isDeleteConfirmationModalOpen, setIsDeleteConfirmationModalOpen] = useState(false); // Corrected name here
+    const [isDeleteConfirmationModalOpen, setIsDeleteConfirmationModalOpen] = useState(false);
     const [holeToDeleteId, setHoleToDeleteId] = useState(null);
 
     // New state for in-app messages
@@ -210,6 +210,7 @@ export default function Courses() {
             setNewCourseName('');
             setNewCourseTournamentName('');
             showAppMessage('success', `Course "${courseName}" added successfully!`);
+            // No setShowActionFabs(false) here, as there's no action menu
         } catch (error) {
             console.error("Failed to add course:", error);
             showAppMessage('error', `Failed to add course: ${error.message}`);
@@ -252,20 +253,20 @@ export default function Courses() {
 
     const handleDeleteHoleClick = (holeId) => {
         setHoleToDeleteId(holeId);
-        setIsDeleteConfirmationModalOpen(true); // Corrected this line to use 'Open'
+        setIsDeleteConfirmationModalOpen(true);
     };
 
     const handleConfirmDeleteHole = () => {
         if (holeToDeleteId) {
             deleteHoleConfirmed(holeToDeleteId);
-            setIsDeleteConfirmationModalOpen(false); // Corrected this line to use 'Open'
+            setIsDeleteConfirmationModalOpen(false);
             setHoleToDeleteId(null);
             closeAllHoleEdits(); // Ensure edit mode is closed for the deleted hole
         }
     };
 
     const handleCancelDeleteHole = () => {
-        setIsDeleteConfirmationModalOpen(false); // Corrected this line to use 'Open'
+        setIsDeleteConfirmationModalOpen(false);
         setHoleToDeleteId(null);
     };
 
@@ -390,8 +391,12 @@ export default function Courses() {
         );
     }
 
+    // No debug logs related to showActionFabs as it won't exist in this version
+    console.log("DEBUG Courses.jsx Render: selectedCourse =", selectedCourse);
+
+
     return (
-        <div className="min-h-screen bg-gray-100 p-4">
+        <div className="min-h-screen bg-gray-100 p-4"> {/* Removed 'relative' here, as FABs are fixed position */}
             {/* New in-app message display at the top of the component */}
             {appMessage.text && (
                 <div className={`px-4 py-3 rounded relative mb-4
@@ -446,7 +451,7 @@ export default function Courses() {
                     />
 
                     <DeleteConfirmationModal
-                        isOpen={isDeleteConfirmationModalOpen} // Corrected this line to use 'Open'
+                        isOpen={isDeleteConfirmationModalOpen}
                         onClose={handleCancelDeleteHole}
                         onConfirm={handleConfirmDeleteHole}
                         message={`Are you sure you want to delete Hole ${selectedCourse.holes.find(h => h.id === holeToDeleteId)?.number || ''}? This action cannot be undone.`}
@@ -456,7 +461,8 @@ export default function Courses() {
                 <> {/* Fragment for the course list view */}
                     <h2 className="text-2xl font-bold mb-4 text-center pt-5">DG Courses</h2>
                     <p className='text-center mb-6'>This is a list of courses that you've taken notes for.</p>
-                    {/* Removed the userId display from here */}
+
+                    {/* Original Add Course FAB (single button) */}
                     <button
                         onClick={() => setIsAddCourseModalOpen(true)}
                         className="fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
@@ -464,6 +470,7 @@ export default function Courses() {
                     >
                         <span className="text-2xl">＋</span>
                     </button>
+
                     <AddCourseModal
                         isOpen={isAddCourseModalOpen}
                         onClose={() => setIsAddCourseModalOpen(false)}

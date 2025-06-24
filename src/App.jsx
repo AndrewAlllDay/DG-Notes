@@ -12,13 +12,13 @@ import './styles/EncouragementModal.css'; // Assuming this is still used for gen
 import { useFirebase, auth } from './firebase';
 import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService';
 
-// New LoadingScreen Component
+// LoadingScreen Component (as it was before the last update)
 const LoadingScreen = () => {
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-gray-100 z-[2000]">
       <div className="text-center">
         <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mx-auto mb-4"></div>
-        <p className="text-xl text-gray-700 font-semibold">Loading your Encouragement App...</p>
+        <p className="text-xl text-gray-700 font-semibold">Loading DG Notes...</p>
       </div>
     </div>
   );
@@ -216,7 +216,7 @@ function App() {
     <div className="App min-h-screen flex flex-col bg-gray-100">
       <Header
         onNavigate={handleNavigate}
-        onOpenEncouragement={() => setIsEncouragementModalOpen(true)}
+        onOpenEncouragement={() => setIsEncouragementModalOpen(true)} // This was the original location for opening the modal
         onSignOut={handleSignOut}
         user={user}
         onOpenSendEncouragement={() => handleNavigate('send-note')}
@@ -241,9 +241,9 @@ function App() {
 
       <main className="flex-grow">
         {/* Conditional rendering for different pages */}
-        {currentPage === 'courses' && <Courses />}
+        {currentPage === 'courses' && <Courses />} {/* Removed setIsEncouragementModalOpen prop */}
         {currentPage === 'settings' && <SettingsPage />}
-        {/* NEW: Render SendEncouragement as a full page */}
+        {/* Render SendEncouragement as a full page */}
         {currentPage === 'send-note' && (
           <SendEncouragement
             onSendSuccess={handleSendNoteSuccess}
