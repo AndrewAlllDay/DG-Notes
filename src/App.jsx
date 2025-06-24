@@ -5,16 +5,16 @@ import EncouragementModal from './components/EncouragementModal';
 import LoginPage from './components/LoginPage';
 import SettingsPage from './components/SettingsPage';
 import SendEncouragementModal from './components/SendEncouragementModal';
-import NotificationToast from './components/NotificationToast';
+import NotificationToast from './components/NotificationToast'; // Uncommented import
 
 import './styles/EncouragementModal.css';
 
 // Import useFirebase and the auth instance directly from firebase.js
 import { useFirebase, auth } from './firebase';
-import { subscribeToEncouragementNotes, markEncouragementNoteAsRead } from './services/firestoreService';
+import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, getUserProfile } from './services/firestoreService'; // Import getUserProfile
 
 function App() {
-  const { user, isAuthReady } = useFirebase(); // user now includes role
+  const { user, isAuthReady } = useFirebase();
 
   const [isEncouragementModalOpen, setIsEncouragementModalOpen] = useState(false);
   const [isSendEncouragementModalOpen, setIsSendEncouragementModalOpen] = useState(false);
@@ -22,7 +22,7 @@ function App() {
 
   // State for in-app notifications
   const [unreadNotes, setUnreadNotes] = useState([]);
-  const [currentNotification, setCurrentNotification] = useState(null);
+  const [currentNotification, setCurrentNotification] = useState(null); // The note currently displayed as a toast
 
   // In-app message system (reusing from LoginPage, can be a shared component later)
   const [appMessage, setAppMessage] = useState({ type: '', text: '' });
@@ -33,53 +33,46 @@ function App() {
     }, 5000);
   };
 
-  // DEBUGGING: Log current user and auth readiness on every render
-  console.log("DEBUG App.jsx Render: Current user:", user);
-  console.log("DEBUG App.jsx Render: isAuthReady:", isAuthReady);
-
-
   useEffect(() => {
     let unsubscribeNotes;
-    console.log("DEBUG App.jsx useEffect: Checking user and authReady status for note subscription.");
-    console.log("DEBUG App.jsx useEffect: User UID:", user?.uid, "isAuthReady:", isAuthReady);
-
     if (user?.uid && isAuthReady) {
-      console.log(`DEBUG App.jsx useEffect: Subscribing to unread notes for receiverId: ${user.uid}`);
-      unsubscribeNotes = subscribeToEncouragementNotes(user.uid, (notes) => {
-        console.log("DEBUG App.jsx useEffect: received notes from subscribeToEncouragementNotes callback:", notes);
-        setUnreadNotes(notes);
-        if (notes.length > 0) {
-          console.log("DEBUG App.jsx useEffect: Setting currentNotification to:", notes[0]);
-          setCurrentNotification(notes[0]);
+      // Subscribe to unread notes for the current user
+      unsubscribeNotes = subscribeToEncouragementNotes(user.uid, async (notes) => {
+        // For each note, fetch the sender's display name
+        const notesWithSenderNames = await Promise.all(notes.map(async (note) => {
+          const senderProfile = await getUserProfile(note.senderId);
+          return {
+            ...note,
+            senderDisplayName: senderProfile?.displayName || 'Someone',
+          };
+        }));
+        setUnreadNotes(notesWithSenderNames);
+        // If there are new unread notes, potentially show one as a notification
+        if (notesWithSenderNames.length > 0) {
+          setCurrentNotification(notesWithSenderNames[0]);
         } else {
-          console.log("DEBUG App.jsx useEffect: No unread notes, clearing currentNotification.");
           setCurrentNotification(null);
         }
       });
-    } else {
-      console.log("DEBUG App.jsx useEffect: Conditions not met for note subscription (user.uid or isAuthReady false).");
     }
 
     return () => {
       if (unsubscribeNotes) {
-        console.log("DEBUG App.jsx useEffect: Unsubscribing from notes listener.");
         unsubscribeNotes();
       }
     };
-  }, [user?.uid, isAuthReady]);
+  }, [user?.uid, isAuthReady]); // Re-subscribe when user changes or auth readiness changes
 
   const handleNavigate = (page) => {
     setCurrentPage(page);
   };
 
   const handleSignOut = async () => {
-    console.log("DEBUG App.jsx: handleSignOut triggered."); // New log
     if (auth) {
       try {
         await auth.signOut();
         console.log("DEBUG: User signed out successfully.");
-        // We no longer set currentPage here, as the App component's conditional render
-        // based on `user` state should handle redirecting to LoginPage.
+        setCurrentPage('courses');
         setUnreadNotes([]); // Clear notes on logout
         setCurrentNotification(null); // Clear notification on logout
         showAppMessage('success', 'You have been signed out.');
@@ -94,32 +87,29 @@ function App() {
   };
 
   const handleSendNoteSuccess = (message) => {
-    showAppMessage('success', message);
-    setIsSendEncouragementModalOpen(false);
+    showAppMessage('success', message); // Display success message from modal
+    setIsSendEncouragementModalOpen(false); // Close the modal
   };
 
+  // Function to mark a notification as read and hide it
   const handleNotificationRead = async (noteId) => {
     if (user?.uid && noteId) {
       try {
-        console.log(`DEBUG App.jsx: Marking note ${noteId} as read for user ${user.uid}`);
         await markEncouragementNoteAsRead(noteId, user.uid);
-        setCurrentNotification(null);
+        setCurrentNotification(null); // Hide the current toast
+        // The `subscribeToEncouragementNotes` will automatically refresh unreadNotes
       } catch (error) {
-        console.error("DEBUG App.jsx: Error marking note as read:", error);
+        console.error("Error marking note as read:", error);
         showAppMessage('error', 'Failed to mark note as read.');
       }
-    } else {
-      console.warn("DEBUG App.jsx: Cannot mark note as read: user.uid or noteId missing.");
     }
   };
 
-  // Define who can send encouragement notes based on role
-  // For example, only 'admin' can send notes
-  const canSendEncouragement = user?.role === 'admin';
-  // Or if all users can send: const canSendEncouragement = !!user;
+  // Define who can send encouragement notes. For now, any logged-in user.
+  // This can be expanded (e.g., specific user IDs, roles from Firestore profile)
+  const canSendEncouragement = !!user;
 
   if (!isAuthReady) {
-    console.log("DEBUG App.jsx Render: isAuthReady is false, showing loading screen.");
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-100 text-xl text-gray-700">
         Loading application...
@@ -128,7 +118,6 @@ function App() {
   }
 
   if (!user) {
-    console.log("DEBUG App.jsx Render: User is null, showing LoginPage.");
     return (
       <div className="min-h-screen flex flex-col bg-gray-100">
         <LoginPage />
@@ -136,18 +125,18 @@ function App() {
     );
   }
 
-  console.log("DEBUG App.jsx Render: User is present, showing main app content.");
   return (
     <div className="App min-h-screen flex flex-col bg-gray-100">
       <Header
         onNavigate={handleNavigate}
         onOpenEncouragement={() => setIsEncouragementModalOpen(true)}
         onSignOut={handleSignOut}
-        user={user} // Pass the full user object including role
+        user={user}
         onOpenSendEncouragement={() => setIsSendEncouragementModalOpen(true)}
-        canSendEncouragement={canSendEncouragement} // Pass permission flag
+        canSendEncouragement={canSendEncouragement}
       />
 
+      {/* In-app message display, positioned globally */}
       {appMessage.text && (
         <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-lg shadow-lg text-white
             ${appMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
@@ -155,6 +144,7 @@ function App() {
         </div>
       )}
 
+      {/* Notification Toast */}
       {currentNotification && (
         <NotificationToast
           note={currentNotification}
@@ -172,14 +162,11 @@ function App() {
         onClose={() => setIsEncouragementModalOpen(false)}
       />
 
-      {/* Conditionally render SendEncouragementModal based on canSendEncouragement */}
-      {canSendEncouragement && (
-        <SendEncouragementModal
-          isOpen={isSendEncouragementModalOpen}
-          onClose={() => setIsSendEncouragementModalOpen(false)}
-          onSendSuccess={handleSendNoteSuccess}
-        />
-      )}
+      <SendEncouragementModal
+        isOpen={isSendEncouragementModalOpen}
+        onClose={() => setIsSendEncouragementModalOpen(false)}
+        onSendSuccess={handleSendNoteSuccess}
+      />
     </div>
   );
 }
