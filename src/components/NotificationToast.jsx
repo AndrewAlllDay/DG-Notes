@@ -35,12 +35,12 @@ const NotificationToast = ({ note, onClose }) => {
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[1001] bg-blue-600 text-white py-8 px-4 rounded-lg shadow-xl flex items-start space-x-3 w-[90%] max-w-lg transition-transform duration-300 ease-out transform opacity-100">
             <div className="flex-grow">
                 <p className="font-semibold text-lg mb-1">New Encouragement!</p>
-                <p className="text-sm">From: {note.senderDisplayName || 'Someone'}</p>
-                <p className="text-sm mt-1">{note.noteText}</p>
+                <p className="text-md">From: {note.senderDisplayName || 'Someone'}</p>
+                <p className="text-lg mt-1">{note.noteText}</p>
             </div>
             <button
                 onClick={handleClose}
-                className="text-white hover:text-gray-200 focus:outline-none p-1 -mt-1 -mr-1 rounded-full hover:bg-blue-700 transition-colors"
+                className="text-black hover:text-gray-200 focus:outline-none p-1 -mt-5 -mr-1 rounded-full hover:bg-blue-700 transition-colors"
                 aria-label="Dismiss notification"
             >
                 <X size={20} />

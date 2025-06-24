@@ -7,10 +7,23 @@ import SettingsPage from './components/SettingsPage';
 import SendEncouragement from './components/SendEncouragement';
 import NotificationToast from './components/NotificationToast';
 
-import './styles/EncouragementModal.css';
+import './styles/EncouragementModal.css'; // Assuming this is still used for general styles
 
 import { useFirebase, auth } from './firebase';
 import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService';
+
+// New LoadingScreen Component
+const LoadingScreen = () => {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-gray-100 z-[2000]">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mx-auto mb-4"></div>
+        <p className="text-xl text-gray-700 font-semibold">Loading your Encouragement App...</p>
+      </div>
+    </div>
+  );
+};
+
 
 function App() {
   // Define callbacks for login/logout success messages
@@ -182,14 +195,12 @@ function App() {
   // Define who can send encouragement notes. For now, any logged-in user.
   const canSendEncouragement = !!user;
 
+  // Render the LoadingScreen if authentication is not yet ready
   if (!isAuthReady) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-100 text-xl text-gray-700">
-        Loading application...
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
+  // Render the LoginPage if no user is logged in
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col bg-gray-100">
