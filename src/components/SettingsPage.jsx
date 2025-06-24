@@ -229,7 +229,7 @@ export default function SettingsPage() {
                     <ul className="space-y-4">
                         {allUserProfiles.length > 0 ? (
                             allUserProfiles.map(profile => (
-                                <li key={profile.id} className="border-b pb-2 last:border-b-0">
+                                <li key={profile.id} className="border-b pb-2 last:border-b-0 mb-5 mt-5"> {/* Added mb-4 here */}
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full">
                                         <div className="mb-2 sm:mb-0 sm:mr-4 min-w-0 flex-shrink-0">
                                             <p className="font-semibold text-gray-800 break-words">{profile.displayName || 'No Name'}</p>
