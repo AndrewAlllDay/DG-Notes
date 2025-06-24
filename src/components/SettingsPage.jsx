@@ -1,8 +1,35 @@
 // src/components/SettingsPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useFirebase } from '../firebase'; // Import the useFirebase hook
-import { Copy } from 'lucide-react'; // Import the Copy icon for clipboard functionality
-import { setUserProfile, getUserProfile, subscribeToAllUserProfiles } from '../services/firestoreService'; // Import new profile functions and subscribe to all
+import { Copy, ChevronDown, ChevronUp } from 'lucide-react'; // Import icons for clipboard and accordion
+import { setUserProfile, subscribeToAllUserProfiles } from '../services/firestoreService'; // Import new profile functions and subscribe to all
+
+// Reusable Accordion Component
+const Accordion = ({ title, children, defaultOpen = false }) => {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+
+    const toggleAccordion = () => {
+        setIsOpen(!isOpen);
+    };
+
+    return (
+        <div className="bg-white rounded-lg shadow-md max-w-md mx-auto mb-6">
+            <button
+                className="w-full flex justify-between items-center p-6 text-xl font-semibold text-gray-800 focus:outline-none"
+                onClick={toggleAccordion}
+                aria-expanded={isOpen}
+            >
+                {title}
+                {isOpen ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+            </button>
+            {isOpen && (
+                <div className="px-6 pb-6 pt-2 border-t border-gray-200">
+                    {children}
+                </div>
+            )}
+        </div>
+    );
+};
 
 export default function SettingsPage() {
     const { user, userId, isAuthReady } = useFirebase(); // Get user, userId, and isAuthReady from the hook. User now includes 'role'.
@@ -14,6 +41,10 @@ export default function SettingsPage() {
     const [allUserProfiles, setAllUserProfiles] = useState([]);
     const [selectedRole, setSelectedRole] = useState({}); // Stores { userId: 'role' } for pending changes
     const [roleSaveMessage, setRoleSaveMessage] = useState({ type: '', text: '' });
+
+    // Define the application version.
+    // IMPORTANT: You need to manually update this value to match the CACHE_NAME in your service-worker.js file.
+    const APP_VERSION = 'v1.0.0'; // Example version, replace with your actual CACHE_NAME
 
     // Effect to load the user's current display name when the component mounts or user changes
     useEffect(() => {
@@ -99,7 +130,6 @@ export default function SettingsPage() {
         }
 
         try {
-            // Only admins can set roles due to security rules
             await setUserProfile(targetUserId, { role: roleToSave });
             setRoleSaveMessage({ type: 'success', text: `Role for ${targetUserId} updated to ${roleToSave}!` });
             setSelectedRole(prev => {
@@ -138,9 +168,8 @@ export default function SettingsPage() {
         <div className="min-h-screen bg-gray-100 p-4">
             <h2 className="text-2xl font-bold mb-6 text-center pt-5">Settings</h2>
 
-            <div className="bg-white p-6 rounded-lg shadow-md max-w-md mx-auto mb-6">
-                <h3 className="text-xl font-semibold mb-4 text-gray-800">Your User Account</h3>
-
+            {/* Your User Account Accordion */}
+            <Accordion title="Your User Account" defaultOpen={false}>
                 {/* Display Name Section */}
                 <div className="mb-4">
                     <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-1">Set Your Display Name:</label>
@@ -151,7 +180,7 @@ export default function SettingsPage() {
                         value={displayNameInput}
                         onChange={(e) => setDisplayNameInput(e.target.value)}
                         placeholder="e.g., Disc Golf Pro"
-                        maxLength="50" // Optional: Limit length
+                        maxLength="50"
                     />
                     <button
                         onClick={handleSaveDisplayName}
@@ -186,15 +215,12 @@ export default function SettingsPage() {
                     </button>
                 </div>
                 {user.email && <p className="text-gray-600 text-sm mt-3">Logged in as: {user.email}</p>}
-                {/* Display the role fetched from useFirebase */}
                 <p className="text-gray-600 text-sm">Your Role: <span className="font-semibold capitalize">{user.role || 'non-player'}</span></p>
-
-            </div>
+            </Accordion>
 
             {/* Admin Role Management Section - Only visible to admin users */}
             {user.role === 'admin' && (
-                <div className="bg-white p-6 rounded-lg shadow-md max-w-md mx-auto mt-6">
-                    <h3 className="text-xl font-semibold mb-4 text-gray-800">User Role Management (Admin)</h3>
+                <Accordion title="User Role Management (Admin)" defaultOpen={false}>
                     {roleSaveMessage.text && (
                         <p className={`mt-2 mb-4 text-sm ${roleSaveMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
                             {roleSaveMessage.text}
@@ -204,31 +230,30 @@ export default function SettingsPage() {
                         {allUserProfiles.length > 0 ? (
                             allUserProfiles.map(profile => (
                                 <li key={profile.id} className="border-b pb-2 last:border-b-0">
-                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full"> {/* Changed to flex-col on small screens, flex-row on sm+ */}
-                                        <div className="mb-2 sm:mb-0 sm:mr-4 min-w-0 flex-shrink-0"> {/* Added min-w-0 and flex-shrink-0 */}
+                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full">
+                                        <div className="mb-2 sm:mb-0 sm:mr-4 min-w-0 flex-shrink-0">
                                             <p className="font-semibold text-gray-800 break-words">{profile.displayName || 'No Name'}</p>
-                                            <p className="text-sm text-gray-500 break-all" title={profile.id}>ID: {profile.id}</p> {/* break-all for long IDs */}
+                                            <p className="text-sm text-gray-500 break-all" title={profile.id}>ID: {profile.id}</p>
                                         </div>
-                                        {profile.id === user.uid ? ( // Check if this is the currently logged-in user
+                                        {profile.id === user.uid ? (
                                             <div className="text-gray-500 text-sm sm:text-base">
                                                 Your Profile
                                             </div>
                                         ) : (
-                                            <div className="flex items-center space-x-2 flex-grow sm:flex-grow-0 justify-end"> {/* Ensured controls are aligned to end */}
+                                            <div className="flex items-center space-x-2 flex-grow sm:flex-grow-0 justify-end">
                                                 <select
-                                                    className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex-grow sm:flex-grow-0" // Added flex-grow
+                                                    className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex-grow sm:flex-grow-0"
                                                     value={selectedRole[profile.id] || profile.role || 'non-player'}
                                                     onChange={(e) => handleRoleChange(profile.id, e.target.value)}
                                                 >
-                                                    <option value="non-player">Non-Player</option> {/* Updated option */}
+                                                    <option value="non-player">Non-Player</option>
                                                     <option value="admin">Admin</option>
-                                                    {/* Add other roles here as needed */}
                                                 </select>
                                                 <button
                                                     onClick={() => handleSaveRole(profile.id)}
-                                                    className="px-3 py-2 !bg-green-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0" // Added flex-shrink-0
+                                                    className="px-3 py-2 !bg-green-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                                                     disabled={
-                                                        (selectedRole[profile.id] === (profile.role || 'non-player')) || // No change
+                                                        (selectedRole[profile.id] === (profile.role || 'non-player')) ||
                                                         (!selectedRole[profile.id] && (profile.role === undefined || profile.role === null || profile.role === 'non-player'))
                                                     }
                                                 >
@@ -237,22 +262,25 @@ export default function SettingsPage() {
                                             </div>
                                         )}
                                     </div>
-                                    {/* Removed the "You cannot change your own role here" message as controls are now hidden */}
                                 </li>
                             ))
                         ) : (
                             <p className="text-gray-600">No other user profiles found.</p>
                         )}
                     </ul>
-                </div>
+                </Accordion>
             )}
 
-            <div className="bg-white p-6 rounded-lg shadow-md max-w-md mx-auto mt-6">
-                <h3 className="text-xl font-semibold mb-4 text-gray-800">Data Management</h3>
-
+            {/* Data Management Accordion */}
+            <Accordion title="Data Management" defaultOpen={false}>
                 <p className="text-gray-700 mb-4">
                     Your course and hole data is securely stored in Google Firebase. Automatic backups and synchronization are handled by Firebase. You can manage your data via the Firebase Console (console.firebase.google.com).
                 </p>
+            </Accordion>
+
+            {/* Application Version Display */}
+            <div className="mt-8 text-center text-sm text-gray-500">
+                DG Notes: {APP_VERSION}
             </div>
         </div>
     );

@@ -70,10 +70,7 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEn
                                 </a>
                             </li>
                         )}
-                        {/* Encourage Me! link (only for non-non-players) */}
-                        {!isNonPlayer && (
-                            <li className="nav-links"><a href="#" onClick={() => { onOpenEncouragement(); setIsOpen(false); }}>Encourage Me!</a></li>
-                        )}
+
                         {/* Logout link (for any logged-in user) */}
                         {user && (
                             <li className="nav-links">
