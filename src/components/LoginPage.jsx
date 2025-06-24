@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useFirebase } from '../firebase'; // Ensure useFirebase is correctly imported
 import { setUserProfile, getUserProfile } from '../services/firestoreService'; // Import firestoreService functions
+import GoogleLogoUrl from '../assets/google-logo.svg'; // Import the SVG as a URL
 
 function LoginPage() {
     const {
@@ -9,6 +10,7 @@ function LoginPage() {
         signInWithGoogle, // Make sure this is destructured from useFirebase
         user, // Get the user object to check if logged in
         isAuthReady, // Keep this, but its direct usage for rendering "Loading authentication..." will be removed
+        auth // Added auth object here for direct inspection
     } = useFirebase();
 
     const [email, setEmail] = useState('');
@@ -37,6 +39,12 @@ function LoginPage() {
             return;
         }
 
+        console.log("DEBUG LoginPage handleAuth: Calling auth functions with:", {
+            authInstance: auth,
+            signInFunc: signInWithEmailAndPassword,
+            createFunc: createUserWithEmailAndPassword
+        });
+
         try {
             if (isRegistering) {
                 // Register
@@ -58,7 +66,7 @@ function LoginPage() {
                 console.log("DEBUG LoginPage: User logged in.");
             }
         } catch (err) {
-            console.error("DEBUG LoginPage: Authentication error:", err.code, err.message);
+            console.error("DEBUG LoginPage: Authentication error:", err.code, err.message, err); // Log full error object
             switch (err.code) {
                 case 'auth/user-not-found':
                     setError('No user found with this email.');
@@ -76,7 +84,8 @@ function LoginPage() {
                     setError('Password should be at least 6 characters.');
                     break;
                 default:
-                    setError('Authentication failed. Please try again.');
+                    // This 'default' catch is where the recaptcha error would appear if uncaught specifically
+                    setError(`Authentication failed: ${err.message || 'Please try again.'}`);
                     break;
             }
         }
@@ -112,18 +121,15 @@ function LoginPage() {
             showAppMessage('success', 'Signed in with Google successfully!');
 
         } catch (err) {
-            console.error("DEBUG LoginPage: Error during Google Sign-In:", err.code, err.message);
+            console.error("DEBUG LoginPage: Error during Google Sign-In:", err.code, err.message, err); // Log full error object
             setError('Google Sign-In failed. Please try again.');
         }
     };
 
-    // This condition means that if user is logged in AND auth is ready, LoginPage should not render.
-    // The App.jsx will handle rendering LoginPage if user is null.
     if (user && isAuthReady) {
         return null;
     }
 
-    // Removed the !isAuthReady check here. App.jsx now solely handles the initial loading screen.
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
             <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
@@ -189,7 +195,7 @@ function LoginPage() {
                     )}
                     <button
                         type="submit"
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full"
+                        className="!bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full"
                         disabled={!isFormValid || (isRegistering && displayNameInput.trim() === '')}
                     >
                         {isRegistering ? 'Register Account' : 'Sign In'}
@@ -218,12 +224,7 @@ function LoginPage() {
                     onClick={handleGoogleSignIn}
                     className="flex items-center justify-center bg-white border border-gray-300 text-gray-800 font-bold py-2 px-4 rounded w-full hover:bg-gray-100 focus:outline-none focus:shadow-outline"
                 >
-                    <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path fill="#4285F4" d="M22.445 12.008c0-.756-.067-1.474-.19-2.16H12v4.296h6.29c-.27 1.41-.952 2.593-1.996 3.49v2.855h2.32c1.365-1.26 2.153-3.11 2.153-5.321z" />
-                        <path fill="#34A853" d="M12 23.992c3.23 0 5.92-1.072 7.893-2.915l-2.32-2.855c-1.606 1.072-3.69 1.705-5.573 1.705-4.288 0-7.907-2.88-9.213-6.768H0v2.964C1.94 21.056 6.643 23.992 12 23.992z" />
-                        <path fill="#FBBC04" d="M2.787 14.88c-.322-.97-.506-2.008-.506-3.09s.184-2.12.506-3.09V5.72H0V8.682c.877 1.83 1.378 3.882 1.378 6.028s-.502 4.198-1.378 6.028v2.964h2.787v-2.964z" />
-                        <path fill="#EA4335" d="M12 4.008c3.23 0 5.377 1.38 6.602 2.656L16.27 8.358C15.003 7.158 13.61 6.556 12 6.556c-4.288 0-7.907 2.88-9.213 6.768H0V9.816C1.94 6.904 6.643 4.008 12 4.008z" />
-                    </svg>
+                    <img src={GoogleLogoUrl} alt="Google logo" className="w-5 h-5 mr-2" />
                     Sign in with Google
                 </button>
             </div>

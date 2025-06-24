@@ -2,7 +2,7 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, initializeFirestore, enableIndexedDbPersistence, doc, getDoc } from 'firebase/firestore';
 import { getAuth, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { useEffect, useState, createContext, useContext, useRef } from 'react'; // <-- Added useRef here
+import { useEffect, useState, createContext, useContext, useRef } from 'react';
 import { getUserProfile } from './services/firestoreService'; // Import getUserProfile
 
 // Firebase configuration - This comes from your Firebase project settings
@@ -60,8 +60,11 @@ try {
     console.warn('DEBUG: Firestore persistence attempt failed (likely already initialized or not supported):', error);
 }
 
-// Initialize Auth
+console.log("DEBUG firebase.js: Before getAuth(app) - app object:", app);
+// Initialize Auth (removed 'export' here to avoid duplicate export)
 const auth = getAuth(app);
+console.log("DEBUG firebase.js: After getAuth(app) - auth object:", auth);
+
 
 // Initialize Google Auth Provider
 const googleProvider = new GoogleAuthProvider();
@@ -80,12 +83,12 @@ export const useFirebase = (onLoginSuccess, onLogoutSuccess) => {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
-                    console.log("DEBUG: Signed in with custom token.");
+                    console.log("DEBUG useFirebase: Signed in with custom token.");
                 }
 
                 unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
                     if (currentUser) {
-                        console.log("DEBUG: Auth State Changed: User UID:", currentUser.uid);
+                        console.log("DEBUG useFirebase: onAuthStateChanged - User UID:", currentUser.uid);
 
                         // Fetch user profile to get display name and other custom data
                         const profileData = await getUserProfile(currentUser.uid);
@@ -93,9 +96,9 @@ export const useFirebase = (onLoginSuccess, onLogoutSuccess) => {
 
                         if (profileData && profileData.displayName) {
                             displayN = profileData.displayName;
-                            console.log("DEBUG: Fetched custom display name from profile:", displayN);
+                            console.log("DEBUG useFirebase: Fetched custom display name from profile:", displayN);
                         } else {
-                            console.log("DEBUG: User profile not found in Firestore for UID:", currentUser.uid);
+                            console.log("DEBUG useFirebase: User profile not found in Firestore for UID:", currentUser.uid);
                         }
 
                         // Create a combined user object with auth data and custom profile data
@@ -107,17 +110,17 @@ export const useFirebase = (onLoginSuccess, onLogoutSuccess) => {
 
                         // Trigger onLoginSuccess only if this isn't the initial auth check on app load
                         if (isInitialAuthCheckDone.current && typeof onLoginSuccess === 'function') {
-                            console.log("DEBUG: Triggering onLoginSuccess callback.");
+                            console.log("DEBUG useFirebase: Triggering onLoginSuccess callback.");
                             onLoginSuccess(currentUser.uid);
                         }
 
                     } else {
-                        console.log("DEBUG: Auth State Changed: User signed out.");
+                        console.log("DEBUG useFirebase: onAuthStateChanged - User signed out.");
                         setUser(null);
                         // Trigger onLogoutSuccess only if a user was previously logged in
                         // and this isn't just the initial 'null' state on first load.
                         if (isInitialAuthCheckDone.current && typeof onLogoutSuccess === 'function') {
-                            console.log("DEBUG: Triggering onLogoutSuccess callback.");
+                            console.log("DEBUG useFirebase: Triggering onLogoutSuccess callback.");
                             onLogoutSuccess();
                         }
                     }
@@ -126,7 +129,7 @@ export const useFirebase = (onLoginSuccess, onLogoutSuccess) => {
                 });
 
             } catch (error) {
-                console.error("DEBUG: Firebase Auth setup error:", error);
+                console.error("DEBUG useFirebase: Firebase Auth setup error:", error);
                 setIsAuthReady(true);
                 isInitialAuthCheckDone.current = true; // Mark initial check as done even on error
             }
@@ -159,9 +162,9 @@ export const useFirebase = (onLoginSuccess, onLogoutSuccess) => {
         user,
         userId: user ? user.uid : null,
         isAuthReady,
-        signInWithEmailAndPassword,
-        createUserWithEmailAndPassword,
-        signOut,
+        signInWithEmailAndPassword: (email, password) => signInWithEmailAndPassword(auth, email, password),
+        createUserWithEmailAndPassword: (email, password) => createUserWithEmailAndPassword(auth, email, password),
+        signOut: () => signOut(auth),
         signInWithGoogle
     };
     console.log("DEBUG: useFirebase hook returning:", returnedValue);
