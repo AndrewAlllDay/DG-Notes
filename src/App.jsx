@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // Import useRef
 import Header from './components/Header';
 import Courses from './components/Courses';
 import EncouragementModal from './components/EncouragementModal';
 import LoginPage from './components/LoginPage';
 import SettingsPage from './components/SettingsPage';
 import SendEncouragementModal from './components/SendEncouragementModal';
-import NotificationToast from './components/NotificationToast'; // Uncommented import
+import NotificationToast from './components/NotificationToast';
 
 import './styles/EncouragementModal.css';
 
 // Import useFirebase and the auth instance directly from firebase.js
 import { useFirebase, auth } from './firebase';
-import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, getUserProfile } from './services/firestoreService'; // Import getUserProfile
+import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService';
 
 function App() {
   const { user, isAuthReady } = useFirebase();
@@ -23,8 +23,9 @@ function App() {
   // State for in-app notifications
   const [unreadNotes, setUnreadNotes] = useState([]);
   const [currentNotification, setCurrentNotification] = useState(null); // The note currently displayed as a toast
+  const [allPublicUserProfiles, setAllPublicUserProfiles] = useState([]); // State for all public user profiles
 
-  // In-app message system (reusing from LoginPage, can be a shared component later)
+  // In-app message system
   const [appMessage, setAppMessage] = useState({ type: '', text: '' });
   const showAppMessage = (type, text) => {
     setAppMessage({ type, text });
@@ -33,35 +34,81 @@ function App() {
     }, 5000);
   };
 
+  // useRef to store the previous user state
+  const previousUserRef = useRef(user);
+
+  // Effect to subscribe to all public user display names
   useEffect(() => {
-    let unsubscribeNotes;
-    if (user?.uid && isAuthReady) {
-      // Subscribe to unread notes for the current user
-      unsubscribeNotes = subscribeToEncouragementNotes(user.uid, async (notes) => {
-        // For each note, fetch the sender's display name
-        const notesWithSenderNames = await Promise.all(notes.map(async (note) => {
-          const senderProfile = await getUserProfile(note.senderId);
-          return {
-            ...note,
-            senderDisplayName: senderProfile?.displayName || 'Someone',
-          };
-        }));
-        setUnreadNotes(notesWithSenderNames);
-        // If there are new unread notes, potentially show one as a notification
-        if (notesWithSenderNames.length > 0) {
-          setCurrentNotification(notesWithSenderNames[0]);
-        } else {
-          setCurrentNotification(null);
-        }
+    let unsubscribePublicProfiles;
+    if (isAuthReady) {
+      console.log("DEBUG App.jsx useEffect: Subscribing to all public user display names.");
+      unsubscribePublicProfiles = subscribeToAllUserDisplayNames((profiles) => {
+        setAllPublicUserProfiles(profiles);
       });
     }
 
     return () => {
+      if (unsubscribePublicProfiles) {
+        console.log("DEBUG App.jsx useEffect: Unsubscribing from all public user display names.");
+        unsubscribePublicProfiles();
+      }
+    };
+  }, [isAuthReady]);
+
+  // Effect for subscribing to notes and updating notifications
+  useEffect(() => {
+    let unsubscribeNotes;
+    console.log("DEBUG App.jsx useEffect: Checking user and authReady status for note subscription.");
+    console.log("DEBUG App.jsx useEffect: User UID:", user?.uid, "isAuthReady:", isAuthReady);
+
+    if (user?.uid && isAuthReady) {
+      console.log(`DEBUG App.jsx useEffect: Subscribing to unread notes for receiverId: ${user.uid}`);
+      unsubscribeNotes = subscribeToEncouragementNotes(user.uid, (notes) => {
+        console.log("DEBUG App.jsx useEffect: received notes from subscribeToEncouragementNotes callback:", notes);
+        const notesWithSenderNames = notes.map((note) => {
+          const senderProfile = allPublicUserProfiles.find(profile => profile.id === note.senderId);
+          return {
+            ...note,
+            senderDisplayName: senderProfile?.displayName || 'Someone',
+          };
+        });
+        setUnreadNotes(notesWithSenderNames);
+        if (notesWithSenderNames.length > 0) {
+          console.log("DEBUG App.jsx useEffect: Setting currentNotification to:", notesWithSenderNames[0]);
+          setCurrentNotification(notesWithSenderNames[0]);
+        } else {
+          console.log("DEBUG App.jsx useEffect: No unread notes, clearing currentNotification.");
+          setCurrentNotification(null);
+        }
+      });
+    } else {
+      console.log("DEBUG App.jsx useEffect: Conditions not met for note subscription (user.uid or isAuthReady false).");
+    }
+
+    return () => {
       if (unsubscribeNotes) {
+        console.log("DEBUG App.jsx useEffect: Unsubscribing from notes listener.");
         unsubscribeNotes();
       }
     };
-  }, [user?.uid, isAuthReady]); // Re-subscribe when user changes or auth readiness changes
+  }, [user?.uid, isAuthReady, allPublicUserProfiles]); // Add allPublicUserProfiles to dependencies
+
+  // NEW useEffect to handle logout message based on user state transition
+  useEffect(() => {
+    // Only run if auth is ready
+    if (isAuthReady) {
+      // Condition: previous user was logged in, and current user is null (logged out)
+      // This ensures the message only appears when a user explicitly signs out,
+      // not on initial app load when user is null, or during login.
+      if (previousUserRef.current && !user) {
+        console.log("DEBUG App.jsx useEffect: Detected user logout transition.");
+        showAppMessage('success', 'You have been signed out.');
+      }
+      // Update previousUserRef for the next render cycle
+      previousUserRef.current = user;
+    }
+  }, [user, isAuthReady, showAppMessage]);
+
 
   const handleNavigate = (page) => {
     setCurrentPage(page);
@@ -71,11 +118,12 @@ function App() {
     if (auth) {
       try {
         await auth.signOut();
-        console.log("DEBUG: User signed out successfully.");
+        console.log("DEBUG: User signed out successfully (Firebase event triggered).");
         setCurrentPage('courses');
         setUnreadNotes([]); // Clear notes on logout
         setCurrentNotification(null); // Clear notification on logout
-        showAppMessage('success', 'You have been signed out.');
+        setAllPublicUserProfiles([]); // Clear public profiles on logout
+        // The success message ('You have been signed out') is now handled by the useEffect above
       } catch (error) {
         console.error("DEBUG: Error signing out:", error);
         showAppMessage('error', `Failed to sign out: ${error.message}`);
@@ -95,18 +143,20 @@ function App() {
   const handleNotificationRead = async (noteId) => {
     if (user?.uid && noteId) {
       try {
+        console.log(`DEBUG App.jsx: Marking note ${noteId} as read for user ${user.uid}`);
         await markEncouragementNoteAsRead(noteId, user.uid);
         setCurrentNotification(null); // Hide the current toast
         // The `subscribeToEncouragementNotes` will automatically refresh unreadNotes
       } catch (error) {
-        console.error("Error marking note as read:", error);
+        console.error("DEBUG App.jsx: Error marking note as read:", error);
         showAppMessage('error', 'Failed to mark note as read.');
       }
+    } else {
+      console.warn("DEBUG App.jsx: Cannot mark note as read: user.uid or noteId missing.");
     }
   };
 
   // Define who can send encouragement notes. For now, any logged-in user.
-  // This can be expanded (e.g., specific user IDs, roles from Firestore profile)
   const canSendEncouragement = !!user;
 
   if (!isAuthReady) {
