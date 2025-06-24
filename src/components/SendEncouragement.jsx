@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { addEncouragementNote, subscribeToAllUserDisplayNames } from '../services/firestoreService';
 import { useFirebase } from '../firebase'; // To get the sender's UID
-import { ChevronLeft } from 'lucide-react'; // Import ChevronLeft for a back button
+// Removed ChevronLeft as it's no longer used for the back button
+// import { ChevronLeft } from 'lucide-react'; // Removed import
 
-const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => { // Added showBackButton prop
+const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => { // showBackButton prop is now effectively unused
     const { user, isAuthReady } = useFirebase();
     const [noteText, setNoteText] = useState('');
     const [recipients, setRecipients] = useState([]); // State to store all user profiles
@@ -88,19 +89,19 @@ const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => { // A
     };
 
     return (
-        <div className="min-h-screen bg-gray-100 p-4 pt-5 body-pad"> {/* Adjusted for full page */}
-            {/* Conditional Back Button */}
-            {showBackButton && (
+        <div className="min-h-screen bg-gray-100 p-4 pt-5"> {/* Adjusted for full page */}
+            {/* Conditional Back Button - REMOVED */}
+            {/* {showBackButton && (
                 <button
                     onClick={onClose} // onClose will navigate back to courses page
                     className="mb-4 px-3 py-1 border border-black text-black rounded hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200 flex items-center gap-1"
                 >
                     <ChevronLeft size={16} /> Back to Courses
                 </button>
-            )}
+            )} */}
 
-            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm mx-auto"> {/* Centered content */}
-                <h2 className="text-2xl font-bold mb-4 text-center">Send Encouragement</h2>
+            <div className="w-full max-w-sm mx-auto"> {/* Removed card styling classes */}
+                <h2 className="text-2xl font-bold mb-4 text-center pt-5">Send Encouragement</h2>
                 {message.text && (
                     <div className={`mb-4 p-3 rounded-md ${message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                         {message.text}
@@ -115,7 +116,7 @@ const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => { // A
                             id="recipient-select"
                             value={selectedRecipientId}
                             onChange={(e) => setSelectedRecipientId(e.target.value)}
-                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" // Added bg-white
                             disabled={isLoading || recipients.length === 0}
                         >
                             {recipients.length === 0 ? (
@@ -138,7 +139,7 @@ const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => { // A
                             value={noteText}
                             onChange={(e) => setNoteText(e.target.value)}
                             rows="4"
-                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y bg-white" // Added bg-white
                             placeholder="Type your encouragement here..."
                             disabled={isLoading}
                         ></textarea>

@@ -15,7 +15,8 @@ const Accordion = ({ title, children, defaultOpen = false }) => {
     return (
         <div className="bg-white rounded-lg shadow-md max-w-md mx-auto mb-6">
             <button
-                className="w-full flex justify-between items-center p-6 text-xl font-semibold text-gray-800 focus:outline-none"
+                // Added bg-white and rounded-lg to ensure the button itself has a white background and rounded corners
+                className="w-full flex justify-between items-center p-6 text-xl font-semibold text-gray-800 focus:outline-none !bg-white rounded-lg"
                 onClick={toggleAccordion}
                 aria-expanded={isOpen}
             >
