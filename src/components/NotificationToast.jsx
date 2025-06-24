@@ -25,9 +25,9 @@ const NotificationToast = ({ note, onClose }) => {
     if (!isVisible || !note) return null;
 
     return (
-        <div className="fixed top-4 left-0 right-0 z-[1001] bg-blue-600 text-white p-4 rounded-lg shadow-xl flex items-start space-x-3 w-full transition-transform duration-300 ease-out transform opacity-100">
+        <div className="fixed top-4 left-0 right-0 z-[1001] bg-blue-600 text-white py-6 px-4 rounded-lg shadow-xl flex items-start space-x-3 w-full transition-transform duration-300 ease-out transform opacity-100">
             {/* The 'left-0 right-0' and 'w-full' classes ensure it spans 100% width. */}
-            {/* 'p-4' provides padding from the screen edges to the content. */}
+            {/* 'py-6 px-4' provides more vertical padding and horizontal padding. */}
             <div className="flex-grow">
                 <p className="font-semibold text-lg mb-1">New Encouragement!</p>
                 {/* Display sender's display name, defaulting to "Someone" if not available */}
@@ -36,7 +36,7 @@ const NotificationToast = ({ note, onClose }) => {
             </div>
             <button
                 onClick={handleClose}
-                className="text-white hover:text-gray-200 focus:outline-none p-1 -mt-1 -mr-1 rounded-full hover:bg-blue-700 transition-colors"
+                className="text-black hover:text-gray-200 focus:outline-none p-1 -mt-1 -mr-1 rounded-full hover:bg-blue-700 transition-colors"
                 aria-label="Dismiss notification"
             >
                 <X size={20} />

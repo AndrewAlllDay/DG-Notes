@@ -155,7 +155,7 @@ export default function SettingsPage() {
                     />
                     <button
                         onClick={handleSaveDisplayName}
-                        className="mt-2 w-full bg-green-600 text-white p-2 rounded-md font-semibold hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        className="mt-2 w-full !bg-green-600 text-white p-2 rounded-md font-semibold hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500"
                     >
                         Save Display Name
                     </button>
@@ -187,7 +187,7 @@ export default function SettingsPage() {
                 </div>
                 {user.email && <p className="text-gray-600 text-sm mt-3">Logged in as: {user.email}</p>}
                 {/* Display the role fetched from useFirebase */}
-                <p className="text-gray-600 text-sm">Your Role: <span className="font-semibold capitalize">{user.role || 'user'}</span></p>
+                <p className="text-gray-600 text-sm">Your Role: <span className="font-semibold capitalize">{user.role || 'non-player'}</span></p>
 
             </div>
 
@@ -204,37 +204,40 @@ export default function SettingsPage() {
                         {allUserProfiles.length > 0 ? (
                             allUserProfiles.map(profile => (
                                 <li key={profile.id} className="border-b pb-2 last:border-b-0">
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <p className="font-semibold text-gray-800">{profile.displayName || 'No Name'}</p>
-                                            <p className="text-sm text-gray-500 truncate" title={profile.id}>ID: {profile.id}</p>
+                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full"> {/* Changed to flex-col on small screens, flex-row on sm+ */}
+                                        <div className="mb-2 sm:mb-0 sm:mr-4 min-w-0 flex-shrink-0"> {/* Added min-w-0 and flex-shrink-0 */}
+                                            <p className="font-semibold text-gray-800 break-words">{profile.displayName || 'No Name'}</p>
+                                            <p className="text-sm text-gray-500 break-all" title={profile.id}>ID: {profile.id}</p> {/* break-all for long IDs */}
                                         </div>
-                                        <div className="flex items-center space-x-2">
-                                            <select
-                                                className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                value={selectedRole[profile.id] || profile.role || 'user'}
-                                                onChange={(e) => handleRoleChange(profile.id, e.target.value)}
-                                            >
-                                                <option value="user">User</option>
-                                                <option value="admin">Admin</option>
-                                                {/* Add other roles here as needed */}
-                                            </select>
-                                            <button
-                                                onClick={() => handleSaveRole(profile.id)}
-                                                className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                disabled={
-                                                    (selectedRole[profile.id] === (profile.role || 'user')) || // No change
-                                                    (!selectedRole[profile.id] && !profile.role) || // No role selected
-                                                    (profile.id === user.uid) // Prevent admin from changing their own role (good practice)
-                                                }
-                                            >
-                                                Save
-                                            </button>
-                                        </div>
+                                        {profile.id === user.uid ? ( // Check if this is the currently logged-in user
+                                            <div className="text-gray-500 text-sm sm:text-base">
+                                                Your Profile
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center space-x-2 flex-grow sm:flex-grow-0 justify-end"> {/* Ensured controls are aligned to end */}
+                                                <select
+                                                    className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex-grow sm:flex-grow-0" // Added flex-grow
+                                                    value={selectedRole[profile.id] || profile.role || 'non-player'}
+                                                    onChange={(e) => handleRoleChange(profile.id, e.target.value)}
+                                                >
+                                                    <option value="non-player">Non-Player</option> {/* Updated option */}
+                                                    <option value="admin">Admin</option>
+                                                    {/* Add other roles here as needed */}
+                                                </select>
+                                                <button
+                                                    onClick={() => handleSaveRole(profile.id)}
+                                                    className="px-3 py-2 !bg-green-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0" // Added flex-shrink-0
+                                                    disabled={
+                                                        (selectedRole[profile.id] === (profile.role || 'non-player')) || // No change
+                                                        (!selectedRole[profile.id] && (profile.role === undefined || profile.role === null || profile.role === 'non-player'))
+                                                    }
+                                                >
+                                                    Save
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
-                                    {profile.id === user.uid && (
-                                        <p className="text-xs text-red-500 mt-1">You cannot change your own role here.</p>
-                                    )}
+                                    {/* Removed the "You cannot change your own role here" message as controls are now hidden */}
                                 </li>
                             ))
                         ) : (

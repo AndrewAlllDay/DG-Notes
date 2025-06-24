@@ -46,7 +46,7 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEn
 
             {/* Mobile nav links */}
             {isOpen && (
-                <nav className="md:hidden px-4 pb-4">
+                <nav className="md:hidden px-4 pb-4 pt-5">
                     <ul className="flex flex-col gap-2 text-gray-700">
                         <li className="nav-links"><a href="#" onClick={() => { onNavigate('courses'); setIsOpen(false); }}>Courses</a></li>
                         <li className="nav-links"><a href="#" onClick={() => { onNavigate('settings'); setIsOpen(false); }}>Settings</a></li>

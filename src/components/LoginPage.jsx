@@ -33,7 +33,7 @@ export default function LoginPage() {
                 if (userCredential.user) {
                     const defaultProfileData = {
                         displayName: userCredential.user.email.split('@')[0], // Default display name from email
-                        role: 'user', // Default role for new users
+                        role: 'non-player', // <--- CHANGED: Default role for new users is 'non-player'
                         email: userCredential.user.email // Store email for easier lookup/display
                     };
                     console.log("DEBUG LoginPage: Attempting to set user profile for UID:", userCredential.user.uid, "with data:", defaultProfileData);
@@ -81,7 +81,7 @@ export default function LoginPage() {
             if (userCredential.user) {
                 const profileDataForGoogleUser = {
                     displayName: userCredential.user.displayName || userCredential.user.email.split('@')[0],
-                    role: 'user', // Default role for new Google users
+                    role: 'non-player', // <--- CHANGED: Default role for new Google users is 'non-player'
                     email: userCredential.user.email // Store email
                 };
                 console.log("DEBUG LoginPage: Attempting to set user profile for Google UID:", userCredential.user.uid, "with data:", profileDataForGoogleUser);
