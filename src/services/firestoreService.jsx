@@ -37,12 +37,18 @@ const getUserProfilesCollection = () => {
     return collection(db, `artifacts/${appId}/user_profiles`);
 };
 
+// NEW: Function to get the teams collection path
+const getTeamsCollection = () => {
+    return collection(db, `artifacts/${appId}/teams`);
+};
+
 // --- USER PROFILE MANAGEMENT ---
 
 /**
  * Sets or updates a user's profile data in Firestore.
  * This is used for both initial profile creation (e.g., after registration)
  * and subsequent updates (e.g., changing display name, setting role by admin).
+ * Can also add/remove team IDs.
  * @param {string} userId - The UID of the user.
  * @param {Object} profileData - The data to set/update in the user's profile document.
  * @returns {Promise<void>}
@@ -136,8 +142,8 @@ export const subscribeToAllUserProfiles = (callback) => {
 /**
  * Subscribes to real-time updates for a PUBLIC list of all user display names and UIDs.
  * This function should have more relaxed security rules to allow any authenticated user to read it.
- * It fetches only the necessary fields to display a list of recipients.
- * @param {function} callback - Callback function to receive an array of simplified user profile data ({id, displayName, email}).
+ * It fetches only the necessary fields to display a list of recipients, now including teamIds.
+ * @param {function} callback - Callback function to receive an array of simplified user profile data ({id, displayName, email, teamIds}).
  * @returns {function} An unsubscribe function.
  */
 export const subscribeToAllUserDisplayNames = (callback) => {
@@ -149,7 +155,8 @@ export const subscribeToAllUserDisplayNames = (callback) => {
             return {
                 id: doc.id,
                 displayName: data.displayName || 'Unnamed User', // Provide a fallback
-                email: data.email || 'Email not available' // Include email as well
+                email: data.email || 'Email not available', // Include email as well
+                teamIds: data.teamIds || [] // NEW: Include teamIds for filtering
             };
         });
         console.log("DEBUG firestoreService: Fetched all user display names (count):", profiles.length, "Profiles:", profiles);
@@ -158,6 +165,147 @@ export const subscribeToAllUserDisplayNames = (callback) => {
         console.error("DEBUG firestoreService: Error subscribing to all user display names: ", error);
     });
     return unsubscribe;
+};
+
+// --- NEW: TEAM MANAGEMENT FUNCTIONS ---
+
+/**
+ * Adds a new team to Firestore.
+ * @param {string} name - The name of the team.
+ * @returns {Promise<Object>} A promise that resolves with the new team's ID and data.
+ */
+export const addTeam = async (name) => {
+    try {
+        if (!name || name.trim() === '') {
+            throw new Error("Team name cannot be empty.");
+        }
+        const newTeamData = {
+            name: name.trim(),
+            memberIds: [], // Initialize with an empty array of member UIDs
+            createdAt: new Date(),
+        };
+        const docRef = await addDoc(getTeamsCollection(), newTeamData);
+        console.log("Team added with ID: ", docRef.id);
+        return { id: docRef.id, ...newTeamData };
+    } catch (e) {
+        console.error("Error adding team: ", e);
+        throw e;
+    }
+};
+
+/**
+ * Subscribes to real-time updates for all teams.
+ * @param {function} callback - Callback function to receive an array of team objects.
+ * @returns {function} An unsubscribe function.
+ */
+export const subscribeToAllTeams = (callback) => {
+    const q = query(getTeamsCollection(), orderBy('name', 'asc'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const teams = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        console.log("DEBUG firestoreService: Fetched all teams:", teams);
+        callback(teams);
+    }, (error) => {
+        console.error("Error subscribing to all teams: ", error);
+    });
+    return unsubscribe;
+};
+
+/**
+ * Updates an existing team document.
+ * @param {string} teamId - The ID of the team to update.
+ * @param {Object} newData - The data to update in the team document.
+ * @returns {Promise<void>}
+ */
+export const updateTeam = async (teamId, newData) => {
+    try {
+        if (!teamId) {
+            throw new Error("Cannot update team: Team ID is missing.");
+        }
+        const teamDocRef = doc(getTeamsCollection(), teamId);
+        await updateDoc(teamDocRef, newData);
+        console.log("Team updated successfully!");
+    } catch (e) {
+        console.error("Error updating team: ", e);
+        throw e;
+    }
+};
+
+/**
+ * Deletes a team document.
+ * @param {string} teamId - The ID of the team to delete.
+ * @returns {Promise<void>}
+ */
+export const deleteTeam = async (teamId) => {
+    try {
+        if (!teamId) {
+            throw new Error("Cannot delete team: Team ID is missing.");
+        }
+        const teamDocRef = doc(getTeamsCollection(), teamId);
+        await deleteDoc(teamDocRef);
+        console.log("Team deleted successfully!");
+    } catch (e) {
+        console.error("Error deleting team: ", e);
+        throw e;
+    }
+};
+
+/**
+ * Adds a user as a member to a specific team and updates the user's profile.
+ * @param {string} teamId - The ID of the team.
+ * @param {string} userId - The UID of the user to add.
+ * @returns {Promise<void>}
+ */
+export const addTeamMember = async (teamId, userId) => {
+    try {
+        if (!teamId || !userId) {
+            throw new Error("Team ID and User ID are required to add a member.");
+        }
+        const teamDocRef = doc(getTeamsCollection(), teamId);
+        const userProfileDocRef = doc(getUserProfilesCollection(), userId);
+
+        // Atomically update both team and user profile
+        await updateDoc(teamDocRef, {
+            memberIds: arrayUnion(userId)
+        });
+        await updateDoc(userProfileDocRef, {
+            teamIds: arrayUnion(teamId)
+        });
+        console.log(`User ${userId} added to team ${teamId} successfully.`);
+    } catch (e) {
+        console.error("Error adding team member: ", e);
+        throw e;
+    }
+};
+
+/**
+ * Removes a user from a specific team and updates the user's profile.
+ * @param {string} teamId - The ID of the team.
+ * @param {string} userId - The UID of the user to remove.
+ * @returns {Promise<void>}
+ */
+export const removeTeamMember = async (teamId, userId) => {
+    try {
+        if (!teamId || !userId) {
+            throw new Error("Team ID and User ID are required to remove a member.");
+        }
+        const teamDocRef = doc(getTeamsCollection(), teamId);
+        const userProfileDocRef = doc(getUserProfilesCollection(), userId);
+
+        // Atomically update both team and user profile
+        await updateDoc(teamDocRef, {
+            memberIds: arrayRemove(userId)
+        });
+        await updateDoc(userProfileDocRef, {
+            teamIds: arrayRemove(teamId)
+        });
+        console.log(`User ${userId} removed from team ${teamId} successfully.`);
+    } catch (e) {
+        console.error("Error removing team member: ", e);
+        throw e;
+    }
 };
 
 

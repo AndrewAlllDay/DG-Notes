@@ -19,8 +19,24 @@ const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => { // s
         if (isAuthReady && user) { // Fetch when auth is ready and user is logged in
             console.log("DEBUG SendEncouragement: Subscribing to all user display names.");
             unsubscribe = subscribeToAllUserDisplayNames((fetchedProfiles) => {
+                const currentUserId = user?.uid;
+                const currentUserTeamIds = user?.teamIds || []; // Get current user's team IDs
+
                 // Filter out the current user from the list of recipients
-                const filteredRecipients = fetchedProfiles.filter(profile => profile.id !== user?.uid);
+                let filteredRecipients = fetchedProfiles.filter(profile => profile.id !== currentUserId);
+
+                // Apply team-based filtering unless the current user is an admin
+                if (user.role !== 'admin') {
+                    console.log("DEBUG SendEncouragement: Current user is NOT admin, applying team filter.");
+                    filteredRecipients = filteredRecipients.filter(profile => {
+                        const recipientTeamIds = profile.teamIds || [];
+                        // Check if sender and recipient share at least one common team
+                        return currentUserTeamIds.some(teamId => recipientTeamIds.includes(teamId));
+                    });
+                } else {
+                    console.log("DEBUG SendEncouragement: Current user IS admin, no team filter applied.");
+                }
+
                 setRecipients(filteredRecipients);
                 // Pre-select the first recipient if available and none is selected yet
                 if (filteredRecipients.length > 0 && !selectedRecipientId) {
@@ -41,7 +57,7 @@ const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => { // s
                 unsubscribe();
             }
         };
-    }, [isAuthReady, user?.uid, selectedRecipientId]); // Depend on auth ready and user UID
+    }, [isAuthReady, user?.uid, user?.role, user?.teamIds, selectedRecipientId]); // Depend on auth ready, user UID, role, and teamIds
 
     // Effect to clear messages after a delay
     useEffect(() => {
@@ -89,17 +105,7 @@ const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => { // s
     };
 
     return (
-        <div className="min-h-screen bg-gray-100 p-4 pt-5"> {/* Adjusted for full page */}
-            {/* Conditional Back Button - REMOVED */}
-            {/* {showBackButton && (
-                <button
-                    onClick={onClose} // onClose will navigate back to courses page
-                    className="mb-4 px-3 py-1 border border-black text-black rounded hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200 flex items-center gap-1"
-                >
-                    <ChevronLeft size={16} /> Back to Courses
-                </button>
-            )} */}
-
+        <div className="min-h-screen bg-gray-100 p-4 pt-5 body-pad"> {/* Adjusted for full page */}
             <div className="w-full max-w-sm mx-auto"> {/* Removed card styling classes */}
                 <h2 className="text-2xl font-bold mb-4 text-center pt-5">Send Encouragement</h2>
                 {message.text && (
@@ -116,11 +122,13 @@ const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => { // s
                             id="recipient-select"
                             value={selectedRecipientId}
                             onChange={(e) => setSelectedRecipientId(e.target.value)}
-                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" // Added bg-white
+                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                             disabled={isLoading || recipients.length === 0}
                         >
                             {recipients.length === 0 ? (
-                                <option value="">Loading recipients...</option>
+                                <option value="">
+                                    {user?.role === 'admin' ? "No users available (admin)" : "No shared teams, no recipients available"}
+                                </option>
                             ) : (
                                 recipients.map(recipient => (
                                     <option key={recipient.id} value={recipient.id}>
@@ -129,6 +137,11 @@ const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => { // s
                                 ))
                             )}
                         </select>
+                        {recipients.length === 0 && user?.role !== 'admin' && (
+                            <p className="text-sm text-gray-500 mt-1">
+                                Join a team in Settings to send notes to teammates!
+                            </p>
+                        )}
                     </div>
                     <div>
                         <label htmlFor="note-text" className="block text-sm font-medium text-gray-700 mb-1">
@@ -139,7 +152,7 @@ const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => { // s
                             value={noteText}
                             onChange={(e) => setNoteText(e.target.value)}
                             rows="4"
-                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y bg-white" // Added bg-white
+                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y bg-white"
                             placeholder="Type your encouragement here..."
                             disabled={isLoading}
                         ></textarea>

@@ -1,8 +1,16 @@
 // src/components/SettingsPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useFirebase } from '../firebase'; // Import the useFirebase hook
-import { Copy, ChevronDown, ChevronUp } from 'lucide-react'; // Import icons for clipboard and accordion
-import { setUserProfile, subscribeToAllUserProfiles } from '../services/firestoreService'; // Import new profile functions and subscribe to all
+import { Copy, ChevronDown, ChevronUp, PlusCircle, Trash2, UserPlus, UserMinus } from 'lucide-react'; // Import icons
+import {
+    setUserProfile,
+    subscribeToAllUserProfiles,
+    addTeam,
+    subscribeToAllTeams,
+    addTeamMember,
+    removeTeamMember,
+    deleteTeam
+} from '../services/firestoreService'; // Import new profile functions and subscribe to all, and new team functions
 
 // Reusable Accordion Component
 const Accordion = ({ title, children, defaultOpen = false }) => {
@@ -15,8 +23,7 @@ const Accordion = ({ title, children, defaultOpen = false }) => {
     return (
         <div className="bg-white rounded-lg shadow-md max-w-md mx-auto mb-6">
             <button
-                // Added bg-white and rounded-lg to ensure the button itself has a white background and rounded corners
-                className="w-full flex justify-between items-center p-6 text-xl font-semibold text-gray-800 focus:outline-none !bg-white rounded-lg"
+                className="w-full flex justify-between items-center p-6 text-xl font-semibold text-gray-800 focus:outline-none bg-white rounded-lg"
                 onClick={toggleAccordion}
                 aria-expanded={isOpen}
             >
@@ -42,6 +49,12 @@ export default function SettingsPage() {
     const [allUserProfiles, setAllUserProfiles] = useState([]);
     const [selectedRole, setSelectedRole] = useState({}); // Stores { userId: 'role' } for pending changes
     const [roleSaveMessage, setRoleSaveMessage] = useState({ type: '', text: '' });
+
+    // NEW: State for Team Management
+    const [teams, setTeams] = useState([]);
+    const [newTeamName, setNewTeamName] = useState('');
+    const [teamMessage, setTeamMessage] = useState({ type: '', text: '' }); // Message for team operations
+    const [pendingTeamMembers, setPendingTeamMembers] = useState({}); // Stores { teamId: { userId: true/false } } for adds/removes
 
     // Define the application version.
     // IMPORTANT: You need to manually update this value to match the CACHE_NAME in your service-worker.js file.
@@ -75,6 +88,27 @@ export default function SettingsPage() {
             }
         };
     }, [user?.role, isAuthReady]); // Re-subscribe when admin status or auth changes
+
+    // NEW: Effect to subscribe to all teams for admin management
+    useEffect(() => {
+        let unsubscribeTeams;
+        if (user?.role === 'admin' && isAuthReady) {
+            console.log("DEBUG SettingsPage: Subscribing to all teams for admin view.");
+            unsubscribeTeams = subscribeToAllTeams((fetchedTeams) => {
+                setTeams(fetchedTeams);
+            });
+        } else if (unsubscribeTeams) {
+            unsubscribeTeams();
+            setTeams([]);
+        }
+
+        return () => {
+            if (unsubscribeTeams) {
+                console.log("DEBUG SettingsPage: Unsubscribing from all teams.");
+                unsubscribeTeams();
+            }
+        };
+    }, [user?.role, isAuthReady]);
 
 
     const handleCopyUserId = () => {
@@ -146,6 +180,58 @@ export default function SettingsPage() {
         }
     };
 
+    // NEW: Team Management Handlers
+    const handleAddTeam = async () => {
+        setTeamMessage({ type: '', text: '' });
+        if (newTeamName.trim() === '') {
+            setTeamMessage({ type: 'error', text: 'Team name cannot be empty.' });
+            return;
+        }
+        try {
+            await addTeam(newTeamName.trim());
+            setNewTeamName('');
+            setTeamMessage({ type: 'success', text: 'Team created successfully!' });
+        } catch (error) {
+            console.error("Error creating team:", error);
+            setTeamMessage({ type: 'error', text: `Failed to create team: ${error.message}` });
+        } finally {
+            setTimeout(() => setTeamMessage({ type: '', text: '' }), 3000);
+        }
+    };
+
+    const handleDeleteTeam = async (teamId) => {
+        setTeamMessage({ type: '', text: '' });
+        if (window.confirm("Are you sure you want to delete this team? This action cannot be undone.")) {
+            try {
+                await deleteTeam(teamId);
+                setTeamMessage({ type: 'success', text: 'Team deleted successfully!' });
+            } catch (error) {
+                console.error("Error deleting team:", error);
+                setTeamMessage({ type: 'error', text: `Failed to delete team: ${error.message}` });
+            } finally {
+                setTimeout(() => setTeamMessage({ type: '', text: '' }), 3000);
+            }
+        }
+    };
+
+    const handleToggleTeamMembership = async (teamId, memberUserId, isMember) => {
+        setTeamMessage({ type: '', text: '' });
+        try {
+            if (isMember) {
+                await removeTeamMember(teamId, memberUserId);
+                setTeamMessage({ type: 'success', text: 'Member removed from team.' });
+            } else {
+                await addTeamMember(teamId, memberUserId);
+                setTeamMessage({ type: 'success', text: 'Member added to team.' });
+            }
+        } catch (error) {
+            console.error("Error updating team membership:", error);
+            setTeamMessage({ type: 'error', text: `Failed to update membership: ${error.message}` });
+        } finally {
+            setTimeout(() => setTeamMessage({ type: '', text: '' }), 3000);
+        }
+    };
+
 
     // Show loading state if auth is not ready
     if (!isAuthReady) {
@@ -177,7 +263,7 @@ export default function SettingsPage() {
                     <input
                         type="text"
                         id="displayName"
-                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" // Added bg-white
                         value={displayNameInput}
                         onChange={(e) => setDisplayNameInput(e.target.value)}
                         placeholder="e.g., Disc Golf Pro"
@@ -243,7 +329,7 @@ export default function SettingsPage() {
                                         ) : (
                                             <div className="flex items-center space-x-2 flex-grow sm:flex-grow-0 justify-end">
                                                 <select
-                                                    className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex-grow sm:flex-grow-0"
+                                                    className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex-grow sm:flex-grow-0 bg-white" // Added bg-white
                                                     value={selectedRole[profile.id] || profile.role || 'non-player'}
                                                     onChange={(e) => handleRoleChange(profile.id, e.target.value)}
                                                 >
@@ -269,6 +355,85 @@ export default function SettingsPage() {
                             <p className="text-gray-600">No other user profiles found.</p>
                         )}
                     </ul>
+                </Accordion>
+            )}
+
+            {/* NEW: Admin Team Management Section - Only visible to admin users */}
+            {user.role === 'admin' && (
+                <Accordion title="Team Management (Admin)" defaultOpen={false}>
+                    {teamMessage.text && (
+                        <p className={`mt-2 mb-4 text-sm ${teamMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                            {teamMessage.text}
+                        </p>
+                    )}
+                    <div className="mb-6 border-b pb-4">
+                        <h3 className="text-lg font-semibold mb-2">Create New Team</h3>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                className="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                placeholder="New team name"
+                                value={newTeamName}
+                                onChange={(e) => setNewTeamName(e.target.value)}
+                            />
+                            <button
+                                onClick={handleAddTeam}
+                                className="p-2 !bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center"
+                            >
+                                <PlusCircle size={20} />
+                            </button>
+                        </div>
+                    </div>
+
+                    <h3 className="text-lg font-semibold mb-3">Existing Teams</h3>
+                    {teams.length === 0 ? (
+                        <p className="text-gray-600">No teams created yet.</p>
+                    ) : (
+                        <ul className="space-y-4">
+                            {teams.map(team => (
+                                <li key={team.id} className="border p-4 rounded-md shadow-sm bg-gray-50">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <p className="font-semibold text-gray-800">{team.name}</p>
+                                        <button
+                                            onClick={() => handleDeleteTeam(team.id)}
+                                            className="p-1 text-red-600 hover:text-red-800 transition-colors"
+                                            aria-label={`Delete team ${team.name}`}
+                                        >
+                                            <Trash2 size={20} />
+                                        </button>
+                                    </div>
+                                    <p className="text-sm text-gray-600 mb-2">Team ID: <span className="font-mono text-xs">{team.id}</span></p>
+
+                                    <h4 className="text-md font-medium mt-4 mb-2">Team Members:</h4>
+                                    {/* Display list of users and allow adding/removing from this team */}
+                                    {allUserProfiles.length > 0 ? (
+                                        <ul className="max-h-40 overflow-y-auto border border-gray-200 rounded-md p-2 bg-white">
+                                            {allUserProfiles.map(profile => {
+                                                const isMember = team.memberIds && team.memberIds.includes(profile.id);
+                                                return (
+                                                    <li key={profile.id} className="flex justify-between items-center py-1 border-b border-gray-100 last:border-b-0">
+                                                        <span className="text-sm">{profile.displayName || 'Unnamed User'}</span>
+                                                        <button
+                                                            onClick={() => handleToggleTeamMembership(team.id, profile.id, isMember)}
+                                                            className={`p-1 rounded-md transition-colors ${isMember
+                                                                    ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                                                    : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                                }`}
+                                                            aria-label={isMember ? `Remove ${profile.displayName} from team` : `Add ${profile.displayName} to team`}
+                                                        >
+                                                            {isMember ? <UserMinus size={16} /> : <UserPlus size={16} />}
+                                                        </button>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    ) : (
+                                        <p className="text-gray-600 text-sm">No users to add to teams.</p>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                 </Accordion>
             )}
 
