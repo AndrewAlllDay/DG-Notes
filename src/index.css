@@ -106,4 +106,8 @@ button:focus-visible {
   .button-bottom {
     margin-bottom: 75px;
   }
+
+  .body-pad {
+    padding-top: 75px;
+  }
 }

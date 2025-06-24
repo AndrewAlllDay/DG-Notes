@@ -4,8 +4,9 @@ import Courses from './components/Courses';
 import EncouragementModal from './components/EncouragementModal';
 import LoginPage from './components/LoginPage';
 import SettingsPage from './components/SettingsPage';
-import SendEncouragementModal from './components/SendEncouragementModal';
-import NotificationToast from './components/NotificationToast'; // Uncommented import
+// IMPORTANT: This import will be for the refactored non-modal component
+import SendEncouragement from './components/SendEncouragement'; // Will replace SendEncouragementModal
+import NotificationToast from './components/NotificationToast';
 
 import './styles/EncouragementModal.css';
 
@@ -31,13 +32,17 @@ function App() {
   console.log(`DEBUG App.jsx Render: user=${user?.uid || 'null'}, isAuthReady=${isAuthReady}`);
 
   const [isEncouragementModalOpen, setIsEncouragementModalOpen] = useState(false);
-  const [isSendEncouragementModalOpen, setIsSendEncouragementModalOpen] = useState(false);
+  // Removed isSendEncouragementModalOpen state as it will be a direct page now
   const [currentPage, setCurrentPage] = useState('courses');
 
   // State for in-app notifications
   const [unreadNotes, setUnreadNotes] = useState([]);
   const [currentNotification, setCurrentNotification] = useState(null); // The note currently displayed as a toast
   const [allPublicUserProfiles, setAllPublicUserProfiles] = useState([]); // State for all public user profiles
+
+  // NEW: State to track if the non-player's initial redirection has happened
+  const [hasInitialNonPlayerRedirected, setHasInitialNonPlayerRedirected] = useState(false);
+
 
   // In-app message system (reused from LoginPage, can be a shared component later)
   const [appMessage, setAppMessage] = useState({ type: '', text: '' });
@@ -104,7 +109,20 @@ function App() {
     };
   }, [user?.uid, isAuthReady, allPublicUserProfiles]); // Add allPublicUserProfiles to dependencies
 
-  // Removed the useEffect for previousUserRef as notifications are now event-driven from useFirebase
+  // NEW: useEffect for initial non-player page display
+  useEffect(() => {
+    // Check if auth is ready, user is logged in, has 'non-player' role, and hasn't been redirected yet
+    if (isAuthReady && user && user.role === 'non-player' && !hasInitialNonPlayerRedirected) {
+      console.log("DEBUG App.jsx: Detected non-player user. Redirecting to Send Note page.");
+      setCurrentPage('send-note'); // Set current page to 'send-note'
+      setHasInitialNonPlayerRedirected(true); // Mark as redirected to prevent re-opening
+    }
+    // Also, if a non-player logs out, reset the redirect flag
+    if (!user) {
+      setHasInitialNonPlayerRedirected(false);
+    }
+  }, [user, isAuthReady, hasInitialNonPlayerRedirected]);
+
 
   const handleNavigate = (page) => {
     setCurrentPage(page);
@@ -116,10 +134,11 @@ function App() {
       try {
         await auth.signOut();
         console.log("DEBUG App.jsx handleSignOut: User signed out successfully (Firebase event triggered).");
-        setCurrentPage('courses');
+        setCurrentPage('courses'); // Go back to courses page after sign out
         setUnreadNotes([]); // Clear notes on logout
         setCurrentNotification(null); // Clear notification on logout
         setAllPublicUserProfiles([]); // Clear public profiles on logout
+        setHasInitialNonPlayerRedirected(false); // Reset for next login
         // The success message ('You have been signed out') is now handled by the onLogoutSuccess callback from useFirebase
       } catch (error) {
         console.error("DEBUG App.jsx handleSignOut: Error signing out:", error);
@@ -133,7 +152,7 @@ function App() {
 
   const handleSendNoteSuccess = (message) => {
     showAppMessage('success', message); // Display success message from modal
-    setIsSendEncouragementModalOpen(false); // Close the modal
+    setCurrentPage('courses'); // Navigate back to courses page after sending a note
   };
 
   // Function to mark a notification as read and hide it
@@ -172,6 +191,9 @@ function App() {
     );
   }
 
+  // Determine if the "Back to Courses" button should be shown
+  const showSendNoteBackButton = user.role !== 'non-player';
+
   return (
     <div className="App min-h-screen flex flex-col bg-gray-100">
       <Header
@@ -179,7 +201,7 @@ function App() {
         onOpenEncouragement={() => setIsEncouragementModalOpen(true)}
         onSignOut={handleSignOut}
         user={user}
-        onOpenSendEncouragement={() => setIsSendEncouragementModalOpen(true)}
+        onOpenSendEncouragement={() => handleNavigate('send-note')}
         canSendEncouragement={canSendEncouragement}
       />
 
@@ -200,8 +222,17 @@ function App() {
       )}
 
       <main className="flex-grow">
+        {/* Conditional rendering for different pages */}
         {currentPage === 'courses' && <Courses />}
         {currentPage === 'settings' && <SettingsPage />}
+        {/* NEW: Render SendEncouragement as a full page */}
+        {currentPage === 'send-note' && (
+          <SendEncouragement
+            onSendSuccess={handleSendNoteSuccess}
+            onClose={() => handleNavigate('courses')} // Allow closing/navigating back
+            showBackButton={showSendNoteBackButton} // Pass the new prop
+          />
+        )}
       </main>
 
       <EncouragementModal
@@ -209,11 +240,12 @@ function App() {
         onClose={() => setIsEncouragementModalOpen(false)}
       />
 
-      <SendEncouragementModal
+      {/* Removed SendEncouragementModal as it's now a direct page */}
+      {/* <SendEncouragementModal
         isOpen={isSendEncouragementModalOpen}
         onClose={() => setIsSendEncouragementModalOpen(false)}
         onSendSuccess={handleSendNoteSuccess}
-      />
+      /> */}
     </div>
   );
 }
