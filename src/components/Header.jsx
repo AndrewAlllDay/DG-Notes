@@ -1,7 +1,7 @@
 // src/components/Header.jsx
 
 import React, { useState } from "react";
-import { Menu, X, ThumbsUp, LogOut, Send } from "lucide-react"; // Import LogOut icon, and Send icon for the new button
+import { Menu, X, ThumbsUp, LogOut, Send, Settings, Flag } from "lucide-react"; // Import Flag icon
 import LogoImage from '../assets/DG Logo.svg';
 
 const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEncouragement, canSendEncouragement }) => {
@@ -33,20 +33,12 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEn
                     />
                 </div>
 
-                {/* Right side (Encourage Me! icon) */}
+                {/* Right side (empty on mobile, desktop nav will show here) */}
+                {/* The "Encourage Me!" button is removed from here for mobile, it moves to the mobile nav */}
+                {/* This div might become redundant if no other right-side elements are needed on mobile */}
                 <div className="absolute right-4 md:static flex items-center gap-2">
-                    {/* Encourage Me! button only for non-players */}
-                    {!isNonPlayer && (
-                        <button
-                            onClick={onOpenEncouragement}
-                            className="text-black hover:text-gray-700 !bg-transparent border-none focus:outline-none active:bg-transparent p-1 rounded-full hover:bg-gray-100 transition-colors"
-                            aria-label="Encourage Me!"
-                        >
-                            <ThumbsUp size={24} />
-                        </button>
-                    )}
-
-                    <div className="w-7 md:hidden" /> {/* This div helps align the right-side elements on mobile if needed */}
+                    {/* The "Encourage Me!" button removed from here */}
+                    {/* The w-7 md:hidden div is also removed as it was for alignment with the ThumbsUp button */}
                 </div>
             </div>
 
@@ -56,25 +48,40 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEn
                     <ul className="flex flex-col gap-2 text-gray-700">
                         {/* Courses link (only for non-non-players) */}
                         {!isNonPlayer && (
-                            <li className="nav-links"><a href="#" onClick={() => { onNavigate('courses'); setIsOpen(false); }}>Courses</a></li>
+                            <li className="nav-links">
+                                <a href="#" onClick={() => { onNavigate('courses'); setIsOpen(false); }} className="flex items-center gap-3 text-gray-700 hover:text-blue-600 transition-colors">
+                                    <Flag size={20} /> Courses
+                                </a>
+                            </li>
                         )}
                         {/* Settings link (only for non-non-players) */}
                         {!isNonPlayer && (
-                            <li className="nav-links"><a href="#" onClick={() => { onNavigate('settings'); setIsOpen(false); }}>Settings</a></li>
+                            <li className="nav-links">
+                                <a href="#" onClick={() => { onNavigate('settings'); setIsOpen(false); }} className="flex items-center gap-3 text-gray-700 hover:text-blue-600 transition-colors">
+                                    <Settings size={20} /> Settings
+                                </a>
+                            </li>
                         )}
                         {/* Send Note link (for any logged-in user who can send) */}
                         {user && canSendEncouragement && (
                             <li className="nav-links">
-                                <a href="#" onClick={() => { onOpenSendEncouragement(); setIsOpen(false); }} className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors">
+                                <a href="#" onClick={() => { onOpenSendEncouragement(); setIsOpen(false); }} className="flex items-center gap-3 text-gray-700 hover:text-blue-600 transition-colors">
                                     <Send size={20} /> Send Note
                                 </a>
                             </li>
                         )}
-
+                        {/* NEW: Encourage Me! link (only for non-non-players), moved inside mobile nav */}
+                        {!isNonPlayer && (
+                            <li className="nav-links">
+                                <a href="#" onClick={() => { onOpenEncouragement(); setIsOpen(false); }} className="flex items-center gap-3 text-purple-600 hover:text-purple-800 transition-colors">
+                                    <ThumbsUp size={20} /> Encourage Me!
+                                </a>
+                            </li>
+                        )}
                         {/* Logout link (for any logged-in user) */}
                         {user && (
                             <li className="nav-links">
-                                <a href="#" onClick={() => { onSignOut(); setIsOpen(false); }} aria-label="Logout" className="flex items-center gap-2 text-red-600 hover:text-red-800">
+                                <a href="#" onClick={() => { onSignOut(); setIsOpen(false); }} aria-label="Logout" className="flex items-center gap-3 text-red-600 hover:text-red-800">
                                     <LogOut size={20} /> Logout
                                 </a>
                             </li>
@@ -101,7 +108,7 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEn
                         </a>
                     </li>
                 )}
-                {/* Encourage Me! link (only for non-non-players) */}
+                {/* Encourage Me! link (only for non-non-players) - still present for desktop */}
                 {!isNonPlayer && (
                     <li><a href="#" onClick={onOpenEncouragement} className="hover:text-purple-600 transition-colors duration-150">Encourage Me!</a></li>
                 )}

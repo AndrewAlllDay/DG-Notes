@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react'; // Added lazy and Suspense
 import Header from './components/Header';
 import Courses from './components/Courses';
 import EncouragementModal from './components/EncouragementModal';
 import LoginPage from './components/LoginPage';
-import SettingsPage from './components/SettingsPage';
-import SendEncouragement from './components/SendEncouragement';
+// import SettingsPage from './components/SettingsPage'; // Replaced with lazy import
+// import SendEncouragement from './components/SendEncouragement'; // Replaced with lazy import
 import NotificationToast from './components/NotificationToast';
 
 import './styles/EncouragementModal.css'; // Assuming this is still used for general styles
@@ -12,7 +12,12 @@ import './styles/EncouragementModal.css'; // Assuming this is still used for gen
 import { useFirebase, auth } from './firebase';
 import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService';
 
-// LoadingScreen Component (as it was before the last update)
+// Lazily load SettingsPage and SendEncouragement components
+const LazySettingsPage = lazy(() => import('./components/SettingsPage'));
+const LazySendEncouragement = lazy(() => import('./components/SendEncouragement'));
+
+
+// New LoadingScreen Component
 const LoadingScreen = () => {
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-gray-100 z-[2000]">
@@ -216,7 +221,7 @@ function App() {
     <div className="App min-h-screen flex flex-col bg-gray-100">
       <Header
         onNavigate={handleNavigate}
-        onOpenEncouragement={() => setIsEncouragementModalOpen(true)} // This was the original location for opening the modal
+        onOpenEncouragement={() => setIsEncouragementModalOpen(true)}
         onSignOut={handleSignOut}
         user={user}
         onOpenSendEncouragement={() => handleNavigate('send-note')}
@@ -241,15 +246,20 @@ function App() {
 
       <main className="flex-grow">
         {/* Conditional rendering for different pages */}
-        {currentPage === 'courses' && <Courses />} {/* Removed setIsEncouragementModalOpen prop */}
-        {currentPage === 'settings' && <SettingsPage />}
-        {/* Render SendEncouragement as a full page */}
+        {currentPage === 'courses' && <Courses setIsEncouragementModalOpen={setIsEncouragementModalOpen} />}
+        {currentPage === 'settings' && (
+          <Suspense fallback={<div>Loading Settings...</div>}>
+            <LazySettingsPage />
+          </Suspense>
+        )}
         {currentPage === 'send-note' && (
-          <SendEncouragement
-            onSendSuccess={handleSendNoteSuccess}
-            onClose={() => handleNavigate('courses')} // Allow closing/navigating back
-            showBackButton={showSendNoteBackButton} // Pass the new prop
-          />
+          <Suspense fallback={<div>Loading Send Note page...</div>}>
+            <LazySendEncouragement
+              onSendSuccess={handleSendNoteSuccess}
+              onClose={() => handleNavigate('courses')}
+              showBackButton={showSendNoteBackButton}
+            />
+          </Suspense>
         )}
       </main>
 
