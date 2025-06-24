@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react'; // Import useRef
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import Courses from './components/Courses';
 import EncouragementModal from './components/EncouragementModal';
 import LoginPage from './components/LoginPage';
 import SettingsPage from './components/SettingsPage';
 import SendEncouragementModal from './components/SendEncouragementModal';
-import NotificationToast from './components/NotificationToast';
+import NotificationToast from './components/NotificationToast'; // Uncommented import
 
 import './styles/EncouragementModal.css';
 
@@ -14,7 +14,21 @@ import { useFirebase, auth } from './firebase';
 import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService';
 
 function App() {
-  const { user, isAuthReady } = useFirebase();
+  // Define callbacks for login/logout success messages
+  const handleLoginSuccess = (uid) => {
+    console.log("DEBUG App.jsx: handleLoginSuccess triggered for UID:", uid);
+    showAppMessage('success', 'You have been successfully logged in!');
+  };
+
+  const handleLogoutSuccess = () => {
+    console.log("DEBUG App.jsx: handleLogoutSuccess triggered.");
+    showAppMessage('success', 'You have been signed out.');
+  };
+
+  // Pass these callbacks to useFirebase
+  const { user, isAuthReady, userId: currentUserId } = useFirebase(handleLoginSuccess, handleLogoutSuccess);
+
+  console.log(`DEBUG App.jsx Render: user=${user?.uid || 'null'}, isAuthReady=${isAuthReady}`);
 
   const [isEncouragementModalOpen, setIsEncouragementModalOpen] = useState(false);
   const [isSendEncouragementModalOpen, setIsSendEncouragementModalOpen] = useState(false);
@@ -25,7 +39,7 @@ function App() {
   const [currentNotification, setCurrentNotification] = useState(null); // The note currently displayed as a toast
   const [allPublicUserProfiles, setAllPublicUserProfiles] = useState([]); // State for all public user profiles
 
-  // In-app message system
+  // In-app message system (reused from LoginPage, can be a shared component later)
   const [appMessage, setAppMessage] = useState({ type: '', text: '' });
   const showAppMessage = (type, text) => {
     setAppMessage({ type, text });
@@ -34,14 +48,11 @@ function App() {
     }, 5000);
   };
 
-  // useRef to store the previous user state
-  const previousUserRef = useRef(user);
-
   // Effect to subscribe to all public user display names
   useEffect(() => {
     let unsubscribePublicProfiles;
     if (isAuthReady) {
-      console.log("DEBUG App.jsx useEffect: Subscribing to all public user display names.");
+      console.log("DEBUG App.jsx useEffect [isAuthReady]: Subscribing to all public user display names.");
       unsubscribePublicProfiles = subscribeToAllUserDisplayNames((profiles) => {
         setAllPublicUserProfiles(profiles);
       });
@@ -49,7 +60,7 @@ function App() {
 
     return () => {
       if (unsubscribePublicProfiles) {
-        console.log("DEBUG App.jsx useEffect: Unsubscribing from all public user display names.");
+        console.log("DEBUG App.jsx useEffect [isAuthReady]: Unsubscribing from all public user display names.");
         unsubscribePublicProfiles();
       }
     };
@@ -58,13 +69,13 @@ function App() {
   // Effect for subscribing to notes and updating notifications
   useEffect(() => {
     let unsubscribeNotes;
-    console.log("DEBUG App.jsx useEffect: Checking user and authReady status for note subscription.");
-    console.log("DEBUG App.jsx useEffect: User UID:", user?.uid, "isAuthReady:", isAuthReady);
+    console.log("DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: Checking user and authReady status for note subscription.");
+    console.log(`DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: User UID=${user?.uid || 'null'}, isAuthReady=${isAuthReady}, allPublicUserProfiles.length=${allPublicUserProfiles.length}`);
 
     if (user?.uid && isAuthReady) {
-      console.log(`DEBUG App.jsx useEffect: Subscribing to unread notes for receiverId: ${user.uid}`);
+      console.log(`DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: Subscribing to unread notes for receiverId: ${user.uid}`);
       unsubscribeNotes = subscribeToEncouragementNotes(user.uid, (notes) => {
-        console.log("DEBUG App.jsx useEffect: received notes from subscribeToEncouragementNotes callback:", notes);
+        console.log("DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: Received notes from subscribeToEncouragementNotes callback:", notes);
         const notesWithSenderNames = notes.map((note) => {
           const senderProfile = allPublicUserProfiles.find(profile => profile.id === note.senderId);
           return {
@@ -74,62 +85,48 @@ function App() {
         });
         setUnreadNotes(notesWithSenderNames);
         if (notesWithSenderNames.length > 0) {
-          console.log("DEBUG App.jsx useEffect: Setting currentNotification to:", notesWithSenderNames[0]);
+          console.log("DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: Setting currentNotification to:", notesWithSenderNames[0]);
           setCurrentNotification(notesWithSenderNames[0]);
         } else {
-          console.log("DEBUG App.jsx useEffect: No unread notes, clearing currentNotification.");
+          console.log("DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: No unread notes, clearing currentNotification.");
           setCurrentNotification(null);
         }
       });
     } else {
-      console.log("DEBUG App.jsx useEffect: Conditions not met for note subscription (user.uid or isAuthReady false).");
+      console.log("DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: Conditions not met for note subscription (user.uid or isAuthReady false).");
     }
 
     return () => {
       if (unsubscribeNotes) {
-        console.log("DEBUG App.jsx useEffect: Unsubscribing from notes listener.");
+        console.log("DEBUG App.jsx useEffect [user, isAuthReady, allPublicUserProfiles]: Unsubscribing from notes listener.");
         unsubscribeNotes();
       }
     };
   }, [user?.uid, isAuthReady, allPublicUserProfiles]); // Add allPublicUserProfiles to dependencies
 
-  // NEW useEffect to handle logout message based on user state transition
-  useEffect(() => {
-    // Only run if auth is ready
-    if (isAuthReady) {
-      // Condition: previous user was logged in, and current user is null (logged out)
-      // This ensures the message only appears when a user explicitly signs out,
-      // not on initial app load when user is null, or during login.
-      if (previousUserRef.current && !user) {
-        console.log("DEBUG App.jsx useEffect: Detected user logout transition.");
-        showAppMessage('success', 'You have been signed out.');
-      }
-      // Update previousUserRef for the next render cycle
-      previousUserRef.current = user;
-    }
-  }, [user, isAuthReady, showAppMessage]);
-
+  // Removed the useEffect for previousUserRef as notifications are now event-driven from useFirebase
 
   const handleNavigate = (page) => {
     setCurrentPage(page);
   };
 
   const handleSignOut = async () => {
+    console.log("DEBUG App.jsx handleSignOut: Function called.");
     if (auth) {
       try {
         await auth.signOut();
-        console.log("DEBUG: User signed out successfully (Firebase event triggered).");
+        console.log("DEBUG App.jsx handleSignOut: User signed out successfully (Firebase event triggered).");
         setCurrentPage('courses');
         setUnreadNotes([]); // Clear notes on logout
         setCurrentNotification(null); // Clear notification on logout
         setAllPublicUserProfiles([]); // Clear public profiles on logout
-        // The success message ('You have been signed out') is now handled by the useEffect above
+        // The success message ('You have been signed out') is now handled by the onLogoutSuccess callback from useFirebase
       } catch (error) {
-        console.error("DEBUG: Error signing out:", error);
+        console.error("DEBUG App.jsx handleSignOut: Error signing out:", error);
         showAppMessage('error', `Failed to sign out: ${error.message}`);
       }
     } else {
-      console.error("DEBUG: Firebase Auth instance is not available for signOut.");
+      console.error("DEBUG App.jsx handleSignOut: Firebase Auth instance is not available for signOut.");
       showAppMessage('error', 'Logout failed: Authentication service not ready.');
     }
   };
