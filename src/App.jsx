@@ -10,12 +10,12 @@ import './styles/EncouragementModal.css'; // Assuming this is still used for gen
 import { useFirebase, auth } from './firebase';
 import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService';
 
-// Replaced @reach/dialog with @radix-ui/react-dialog
 import * as Dialog from '@radix-ui/react-dialog'; // Import all exports as Dialog
 
-// Lazily load SettingsPage and SendEncouragement components
+// Lazily load SettingsPage, SendEncouragement, and WeatherDisplay components
 const LazySettingsPage = lazy(() => import('./components/SettingsPage'));
 const LazySendEncouragement = lazy(() => import('./components/SendEncouragement'));
+const LazyWeatherDisplay = lazy(() => import('./components/WeatherDisplay')); // NEW: Lazy load WeatherDisplay
 
 
 // New LoadingScreen Component
@@ -311,6 +311,12 @@ function App() {
               onClose={() => handleNavigate('courses')}
               showBackButton={showSendNoteBackButton}
             />
+          </Suspense>
+        )}
+        {/* NEW: Weather Page */}
+        {currentPage === 'weather' && (
+          <Suspense fallback={<div>Loading Weather...</div>}>
+            <LazyWeatherDisplay />
           </Suspense>
         )}
       </main>
