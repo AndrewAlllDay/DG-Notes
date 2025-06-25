@@ -102,10 +102,12 @@ export const useFirebase = (onLoginSuccess, onLogoutSuccess) => {
                         }
 
                         // Create a combined user object with auth data and custom profile data
+                        // ENSURE teamIds is merged here from profileData
                         setUser({
                             ...currentUser,
                             displayName: displayN,
-                            role: profileData?.role || 'non-player' // Add role from profile, default to 'non-player'
+                            role: profileData?.role || 'non-player', // Add role from profile, default to 'non-player'
+                            teamIds: profileData?.teamIds || [] // MERGE teamIds from profileData
                         });
 
                         // Trigger onLoginSuccess only if this isn't the initial auth check on app load
