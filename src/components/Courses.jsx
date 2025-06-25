@@ -27,7 +27,7 @@ export default function Courses() {
     const [courses, setCourses] = useState([]);
     const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
     const [newCourseName, setNewCourseName] = useState('');
-    const [newCourseTournamentName, setNewCourseTournamentName] = useState('');
+    const [newCourseTournamentName, setNewCourseTournamentName] = '';
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [editingHoleData, setEditingHoleData] = useState({});
     const [swipedCourseId, setSwipedCourseId] = useState(null);
@@ -38,16 +38,14 @@ export default function Courses() {
 
     const [appMessage, setAppMessage] = useState({ type: '', text: '' });
 
-    // --- NEW STATES FOR FAB HIDE-ON-SCROLL ---
-    const [showFab, setShowFab] = useState(true); // Controls FAB visibility
-    const lastScrollY = useRef(0); // Stores the last scroll position
+    const [showFab, setShowFab] = useState(true);
+    const lastScrollY = useRef(0);
 
-    const scrollContainerRef = useRef(null); // Ref for the main scrollable container
+    const scrollContainerRef = useRef(null);
 
     const swipeRefs = useRef({});
     const holeListRef = useRef(null);
 
-    // Function to show a temporary in-app message
     const showAppMessage = (type, text) => {
         setAppMessage({ type, text });
         setTimeout(() => {
@@ -55,7 +53,6 @@ export default function Courses() {
         }, 5000);
     };
 
-    // --- Firestore Data Subscription ---
     useEffect(() => {
         if (!isAuthReady || !userId) {
             console.log("Auth not ready or userId not available, skipping course subscription.");
@@ -88,7 +85,6 @@ export default function Courses() {
         return () => unsubscribe();
     }, [isAuthReady, userId, selectedCourse]);
 
-    // Effect for click-outside detection when a course is selected
     useEffect(() => {
         function handleClickOutside(event) {
             if (selectedCourse && holeListRef.current && !holeListRef.current.contains(event.target)) {
@@ -109,34 +105,27 @@ export default function Courses() {
         };
     }, [selectedCourse]);
 
-    // --- NEW EFFECT FOR SCROLL LISTENER AND FAB VISIBILITY ---
     useEffect(() => {
         const handleScroll = () => {
             const currentScrollY = window.scrollY;
 
-            // Only act if there's significant scroll movement to avoid flickering
             if (Math.abs(currentScrollY - lastScrollY.current) > 10) {
                 if (currentScrollY > lastScrollY.current) {
-                    // Scrolling down
-                    setShowFab(false);
+                    setShowFab(false); // Scrolling down
                 } else {
-                    // Scrolling up
-                    setShowFab(true);
+                    setShowFab(true); // Scrolling up
                 }
             }
             lastScrollY.current = currentScrollY;
         };
 
-        // Attach listener to the window as the entire page scrolls
         window.addEventListener('scroll', handleScroll);
 
-        // Clean up the event listener
         return () => {
             window.removeEventListener('scroll', handleScroll);
         };
-    }, []); // Empty dependency array means this runs once on mount and cleans up on unmount
+    }, []);
 
-    // Function to close all editing holes
     const closeAllHoleEdits = () => {
         if (!selectedCourse) return;
         setSelectedCourse(prev => {
@@ -152,7 +141,6 @@ export default function Courses() {
         setEditingHoleData({});
     };
 
-    // --- REVISED SWIPE HANDLING FUNCTIONS ---
     const handleTouchStart = (e, id) => {
         swipeRefs.current[id] = { startX: e.touches[0].clientX, currentX: 0 };
         if (swipedCourseId && swipedCourseId !== id) {
@@ -197,7 +185,6 @@ export default function Courses() {
         swipeRefs.current[id] = null;
     };
 
-    // --- Course Management Functions (using Firestore service) ---
     const handleAddCourse = async (courseName, tournamentName) => {
         if (!userId) {
             showAppMessage('error', "User not authenticated. Please wait for authentication to complete or refresh the page.");
@@ -357,7 +344,6 @@ export default function Courses() {
         }
     };
 
-    // Show a loading/authentication message if auth is not ready
     if (!isAuthReady) {
         return (
             <div className="flex justify-center items-center min-h-screen bg-gray-100 text-xl text-gray-700">
@@ -369,7 +355,7 @@ export default function Courses() {
     console.log("DEBUG Courses.jsx Render: selectedCourse =", selectedCourse);
 
     return (
-        <div ref={scrollContainerRef} className="min-h-screen bg-gray-100 p-4 overflow-y-auto"> {/* Added overflow-y-auto and ref */}
+        <div ref={scrollContainerRef} className="min-h-screen bg-gray-100 p-4 overflow-y-auto">
             {appMessage.text && (
                 <div className={`px-4 py-3 rounded relative mb-4
                     ${appMessage.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700' : 'bg-red-100 border border-red-400 text-red-700'}`}
@@ -410,10 +396,9 @@ export default function Courses() {
                     {/* FAB for Add Hole */}
                     <button
                         onClick={() => setIsAddHoleModalOpen(true)}
-                        // Conditional classes for hide-on-scroll
                         className={`fixed bottom-6 right-6 !bg-green-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
-                            transition-transform duration-300 ease-in-out
-                            ${showFab ? 'translate-y-0' : 'translate-y-full'}`}
+                            transition-transform !duration-300 ease-in-out // UPDATED DURATION
+                            ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
                         aria-label="Add Hole"
                     >
                         <span className="text-2xl">＋</span>
@@ -440,10 +425,9 @@ export default function Courses() {
                     {/* FAB for Add Course */}
                     <button
                         onClick={() => setIsAddCourseModalOpen(true)}
-                        // Conditional classes for hide-on-scroll
                         className={`fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
-                            transition-transform duration-300 ease-in-out
-                            ${showFab ? 'translate-y-0' : 'translate-y-full'}`}
+                            transition-transform duration-500 ease-in-out // UPDATED DURATION
+                            ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
                         aria-label="Add Course"
                     >
                         <span className="text-2xl">＋</span>
