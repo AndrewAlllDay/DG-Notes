@@ -124,7 +124,7 @@ const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-100 p-4 pt-5 body-pad">
+        <div className="max-h-screen bg-gray-100 p-4 pt-5 body-pad">
             <div className="w-full max-w-sm mx-auto">
                 <h2 className="text-2xl font-bold mb-4 text-center pt-5">Send Encouragement</h2>
                 {message.text && (

@@ -252,7 +252,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="min-h-screen !bg-gray-100 p-4">
+        <div className="max-h-screen !bg-gray-100 p-4">
             <h2 className="text-2xl font-bold mb-6 text-center pt-5">Settings</h2>
 
             {/* Your User Account Accordion */}
