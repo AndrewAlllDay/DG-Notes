@@ -3,14 +3,15 @@ import Header from './components/Header';
 import Courses from './components/Courses';
 import EncouragementModal from './components/EncouragementModal';
 import LoginPage from './components/LoginPage';
-// import SettingsPage from './components/SettingsPage'; // Replaced with lazy import
-// import SendEncouragement from './components/SendEncouragement'; // Replaced with lazy import
 import NotificationToast from './components/NotificationToast';
 
 import './styles/EncouragementModal.css'; // Assuming this is still used for general styles
 
 import { useFirebase, auth } from './firebase';
 import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService';
+
+// Replaced @reach/dialog with @radix-ui/react-dialog
+import * as Dialog from '@radix-ui/react-dialog'; // Import all exports as Dialog
 
 // Lazily load SettingsPage and SendEncouragement components
 const LazySettingsPage = lazy(() => import('./components/SettingsPage'));
@@ -58,6 +59,10 @@ function App() {
   // State to track if the non-player's initial redirection has happened
   const [hasInitialNonPlayerRedirected, setHasInitialNonPlayerRedirected] = useState(false);
 
+  // PWA Update State
+  const [showReloadPrompt, setShowReloadPrompt] = useState(false);
+  const [waitingWorker, setWaitingWorker] = useState(null);
+
 
   // In-app message system (reused from LoginPage, can be a shared component later)
   const [appMessage, setAppMessage] = useState({ type: '', text: '' });
@@ -67,6 +72,45 @@ function App() {
       setAppMessage({ type: '', text: '' });
     }, 5000);
   };
+
+  // Effect to register Service Worker and handle updates
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      let registration; // Declare registration here
+
+      const registerServiceWorker = async () => {
+        try {
+          registration = await navigator.serviceWorker.register('/service-worker.js');
+          console.log('Service Worker: Registration successful with scope:', registration.scope);
+
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // New content is available and waiting
+                  setWaitingWorker(newWorker);
+                  setShowReloadPrompt(true);
+                  console.log('Service Worker: New content available, showing reload prompt.');
+                }
+              });
+            }
+          });
+
+          // Listen for when a new service worker takes control
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            console.log('Service Worker: New service worker active, reloading page...');
+            window.location.reload();
+          });
+
+        } catch (error) {
+          console.error('Service Worker: Registration failed:', error);
+        }
+      };
+
+      registerServiceWorker();
+    }
+  }, []); // Run only once on mount
 
   // Effect to subscribe to all public user display names
   useEffect(() => {
@@ -200,6 +244,14 @@ function App() {
   // Define who can send encouragement notes. For now, any logged-in user.
   const canSendEncouragement = !!user;
 
+  // Function to update the app when the user clicks the prompt button
+  const updateApp = () => {
+    if (waitingWorker) {
+      // Send a message to the waiting service worker to skip waiting and activate
+      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+    }
+  };
+
   // Render the LoadingScreen if authentication is not yet ready
   if (!isAuthReady) {
     return <LoadingScreen />;
@@ -267,6 +319,31 @@ function App() {
         isOpen={isEncouragementModalOpen}
         onClose={() => setIsEncouragementModalOpen(false)}
       />
+
+      {/* PWA Update Prompt using Radix UI Dialog */}
+      <Dialog.Root open={showReloadPrompt} onOpenChange={setShowReloadPrompt}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
+          <Dialog.Content className="fixed top-[50%] left-[50%] -translate-x-1/2 -translate-y-1/2 z-50 bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+            <div className="text-center">
+              <Dialog.Title className="text-xl font-bold mb-4 text-gray-800">App Update Available!</Dialog.Title>
+              <Dialog.Description className="mb-6 text-gray-700">A new version of the app is ready. Please refresh to get the latest features and bug fixes.</Dialog.Description>
+              <button
+                onClick={updateApp}
+                className="px-6 py-3 bg-blue-600 text-white rounded-md font-bold hover:bg-blue-700 transition-colors duration-200"
+              >
+                Refresh to Update
+              </button>
+            </div>
+            {/* Optional close button if needed, but the onOpenChange handles dismiss */}
+            {/* <Dialog.Close asChild>
+              <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700">
+                <X size={20} />
+              </button>
+            </Dialog.Close> */}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }
