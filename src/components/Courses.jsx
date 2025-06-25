@@ -7,7 +7,6 @@ import AddCourseModal from './AddCourseModal';
 import AddHoleModal from './AddHoleModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 
-// Import ChevronLeft icon
 import { ChevronLeft } from 'lucide-react';
 
 import {
@@ -18,13 +17,11 @@ import {
     updateHoleInCourse,
     deleteHoleFromCourse,
     reorderHolesInCourse,
-} from '../services/firestoreService.jsx'; // Ensure correct path and extension
+} from '../services/firestoreService.jsx';
 
-// Import the useFirebase hook
-import { useFirebase } from '../firebase.js'; // Ensure correct path and extension
+import { useFirebase } from '../firebase.js';
 
-export default function Courses() { // No setIsEncouragementModalOpen prop here
-    // Destructure userId and isAuthReady from the useFirebase hook
+export default function Courses() {
     const { userId, isAuthReady } = useFirebase();
 
     const [courses, setCourses] = useState([]);
@@ -36,77 +33,67 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
     const [swipedCourseId, setSwipedCourseId] = useState(null);
     const [isAddHoleModalOpen, setIsAddHoleModalOpen] = useState(false);
 
-    // State for delete confirmation modal
     const [isDeleteConfirmationModalOpen, setIsDeleteConfirmationModalOpen] = useState(false);
     const [holeToDeleteId, setHoleToDeleteId] = useState(null);
 
-    // New state for in-app messages
-    const [appMessage, setAppMessage] = useState({ type: '', text: '' }); // type: 'success' or 'error'
+    const [appMessage, setAppMessage] = useState({ type: '', text: '' });
+
+    // --- NEW STATES FOR FAB HIDE-ON-SCROLL ---
+    const [showFab, setShowFab] = useState(true); // Controls FAB visibility
+    const lastScrollY = useRef(0); // Stores the last scroll position
+
+    const scrollContainerRef = useRef(null); // Ref for the main scrollable container
+
+    const swipeRefs = useRef({});
+    const holeListRef = useRef(null);
 
     // Function to show a temporary in-app message
     const showAppMessage = (type, text) => {
         setAppMessage({ type, text });
         setTimeout(() => {
-            setAppMessage({ type: '', text: '' }); // Clear message after 5 seconds
+            setAppMessage({ type: '', text: '' });
         }, 5000);
     };
 
-    const swipeRefs = useRef({});
-    const holeListRef = useRef(null); // Ref for the HoleList container
-
     // --- Firestore Data Subscription ---
     useEffect(() => {
-        // Only subscribe if authentication is ready and userId is available
         if (!isAuthReady || !userId) {
             console.log("Auth not ready or userId not available, skipping course subscription.");
-            setCourses([]); // Clear courses if not authenticated or not ready
+            setCourses([]);
             return;
         }
 
         console.log("Service Worker: Subscribing to courses for userId:", userId);
-        // Pass userId to the subscribeToCourses function
         const unsubscribe = subscribeToCourses(userId, (fetchedCourses) => {
             console.log("Fetched courses in Courses.jsx:", fetchedCourses);
             setCourses(fetchedCourses);
-            // If a course was selected, find its updated version from fetchedCourses
-            // and update selectedCourse state to reflect real-time changes
             if (selectedCourse) {
                 const updatedSelected = fetchedCourses.find(c => c.id === selectedCourse.id);
                 if (updatedSelected) {
-                    // When the selected course is updated from Firestore, ensure 'editing' flags are preserved for current view
                     setSelectedCourse(prevSelected => {
                         if (!prevSelected || !prevSelected.holes || !updatedSelected.holes) {
                             return updatedSelected;
                         }
-
-                        // Map 'editing' flags from the previous state to the newly fetched holes
                         const mergedHoles = updatedSelected.holes.map(fetchedHole => {
                             const prevHole = prevSelected.holes.find(h => h.id === fetchedHole.id);
                             return { ...fetchedHole, editing: prevHole ? prevHole.editing : false };
                         });
-
                         return { ...updatedSelected, holes: mergedHoles };
                     });
-
                 } else {
-                    // If the selected course was deleted in Firestore
                     setSelectedCourse(null);
                 }
             }
         });
-
-        // Cleanup the subscription when the component unmounts or userId changes
         return () => unsubscribe();
-    }, [isAuthReady, userId, selectedCourse]); // Add isAuthReady and userId to dependencies
+    }, [isAuthReady, userId, selectedCourse]);
 
     // Effect for click-outside detection when a course is selected
     useEffect(() => {
         function handleClickOutside(event) {
-            // Check if the click is outside the holeListRef and not on any modal or hole item specific element
             if (selectedCourse && holeListRef.current && !holeListRef.current.contains(event.target)) {
-                // Ensure clicks on modals or actual hole items (when editing) don't close everything
                 const isClickOnModal = event.target.closest('.modal-overlay') || event.target.closest('.modal-content');
-                const isClickOnHoleItem = event.target.closest('.HoleItem') || event.target.closest('li.mb-4'); // Added li.mb-4 for parent HoleItem
+                const isClickOnHoleItem = event.target.closest('.HoleItem') || event.target.closest('li.mb-4');
 
                 if (!isClickOnModal && !isClickOnHoleItem) {
                     closeAllHoleEdits();
@@ -114,42 +101,61 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
             }
         }
 
-        // Add event listener only if a course is selected to avoid unnecessary checks
         if (selectedCourse) {
             document.addEventListener('mousedown', handleClickOutside);
         }
-
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [selectedCourse]); // Depend on selectedCourse
+    }, [selectedCourse]);
+
+    // --- NEW EFFECT FOR SCROLL LISTENER AND FAB VISIBILITY ---
+    useEffect(() => {
+        const handleScroll = () => {
+            const currentScrollY = window.scrollY;
+
+            // Only act if there's significant scroll movement to avoid flickering
+            if (Math.abs(currentScrollY - lastScrollY.current) > 10) {
+                if (currentScrollY > lastScrollY.current) {
+                    // Scrolling down
+                    setShowFab(false);
+                } else {
+                    // Scrolling up
+                    setShowFab(true);
+                }
+            }
+            lastScrollY.current = currentScrollY;
+        };
+
+        // Attach listener to the window as the entire page scrolls
+        window.addEventListener('scroll', handleScroll);
+
+        // Clean up the event listener
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+        };
+    }, []); // Empty dependency array means this runs once on mount and cleans up on unmount
 
     // Function to close all editing holes
-    // This function is now mostly for external triggers (like clicking outside), not internal toggling.
     const closeAllHoleEdits = () => {
         if (!selectedCourse) return;
-
         setSelectedCourse(prev => {
-            if (!prev) return null; // Defensive check
+            if (!prev) return null;
             return {
                 ...prev,
                 holes: prev.holes.map(hole => ({
                     ...hole,
-                    editing: false // Set all holes to not editing in selectedCourse state
+                    editing: false
                 }))
             };
         });
-        setEditingHoleData({}); // Clear editing data
+        setEditingHoleData({});
     };
 
     // --- REVISED SWIPE HANDLING FUNCTIONS ---
-    // These functions manipulate the DOM directly for smooth swiping
-    // and then update React state (swipedCourseId) for conditional rendering.
     const handleTouchStart = (e, id) => {
         swipeRefs.current[id] = { startX: e.touches[0].clientX, currentX: 0 };
-
         if (swipedCourseId && swipedCourseId !== id) {
-            // If another item was swiped, reset its position visually
             const prevEl = document.getElementById(`course-${swipedCourseId}`);
             if (prevEl) {
                 prevEl.style.transition = 'transform 0.3s ease';
@@ -157,48 +163,41 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
             }
             setSwipedCourseId(null);
         }
-
         const el = document.getElementById(`course-${id}`);
         if (el) {
-            el.style.transition = 'transform 0.0s ease'; // Instant transition for start
+            el.style.transition = 'transform 0.0s ease';
         }
     };
 
     const handleTouchMove = (e, id) => {
         const swipeRef = swipeRefs.current[id];
         if (!swipeRef) return;
-
         const deltaX = e.touches[0].clientX - swipeRef.startX;
         const el = document.getElementById(`course-${id}`);
         if (!el) return;
-
-        const transformX = Math.max(-80, Math.min(0, deltaX)); // Limit swipe to -80px
+        const transformX = Math.max(-80, Math.min(0, deltaX));
         el.style.transform = `translateX(${transformX}px)`;
-
         swipeRef.currentX = transformX;
     };
 
     const handleTouchEnd = (id) => {
         const swipeRef = swipeRefs.current[id];
         if (!swipeRef) return;
-
         const el = document.getElementById(`course-${id}`);
         if (el) {
-            el.style.transition = 'transform 0.3s ease'; // Re-enable transition for snap-back
+            el.style.transition = 'transform 0.3s ease';
         }
-
-        if (swipeRef.currentX <= -40) { // If swiped more than 40px left
+        if (swipeRef.currentX <= -40) {
             if (el) el.style.transform = `translateX(-80px)`;
-            setSwipedCourseId(id); // Set the ID of the swiped course
+            setSwipedCourseId(id);
         } else {
             if (el) el.style.transform = `translateX(0)`;
-            setSwipedCourseId(null); // Clear swiped state
+            setSwipedCourseId(null);
         }
-        swipeRefs.current[id] = null; // Clear ref for this swipe
+        swipeRefs.current[id] = null;
     };
 
     // --- Course Management Functions (using Firestore service) ---
-
     const handleAddCourse = async (courseName, tournamentName) => {
         if (!userId) {
             showAppMessage('error', "User not authenticated. Please wait for authentication to complete or refresh the page.");
@@ -210,7 +209,6 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
             setNewCourseName('');
             setNewCourseTournamentName('');
             showAppMessage('success', `Course "${courseName}" added successfully!`);
-            // No setShowActionFabs(false) here, as there's no action menu
         } catch (error) {
             console.error("Failed to add course:", error);
             showAppMessage('error', `Failed to add course: ${error.message}`);
@@ -226,7 +224,7 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
             const courseName = courses.find(c => c.id === id)?.name || 'selected course';
             await deleteCourse(id, userId);
             if (swipedCourseId === id) setSwipedCourseId(null);
-            if (selectedCourse?.id === id) setSelectedCourse(null); // Deselect if deleted
+            if (selectedCourse?.id === id) setSelectedCourse(null);
             showAppMessage('success', `Course "${courseName}" deleted successfully!`);
         } catch (error) {
             console.error("Failed to delete course:", error);
@@ -234,13 +232,11 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
         }
     };
 
-    // Function to delete a specific hole from the selected course
     const deleteHoleConfirmed = async (holeIdToDelete) => {
         if (!selectedCourse || !userId) {
             showAppMessage('error', "User not authenticated or course not selected.");
             return;
         }
-
         try {
             const holeNumber = selectedCourse.holes.find(h => h.id === holeIdToDelete)?.number || '';
             await deleteHoleFromCourse(selectedCourse.id, holeIdToDelete, userId);
@@ -261,7 +257,7 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
             deleteHoleConfirmed(holeToDeleteId);
             setIsDeleteConfirmationModalOpen(false);
             setHoleToDeleteId(null);
-            closeAllHoleEdits(); // Ensure edit mode is closed for the deleted hole
+            closeAllHoleEdits();
         }
     };
 
@@ -270,21 +266,17 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
         setHoleToDeleteId(null);
     };
 
-
     const handleAddHole = async (holeNumber, holePar, holeNote) => {
         if (!holeNumber.trim() || !holePar.trim() || !selectedCourse || !userId) {
             showAppMessage('error', "Hole number and par are required, a course must be selected, and user must be authenticated.");
             return;
         }
-
-        // Use a more robust ID generation for holes to avoid potential conflicts
         const newHole = {
-            id: `${selectedCourse.id}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`, // Unique ID
+            id: `${selectedCourse.id}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
             number: holeNumber,
             par: holePar,
             note: holeNote || '',
         };
-
         try {
             await addHoleToCourse(selectedCourse.id, newHole, userId);
             setIsAddHoleModalOpen(false);
@@ -297,22 +289,15 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
 
     const handleToggleEditingHole = (holeId) => {
         setSelectedCourse(prev => {
-            if (!prev) return null; // Defensive check
-
+            if (!prev) return null;
             const updatedHoles = prev.holes.map(hole => {
                 if (hole.id === holeId) {
-                    // If it's the target hole, toggle its editing state
                     return { ...hole, editing: !hole.editing };
                 } else {
-                    // If it's any other hole, ensure it's not in editing mode
                     return { ...hole, editing: false };
                 }
             });
-
-            // Find the hole that will be in editing mode after this update
             const holeToEdit = updatedHoles.find((h) => h.id === holeId);
-
-            // Update editingHoleData based on whether the specific hole is now in editing mode
             if (holeToEdit && holeToEdit.editing) {
                 setEditingHoleData({
                     number: holeToEdit.number,
@@ -320,32 +305,27 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
                     note: holeToEdit.note,
                 });
             } else {
-                // If toggling off or no hole is in edit mode, clear editing data
                 setEditingHoleData({});
             }
-
             return { ...prev, holes: updatedHoles };
         });
     };
-
 
     const handleSaveHoleChanges = async (holeId) => {
         if (!selectedCourse || !userId) {
             showAppMessage('error', "User not authenticated or course not selected.");
             return;
         }
-
         const updatedHole = {
             id: holeId,
             number: editingHoleData.number,
             par: editingHoleData.par,
             note: editingHoleData.note,
         };
-
         try {
             await updateHoleInCourse(selectedCourse.id, holeId, updatedHole, userId);
             setEditingHoleData({});
-            closeAllHoleEdits(); // Close edit mode for the saved hole
+            closeAllHoleEdits();
             showAppMessage('success', `Hole ${updatedHole.number} changes saved!`);
         }
         catch (error) {
@@ -355,24 +335,19 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
     };
 
     const backToList = () => {
-        closeAllHoleEdits(); // Close all edits when going back to courses
+        closeAllHoleEdits();
         setSelectedCourse(null);
     };
 
     const onDragEnd = async (result) => {
         const { source, destination } = result;
         if (!destination || source.index === destination.index || !selectedCourse || !userId) {
-            // No destination, no change, or no selected course/user authenticated
             return;
         }
-
         const currentHoles = Array.from(selectedCourse.holes);
         const [reorderedHole] = currentHoles.splice(source.index, 1);
         currentHoles.splice(destination.index, 0, reorderedHole);
-
-        // Remove the transient 'editing' property before sending to Firestore
         const holesToSave = currentHoles.map(({ editing, ...rest }) => rest);
-
         try {
             await reorderHolesInCourse(selectedCourse.id, holesToSave, userId);
             showAppMessage('success', 'Holes reordered successfully!');
@@ -391,13 +366,10 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
         );
     }
 
-    // No debug logs related to showActionFabs as it won't exist in this version
     console.log("DEBUG Courses.jsx Render: selectedCourse =", selectedCourse);
 
-
     return (
-        <div className="min-h-screen bg-gray-100 p-4"> {/* Removed 'relative' here, as FABs are fixed position */}
-            {/* New in-app message display at the top of the component */}
+        <div ref={scrollContainerRef} className="min-h-screen bg-gray-100 p-4 overflow-y-auto"> {/* Added overflow-y-auto and ref */}
             {appMessage.text && (
                 <div className={`px-4 py-3 rounded relative mb-4
                     ${appMessage.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700' : 'bg-red-100 border border-red-400 text-red-700'}`}
@@ -406,10 +378,8 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
                 </div>
             )}
 
-            {/* --- Conditional Rendering for Course List vs. Hole List --- */}
             {selectedCourse ? (
                 <div className="relative min-h-screen bg-gray-100 p-4 pt-5">
-                    {/* UPDATED BACK BUTTON */}
                     <button
                         onClick={backToList}
                         className="mb-4 px-3 py-1 border border-black text-black rounded hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200 flex items-center gap-1"
@@ -425,25 +395,30 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
                             <p className="text-lg text-gray-600">{selectedCourse.tournamentName}</p>
                         )}
                     </div>
-                    <div ref={holeListRef}> {/* Attach ref to the HoleList's container */}
+                    <div ref={holeListRef}>
                         <HoleList
                             holes={selectedCourse.holes || []}
                             editingHoleData={editingHoleData}
                             setEditingHoleData={setEditingHoleData}
                             toggleEditing={handleToggleEditingHole}
                             saveHoleChanges={handleSaveHoleChanges}
-                            onDeleteClick={handleDeleteHoleClick}
+                            deleteHole={handleDeleteHoleClick}
                             onDragEnd={onDragEnd}
                         />
                     </div>
 
+                    {/* FAB for Add Hole */}
                     <button
                         onClick={() => setIsAddHoleModalOpen(true)}
-                        className="fixed bottom-6 right-6 !bg-green-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
+                        // Conditional classes for hide-on-scroll
+                        className={`fixed bottom-6 right-6 !bg-green-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
+                            transition-transform duration-300 ease-in-out
+                            ${showFab ? 'translate-y-0' : 'translate-y-full'}`}
                         aria-label="Add Hole"
                     >
                         <span className="text-2xl">＋</span>
                     </button>
+
                     <AddHoleModal
                         isOpen={isAddHoleModalOpen}
                         onClose={() => setIsAddHoleModalOpen(false)}
@@ -458,14 +433,17 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
                     />
                 </div>
             ) : (
-                <> {/* Fragment for the course list view */}
+                <>
                     <h2 className="text-2xl font-bold mb-4 text-center pt-5">DG Courses</h2>
                     <p className='text-center mb-6'>This is a list of courses that you've taken notes for.</p>
 
-                    {/* Original Add Course FAB (single button) */}
+                    {/* FAB for Add Course */}
                     <button
                         onClick={() => setIsAddCourseModalOpen(true)}
-                        className="fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
+                        // Conditional classes for hide-on-scroll
+                        className={`fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
+                            transition-transform duration-300 ease-in-out
+                            ${showFab ? 'translate-y-0' : 'translate-y-full'}`}
                         aria-label="Add Course"
                     >
                         <span className="text-2xl">＋</span>
@@ -481,7 +459,7 @@ export default function Courses() { // No setIsEncouragementModalOpen prop here
                         setNewCourseTournamentName={setNewCourseTournamentName}
                     />
                     <CourseList
-                        courses={courses} // Pass the 'courses' state to CourseList
+                        courses={courses}
                         setSelectedCourse={setSelectedCourse}
                         deleteCourse={handleDeleteCourse}
                         swipedCourseId={swipedCourseId}
