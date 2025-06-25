@@ -58,7 +58,7 @@ export default function SettingsPage() {
 
     // Define the application version.
     // IMPORTANT: You need to manually update this value to match the CACHE_NAME in your service-worker.js file.
-    const APP_VERSION = 'v1.0.2'; // Example version, replace with your actual CACHE_NAME
+    const APP_VERSION = 'v1.0.4'; // Example version, replace with your actual CACHE_NAME
 
     // Effect to load the user's current display name when the component mounts or user changes
     useEffect(() => {
