@@ -1,22 +1,22 @@
 // src/App.jsx
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import Header from './components/Header';
-import Courses from './components/Courses';
-import EncouragementModal from './components/EncouragementModal';
-import LoginPage from './components/LoginPage';
-import NotificationToast from './components/NotificationToast';
+import Header from './components/Header.jsx'; // Added .jsx extension
+import Courses from './components/Courses.jsx'; // Added .jsx extension
+import EncouragementModal from './components/EncouragementModal.jsx'; // Added .jsx extension
+import LoginPage from './components/LoginPage.jsx'; // Added .jsx extension
+import NotificationToast from './components/NotificationToast.jsx'; // Added .jsx extension
 
 import './styles/EncouragementModal.css';
 
-import { useFirebase, auth } from './firebase';
-import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService';
+import { useFirebase, auth } from './firebase.js'; // Added .js extension
+import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService.jsx'; // Added .js extension
 
 import * as Dialog from '@radix-ui/react-dialog';
 
-const LazySettingsPage = lazy(() => import('./components/SettingsPage'));
-const LazySendEncouragement = lazy(() => import('./components/SendEncouragement'));
-const LazyWeatherDisplay = lazy(() => import('./components/WeatherDisplay'));
+const LazySettingsPage = lazy(() => import('./components/SettingsPage.jsx')); // Added .jsx extension
+const LazySendEncouragement = lazy(() => import('./components/SendEncouragement.jsx')); // Added .jsx extension
+const LazyWeatherDisplay = lazy(() => import('./components/WeatherDisplay.jsx')); // Added .jsx extension
 
 const LoadingScreen = () => {
   return (
@@ -283,11 +283,12 @@ function App() {
         user={user}
         onOpenSendEncouragement={() => handleNavigate('send-note')}
         canSendEncouragement={canSendEncouragement}
+        currentPage={currentPage} // <--- Added this prop
       />
 
       {appMessage.text && (
         <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-lg shadow-lg text-white
-                            ${appMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
+                                ${appMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
           {appMessage.text}
         </div>
       )}
