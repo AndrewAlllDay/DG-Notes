@@ -58,7 +58,7 @@ export default function SettingsPage() {
 
     // Define the application version.
     // IMPORTANT: You need to manually update this value to match the CACHE_NAME in your service-worker.js file.
-    const APP_VERSION = 'v1.0.0'; // Example version, replace with your actual CACHE_NAME
+    const APP_VERSION = 'v1.0.1'; // Example version, replace with your actual CACHE_NAME
 
     // Effect to load the user's current display name when the component mounts or user changes
     useEffect(() => {
@@ -416,8 +416,8 @@ export default function SettingsPage() {
                                                         <button
                                                             onClick={() => handleToggleTeamMembership(team.id, profile.id, isMember)}
                                                             className={`p-1 rounded-md transition-colors ${isMember
-                                                                    ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                                                    : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                                ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                                                : 'bg-green-100 text-green-700 hover:bg-green-200'
                                                                 }`}
                                                             aria-label={isMember ? `Remove ${profile.displayName} from team` : `Add ${profile.displayName} to team`}
                                                         >
