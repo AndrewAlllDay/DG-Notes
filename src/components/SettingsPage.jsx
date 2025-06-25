@@ -23,7 +23,7 @@ const Accordion = ({ title, children, defaultOpen = false }) => {
     return (
         <div className="bg-white rounded-lg shadow-md max-w-md mx-auto mb-6">
             <button
-                className="w-full flex justify-between items-center p-6 text-xl font-semibold text-gray-800 focus:outline-none bg-white rounded-lg"
+                className="w-full flex justify-between items-center p-6 text-xl font-semibold text-gray-800 focus:outline-none !bg-white rounded-lg"
                 onClick={toggleAccordion}
                 aria-expanded={isOpen}
             >
@@ -252,7 +252,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 p-4">
+        <div className="min-h-screen !bg-gray-100 p-4">
             <h2 className="text-2xl font-bold mb-6 text-center pt-5">Settings</h2>
 
             {/* Your User Account Accordion */}
@@ -263,7 +263,7 @@ export default function SettingsPage() {
                     <input
                         type="text"
                         id="displayName"
-                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" // Added bg-white
+                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 !bg-white" // Added bg-white
                         value={displayNameInput}
                         onChange={(e) => setDisplayNameInput(e.target.value)}
                         placeholder="e.g., Disc Golf Pro"
@@ -329,7 +329,7 @@ export default function SettingsPage() {
                                         ) : (
                                             <div className="flex items-center space-x-2 flex-grow sm:flex-grow-0 justify-end">
                                                 <select
-                                                    className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex-grow sm:flex-grow-0 bg-white" // Added bg-white
+                                                    className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex-grow sm:flex-grow-0 !bg-white" // Added bg-white
                                                     value={selectedRole[profile.id] || profile.role || 'non-player'}
                                                     onChange={(e) => handleRoleChange(profile.id, e.target.value)}
                                                 >
