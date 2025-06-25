@@ -7,7 +7,7 @@ import AddCourseModal from './AddCourseModal';
 import AddHoleModal from './AddHoleModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react'; // This import can now be removed if not used elsewhere
 
 import {
     subscribeToCourses,
@@ -366,12 +366,7 @@ export default function Courses() {
 
             {selectedCourse ? (
                 <div className="relative min-h-screen bg-gray-100 p-4 pt-5">
-                    <button
-                        onClick={backToList}
-                        className="mb-4 px-3 py-1 border border-black text-black rounded hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200 flex items-center gap-1"
-                    >
-                        <ChevronLeft size={16} /> Back
-                    </button>
+                    {/* REMOVED: The "Back" button was here */}
 
                     <div className="text-center mb-6 pt-5">
                         <h2 className="text-2xl font-bold mb-3">
@@ -397,7 +392,7 @@ export default function Courses() {
                     <button
                         onClick={() => setIsAddHoleModalOpen(true)}
                         className={`fixed bottom-6 right-6 !bg-green-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
-                            transition-transform !duration-300 ease-in-out // UPDATED DURATION
+                            transition-transform duration-1000 ease-in-out // UPDATED DURATION
                             ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
                         aria-label="Add Hole"
                     >
@@ -426,7 +421,7 @@ export default function Courses() {
                     <button
                         onClick={() => setIsAddCourseModalOpen(true)}
                         className={`fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
-                            transition-transform duration-500 ease-in-out // UPDATED DURATION
+                            transition-transform duration-1000 ease-in-out // UPDATED DURATION
                             ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
                         aria-label="Add Course"
                     >

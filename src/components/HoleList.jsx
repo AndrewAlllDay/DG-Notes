@@ -21,8 +21,10 @@ export default function HoleList({
                         ref={provided.innerRef}
                         className="space-y-4"
                     >
+                        {/* Message for when there are no holes */}
                         {(!holes || holes.length === 0) && <li>No holes added yet.</li>}
 
+                        {/* Map over holes to render HoleItem components */}
                         {holes && holes.filter(Boolean).map((hole, index) => (
                             <HoleItem
                                 key={hole.id}
@@ -35,13 +37,8 @@ export default function HoleList({
                                 onDelete={() => deleteHole(hole.id)}
                             />
                         ))}
-                        {/* CORRECTED: Only render your custom placeholder if provided.placeholder exists */}
-                        {provided.placeholder && (
-                            <li className="p-4 border-2 border-dashed border-gray-400 rounded-lg bg-gray-100 min-h-[72px] flex items-center justify-center text-gray-500 text-sm">
-                                Drop hole here
-                            </li>
-                        )}
-                        {/* REMOVED: The redundant {provided.placeholder} line that was outside the <li> */}
+                        {/* The placeholder element required by react-beautiful-dnd */}
+                        {provided.placeholder}
                     </ul>
                 )}
             </Droppable>
