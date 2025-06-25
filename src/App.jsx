@@ -56,8 +56,9 @@ function App() {
 
   const [hasInitialNonPlayerRedirected, setHasInitialNonPlayerRedirected] = useState(false);
 
+  // STATE FOR SERVICE WORKER UPDATE PROMPT
   const [showReloadPrompt, setShowReloadPrompt] = useState(false);
-  const [waitingWorker, setWaitingWorker] = useState(null);
+  const [waitingWorker, setWaitingWorker] = useState(null); // Reference to the new, waiting Service Worker
 
 
   const [appMessage, setAppMessage] = useState({ type: '', text: '' });
@@ -70,28 +71,42 @@ function App() {
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      let registration;
+      let registration; // Declare registration here so it's in scope for updatefound
 
       const registerServiceWorker = async () => {
         try {
           registration = await navigator.serviceWorker.register('/service-worker.js');
           console.log('Service Worker: Registration successful with scope:', registration.scope);
 
+          // Add the 'updatefound' listener directly on the registration object
+          // This event fires when a new service worker begins installing
           registration.addEventListener('updatefound', () => {
             const newWorker = registration.installing;
             if (newWorker) {
+              console.log('Service Worker: New service worker found and installing.');
+              // Listen for the state change of the new worker
               newWorker.addEventListener('statechange', () => {
+                // If the new worker is installed and there's an existing controller
+                // (meaning the old worker is still controlling the page)
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  setWaitingWorker(newWorker);
-                  setShowReloadPrompt(true);
-                  console.log('Service Worker: New content available, showing reload prompt.');
+                  console.log('Service Worker: New worker installed and waiting. Showing reload prompt.');
+                  setWaitingWorker(newWorker); // Store the reference to the waiting worker
+                  setShowReloadPrompt(true);   // Show the UI prompt
+                } else if (newWorker.state === 'activated') {
+                  // This case happens if the new worker activates without a prompt (e.g., all tabs closed)
+                  // or if skipWaiting was called directly in the SW.
+                  // We still want to log it but the controllerchange listener below will handle the reload.
+                  console.log('Service Worker: New worker activated.');
                 }
               });
             }
           });
 
+          // Listen for when the active service worker changes (i.e., a new one takes over)
+          // This typically happens after skipWaiting() is called and the page reloads.
           navigator.serviceWorker.addEventListener('controllerchange', () => {
-            console.log('Service Worker: New service worker active, reloading page...');
+            console.log('Service Worker: Controller changed to new service worker. Reloading page...');
+            // This reload ensures the new service worker controls all assets for the current page
             window.location.reload();
           });
 
@@ -102,7 +117,8 @@ function App() {
 
       registerServiceWorker();
     }
-  }, []);
+  }, []); // Empty dependency array means this runs once on mount
+
 
   useEffect(() => {
     let unsubscribePublicProfiles;
@@ -228,9 +244,19 @@ function App() {
 
   const canSendEncouragement = !!user;
 
+  // This function sends the message to the waiting Service Worker
   const updateApp = () => {
     if (waitingWorker) {
+      console.log('App.jsx: Sending SKIP_WAITING message to new Service Worker.');
       waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+      // The 'controllerchange' listener will then handle the window.location.reload()
+      // We can also hide the prompt here immediately:
+      setShowReloadPrompt(false);
+    } else {
+      console.warn('App.jsx: No waiting worker found to update.');
+      // Fallback: If for some reason waitingWorker isn't set, force a reload.
+      // This is less ideal as it doesn't give the SW a chance to activate gracefully.
+      window.location.reload();
     }
   };
 
@@ -261,7 +287,7 @@ function App() {
 
       {appMessage.text && (
         <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-lg shadow-lg text-white
-                    ${appMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
+                            ${appMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
           {appMessage.text}
         </div>
       )}
@@ -307,6 +333,7 @@ function App() {
         onClose={() => setIsEncouragementModalOpen(false)}
       />
 
+      {/* Service Worker Update Prompt Dialog */}
       <Dialog.Root open={showReloadPrompt} onOpenChange={setShowReloadPrompt}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
@@ -315,7 +342,7 @@ function App() {
               <Dialog.Title className="text-xl font-bold mb-4 text-gray-800">App Update Available!</Dialog.Title>
               <Dialog.Description className="mb-6 text-gray-700">A new version of the app is ready. Please refresh to get the latest features and bug fixes.</Dialog.Description>
               <button
-                onClick={updateApp}
+                onClick={updateApp} // This calls your updateApp function
                 className="px-6 py-3 bg-blue-600 text-white rounded-md font-bold hover:bg-blue-700 transition-colors duration-200"
               >
                 Refresh to Update
