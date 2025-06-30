@@ -333,7 +333,7 @@ export default function SettingsPage({ onSignOut }) { // Accept onSignOut as a p
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full">
                                         <div className="mb-2 sm:mb-0 sm:mr-4 min-w-0 flex-shrink-0">
                                             <p className="font-semibold text-gray-800 break-words">{profile.displayName || 'No Name'}</p>
-                                            <p className="text-sm text-gray-500 break-all" title={profile.id}>ID: {profile.id}</p>
+
                                         </div>
                                         {profile.id === user.uid ? (
                                             <div className="text-gray-500 text-sm sm:text-base">
@@ -415,7 +415,7 @@ export default function SettingsPage({ onSignOut }) { // Accept onSignOut as a p
                                             <Trash2 size={20} />
                                         </button>
                                     </div>
-                                    <p className="text-sm text-gray-600 mb-2">Team ID: <span className="font-mono text-xs">{team.id}</span></p>
+
 
                                     <h4 className="text-md font-medium mt-4 mb-2">Team Members:</h4>
                                     {/* Display list of users and allow adding/removing from this team */}
