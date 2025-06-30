@@ -37,12 +37,12 @@ const getUserProfilesCollection = () => {
     return collection(db, `artifacts/${appId}/user_profiles`);
 };
 
-// NEW: Function to get the teams collection path
+// Function to get the teams collection path
 const getTeamsCollection = () => {
     return collection(db, `artifacts/${appId}/teams`);
 };
 
-// NEW: Function to get the user-specific discs collection path
+// Function to get the user-specific discs collection path
 const getUserDiscsCollection = (userId) => {
     if (!userId) {
         console.error("Attempted to access user discs collection without a userId.");
@@ -176,7 +176,7 @@ export const subscribeToAllUserDisplayNames = (callback) => {
     return unsubscribe;
 };
 
-// --- NEW: TEAM MANAGEMENT FUNCTIONS ---
+// --- TEAM MANAGEMENT FUNCTIONS ---
 
 /**
  * Adds a new team to Firestore.
@@ -581,18 +581,24 @@ export const markEncouragementNoteAsRead = async (noteId, userId) => {
     }
 };
 
-// --- NEW DISC MANAGEMENT FUNCTIONS ---
+// --- DISC MANAGEMENT FUNCTIONS ---
 
-/**
- * Function to get the user-specific discs collection path.
- * This is already defined at the top of the file.
- * const getUserDiscsCollection = (userId) => { ... };
- */
+// NOTE: getUserDiscsCollection is already defined at the top of this file.
+// Removing duplicate declaration here to avoid "Cannot redeclare block-scoped variable" error.
+/*
+const getUserDiscsCollection = (userId) => {
+    if (!userId) {
+        console.error("Attempted to access user discs collection without a userId.");
+        throw new Error("User not authenticated or userId is missing.");
+    }
+    return collection(db, `artifacts/${appId}/users/${userId}/discs`);
+};
+*/
 
 /**
  * Adds a new disc to a user's bag in Firestore.
  * @param {string} userId - The UID of the user who owns the disc.
- * @param {Object} discData - An object containing the disc's name, manufacturer, and type.
+ * @param {Object} discData - An object containing the disc's name, manufacturer, type, and plastic.
  * @returns {Promise<Object>} A promise that resolves with the new disc's ID and data.
  */
 export const addDiscToBag = async (userId, discData) => {
@@ -606,8 +612,9 @@ export const addDiscToBag = async (userId, discData) => {
 
         const newDiscData = {
             ...discData,
+            isArchived: false, // NEW: Default to not archived
             createdAt: new Date(),
-            userId: userId, // Redundant but good for queries and security rules
+            userId: userId,
         };
 
         const docRef = await addDoc(getUserDiscsCollection(userId), newDiscData);
@@ -620,9 +627,31 @@ export const addDiscToBag = async (userId, discData) => {
 };
 
 /**
- * Subscribes to real-time updates for all discs in a user's bag.
+ * Updates an existing disc document in a user's bag.
+ * Used for archiving/unarchiving or other disc property changes.
+ * @param {string} userId - The UID of the user who owns the disc.
+ * @param {string} discId - The ID of the disc to update.
+ * @param {Object} newData - The data to update in the disc document (e.g., { isArchived: true }).
+ * @returns {Promise<void>}
+ */
+export const updateDiscInBag = async (userId, discId, newData) => {
+    try {
+        if (!userId || !discId) {
+            throw new Error("User ID and Disc ID are required to update a disc.");
+        }
+        const discDocRef = doc(getUserDiscsCollection(userId), discId);
+        await updateDoc(discDocRef, newData);
+        console.log(`Disc ${discId} updated in bag for user ${userId}.`);
+    } catch (e) {
+        console.error("Error updating disc in bag: ", e);
+        throw e;
+    }
+};
+
+/**
+ * Subscribes to real-time updates for ACTIVE (non-archived) discs in a user's bag.
  * @param {string} userId - The UID of the user whose discs to subscribe to.
- * @param {function} callback - Callback function to receive an array of disc objects.
+ * @param {function} callback - Callback function to receive an array of active disc objects.
  * @returns {function} An unsubscribe function.
  */
 export const subscribeToUserDiscs = (userId, callback) => {
@@ -632,21 +661,61 @@ export const subscribeToUserDiscs = (userId, callback) => {
         return () => { };
     }
 
-    const q = query(getUserDiscsCollection(userId), orderBy('createdAt', 'desc')); // Order by most recently added
+    // Query for discs where isArchived is explicitly false or not present
+    const q = query(
+        getUserDiscsCollection(userId),
+        where('isArchived', '==', false), // Filter for active discs
+        orderBy('createdAt', 'desc')
+    );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const discs = querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
-        console.log(`DEBUG firestoreService: Fetched ${discs.length} discs for user ${userId}`);
+        console.log(`DEBUG firestoreService: Fetched ${discs.length} active discs for user ${userId}`);
         callback(discs);
     }, (error) => {
-        console.error("Error subscribing to user discs: ", error);
+        console.error("Error subscribing to active user discs: ", error);
     });
 
     return unsubscribe;
 };
+
+/**
+ * Subscribes to real-time updates for ARCHIVED discs in a user's bag.
+ * @param {string} userId - The UID of the user whose archived discs to subscribe to.
+ * @param {function} callback - Callback function to receive an array of archived disc objects.
+ * @returns {function} An unsubscribe function.
+ */
+export const subscribeToArchivedUserDiscs = (userId, callback) => {
+    if (!userId) {
+        console.warn("Attempted to subscribe to archived user discs without a userId. Returning no discs.");
+        callback([]);
+        return () => { };
+    }
+
+    // Query for discs where isArchived is explicitly true
+    const q = query(
+        getUserDiscsCollection(userId),
+        where('isArchived', '==', true), // Filter for archived discs
+        orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const discs = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        console.log(`DEBUG firestoreService: Fetched ${discs.length} archived discs for user ${userId}`);
+        callback(discs);
+    }, (error) => {
+        console.error("Error subscribing to archived user discs: ", error);
+    });
+
+    return unsubscribe;
+};
+
 
 /**
  * Deletes a disc from a user's bag.

@@ -1,7 +1,7 @@
 // src/components/SettingsPage.jsx
 import React, { useState, useEffect } from 'react';
-import { useFirebase } from '../firebase'; // Import the useFirebase hook
-import { Copy, ChevronDown, ChevronUp, PlusCircle, Trash2, UserPlus, UserMinus, LogOut } from 'lucide-react'; // Import icons, including LogOut
+import { useFirebase } from '../firebase';
+import { Copy, ChevronDown, ChevronUp, PlusCircle, Trash2, UserPlus, UserMinus, LogOut } from 'lucide-react';
 import {
     setUserProfile,
     subscribeToAllUserProfiles,
@@ -10,7 +10,7 @@ import {
     addTeamMember,
     removeTeamMember,
     deleteTeam
-} from '../services/firestoreService'; // Import new profile functions and subscribe to all, and new team functions
+} from '../services/firestoreService';
 
 // Reusable Accordion Component
 const Accordion = ({ title, children, defaultOpen = false }) => {
@@ -39,11 +39,11 @@ const Accordion = ({ title, children, defaultOpen = false }) => {
     );
 };
 
-export default function SettingsPage({ onSignOut }) { // Accept onSignOut as a prop
-    const { user, userId, isAuthReady } = useFirebase(); // Get user, userId, and isAuthReady from the hook. User now includes 'role'.
+export default function SettingsPage({ onSignOut }) {
+    const { user, userId, isAuthReady } = useFirebase();
     const [copyMessage, setCopyMessage] = useState('');
     const [displayNameInput, setDisplayNameInput] = useState('');
-    const [saveMessage, setSaveMessage] = useState({ type: '', text: '' }); // { type: 'success' | 'error', text: 'message' }
+    const [saveMessage, setSaveMessage] = useState({ type: '', text: '' });
 
     // State for Admin Role Management
     const [allUserProfiles, setAllUserProfiles] = useState([]);
@@ -53,19 +53,17 @@ export default function SettingsPage({ onSignOut }) { // Accept onSignOut as a p
     // NEW: State for Team Management
     const [teams, setTeams] = useState([]);
     const [newTeamName, setNewTeamName] = useState('');
-    const [teamMessage, setTeamMessage] = useState({ type: '', text: '' }); // Message for team operations
-    const [pendingTeamMembers, setPendingTeamMembers] = useState({}); // Stores { teamId: { userId: true/false } } for adds/removes
+    const [teamMessage, setTeamMessage] = useState({ type: '', text: '' });
+    const [pendingTeamMembers, setPendingTeamMembers] = useState({});
 
-    // Define the application version.
-    // IMPORTANT: You need to manually update this value to match the CACHE_NAME in your service-worker.js file.
-    const APP_VERSION = 'v1.0.7'; // Example version, replace with your actual CACHE_NAME
+    const APP_VERSION = 'v1.0.7';
 
     // Effect to load the user's current display name when the component mounts or user changes
     useEffect(() => {
         if (user && user.uid && isAuthReady) {
             setDisplayNameInput(user.displayName || '');
         }
-    }, [user, isAuthReady]); // Depend on user and auth readiness
+    }, [user, isAuthReady]);
 
     // Effect to subscribe to all user profiles for admin role management
     useEffect(() => {
@@ -76,7 +74,7 @@ export default function SettingsPage({ onSignOut }) { // Accept onSignOut as a p
             unsubscribe = subscribeToAllUserProfiles((profiles) => {
                 setAllUserProfiles(profiles);
             });
-        } else if (unsubscribe) { // If user is no longer admin or logged out, unsubscribe
+        } else if (unsubscribe) {
             unsubscribe();
             setAllUserProfiles([]);
         }
@@ -87,7 +85,7 @@ export default function SettingsPage({ onSignOut }) { // Accept onSignOut as a p
                 unsubscribe();
             }
         };
-    }, [user?.role, isAuthReady]); // Re-subscribe when admin status or auth changes
+    }, [user?.role, isAuthReady]);
 
     // NEW: Effect to subscribe to all teams for admin management
     useEffect(() => {
@@ -118,6 +116,7 @@ export default function SettingsPage({ onSignOut }) { // Accept onSignOut as a p
             document.body.appendChild(el);
             el.select();
             document.execCommand('copy');
+
             document.body.removeChild(el);
 
             setCopyMessage('Copied!');
@@ -145,7 +144,7 @@ export default function SettingsPage({ onSignOut }) { // Accept onSignOut as a p
             console.error("Failed to save display name:", error);
             setSaveMessage({ type: 'error', text: `Failed to save display name: ${error.message}` });
         } finally {
-            setTimeout(() => setSaveMessage({ type: '', text: '' }), 3000); // Clear message after 3 seconds
+            setTimeout(() => setSaveMessage({ type: '', text: '' }), 3000);
         }
     };
 
@@ -166,10 +165,10 @@ export default function SettingsPage({ onSignOut }) { // Accept onSignOut as a p
 
         try {
             await setUserProfile(targetUserId, { role: roleToSave });
-            setRoleSaveMessage({ type: 'success', text: `Role for ${targetUserId} updated to ${roleToSave}!` });
+            setRoleSaveMessage({ type: 'success', text: `Role for ${allUserProfiles.find(p => p.id === targetUserId)?.displayName || targetUserId} updated to ${roleToSave}!` });
             setSelectedRole(prev => {
                 const newState = { ...prev };
-                delete newState[targetUserId]; // Clear pending change for this user
+                delete newState[targetUserId];
                 return newState;
             });
         } catch (error) {
@@ -263,7 +262,7 @@ export default function SettingsPage({ onSignOut }) { // Accept onSignOut as a p
                     <input
                         type="text"
                         id="displayName"
-                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 !bg-white" // Added bg-white
+                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 !bg-white"
                         value={displayNameInput}
                         onChange={(e) => setDisplayNameInput(e.target.value)}
                         placeholder="e.g., Disc Golf Pro"
@@ -302,14 +301,14 @@ export default function SettingsPage({ onSignOut }) { // Accept onSignOut as a p
                     </button>
                 </div>
                 {user.email && <p className="text-gray-600 text-sm mt-3">Logged in as: {user.email}</p>}
-                <p className="text-gray-600 text-sm">Your Role: <span className="font-semibold capitalize">{user.role || 'non-player'}</span></p>
+                <p className="text-gray-600 text-sm">Your Role: <span className="font-semibold capitalize">{user.role || 'player'}</span></p>
             </Accordion>
 
             {/* Account Actions Accordion - NEW */}
             <Accordion title="Account Actions" defaultOpen={false}>
                 {user && (
                     <button
-                        onClick={onSignOut} // <-- This is the key change!
+                        onClick={onSignOut}
                         className="w-full flex items-center justify-center gap-2 !bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500"
                     >
                         <LogOut size={20} />
@@ -329,11 +328,10 @@ export default function SettingsPage({ onSignOut }) { // Accept onSignOut as a p
                     <ul className="space-y-4">
                         {allUserProfiles.length > 0 ? (
                             allUserProfiles.map(profile => (
-                                <li key={profile.id} className="border-b pb-2 last:border-b-0 mb-5 mt-5"> {/* Added mb-4 here */}
+                                <li key={profile.id} className="border-b pb-2 last:border-b-0 mb-5 mt-5">
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full">
                                         <div className="mb-2 sm:mb-0 sm:mr-4 min-w-0 flex-shrink-0">
                                             <p className="font-semibold text-gray-800 break-words">{profile.displayName || 'No Name'}</p>
-
                                         </div>
                                         {profile.id === user.uid ? (
                                             <div className="text-gray-500 text-sm sm:text-base">
@@ -342,10 +340,12 @@ export default function SettingsPage({ onSignOut }) { // Accept onSignOut as a p
                                         ) : (
                                             <div className="flex items-center space-x-2 flex-grow sm:flex-grow-0 justify-end">
                                                 <select
-                                                    className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex-grow sm:flex-grow-0 !bg-white" // Added bg-white
-                                                    value={selectedRole[profile.id] || profile.role || 'non-player'}
+                                                    className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex-grow sm:flex-grow-0 !bg-white"
+                                                    value={selectedRole[profile.id] || profile.role || 'player'}
                                                     onChange={(e) => handleRoleChange(profile.id, e.target.value)}
                                                 >
+                                                    {/* Added 'player' option and reordered for clarity */}
+                                                    <option value="player">Player</option>
                                                     <option value="non-player">Non-Player</option>
                                                     <option value="admin">Admin</option>
                                                 </select>
@@ -353,8 +353,9 @@ export default function SettingsPage({ onSignOut }) { // Accept onSignOut as a p
                                                     onClick={() => handleSaveRole(profile.id)}
                                                     className="px-3 py-2 !bg-green-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                                                     disabled={
-                                                        (selectedRole[profile.id] === (profile.role || 'non-player')) ||
-                                                        (!selectedRole[profile.id] && (profile.role === undefined || profile.role === null || profile.role === 'non-player'))
+                                                        // Simplified disabled logic: button is disabled if the selected role
+                                                        // is the same as the current effective role (from profile or default 'player')
+                                                        (selectedRole[profile.id] || (profile.role || 'player')) === (profile.role || 'player')
                                                     }
                                                 >
                                                     Save

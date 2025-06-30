@@ -4,15 +4,46 @@ import { useFirebase } from "../firebase";
 import AddDiscModal from '../components/AddDiscModal';
 import {
     addDiscToBag,
-    subscribeToUserDiscs,
+    subscribeToUserDiscs, // Now subscribes to active discs
+    subscribeToArchivedUserDiscs, // NEW: For archived discs
+    updateDiscInBag, // NEW: For archiving/unarchiving
     deleteDiscFromBag
 } from '../services/firestoreService';
 import { toast } from 'react-toastify';
-import { FaPlus, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaTrash } from 'react-icons/fa'; // Keeping FaTrash for consistency with your existing code
+import { Archive, FolderOpen, ChevronDown, ChevronUp } from 'lucide-react'; // NEW: Icons for archive/restore and accordion
+
+// Reusable Accordion Component (copied from SettingsPage for self-containment)
+const Accordion = ({ title, children, defaultOpen = false }) => {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+
+    const toggleAccordion = () => {
+        setIsOpen(!isOpen);
+    };
+
+    return (
+        <div className="bg-white rounded-lg shadow-md max-w-md mx-auto mb-6">
+            <button
+                className="w-full flex justify-between items-center p-6 text-xl font-semibold text-gray-800 focus:outline-none !bg-white rounded-lg"
+                onClick={toggleAccordion}
+                aria-expanded={isOpen}
+            >
+                {title}
+                {isOpen ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+            </button>
+            {isOpen && (
+                <div className="px-6 pb-6 pt-2 border-t border-gray-200">
+                    {children}
+                </div>
+            )}
+        </div>
+    );
+};
 
 export default function InTheBagPage() {
     const { user: currentUser } = useFirebase();
-    const [discs, setDiscs] = useState([]);
+    const [activeDiscs, setActiveDiscs] = useState([]); // Renamed from 'discs'
+    const [archivedDiscs, setArchivedDiscs] = useState([]); // NEW: State for archived discs
     const [isAddDiscModalOpen, setIsAddDiscModalOpen] = useState(false);
 
     // State for new disc input fields
@@ -29,21 +60,33 @@ export default function InTheBagPage() {
 
     // --- Real-time Subscription for Discs ---
     useEffect(() => {
-        let unsubscribe;
+        let unsubscribeActive;
+        let unsubscribeArchived;
+
         if (currentUser && currentUser.uid) {
-            console.log("Subscribing to discs for user:", currentUser.uid);
-            unsubscribe = subscribeToUserDiscs(currentUser.uid, (fetchedDiscs) => {
-                setDiscs(fetchedDiscs);
+            console.log("Subscribing to active discs for user:", currentUser.uid);
+            unsubscribeActive = subscribeToUserDiscs(currentUser.uid, (fetchedDiscs) => {
+                setActiveDiscs(fetchedDiscs);
+            });
+
+            console.log("Subscribing to archived discs for user:", currentUser.uid);
+            unsubscribeArchived = subscribeToArchivedUserDiscs(currentUser.uid, (fetchedDiscs) => {
+                setArchivedDiscs(fetchedDiscs);
             });
         } else {
-            setDiscs([]);
+            setActiveDiscs([]);
+            setArchivedDiscs([]);
             console.log("No current user found, not subscribing to discs.");
         }
 
         return () => {
-            if (unsubscribe) {
-                console.log("Unsubscribing from discs.");
-                unsubscribe();
+            if (unsubscribeActive) {
+                console.log("Unsubscribing from active discs.");
+                unsubscribeActive();
+            }
+            if (unsubscribeArchived) {
+                console.log("Unsubscribing from archived discs.");
+                unsubscribeArchived();
             }
         };
     }, [currentUser]);
@@ -79,7 +122,7 @@ export default function InTheBagPage() {
         setNewDiscName('');
         setNewDiscManufacturer('');
         setNewDiscType('');
-        setNewDiscPlastic(''); // Reset new plastic type
+        setNewDiscPlastic('');
     };
 
     // --- Add Disc Submission Handler ---
@@ -94,7 +137,8 @@ export default function InTheBagPage() {
                 name: name.trim(),
                 manufacturer: manufacturer.trim(),
                 type: type.trim(),
-                plastic: plastic.trim()
+                plastic: plastic.trim(),
+                isArchived: false // Explicitly set to false for new discs
             };
             await addDiscToBag(currentUser.uid, discData);
             toast.success(`${name} added to your bag!`);
@@ -105,6 +149,38 @@ export default function InTheBagPage() {
         }
     };
 
+    // --- Archive Disc Handler ---
+    const handleArchiveDisc = async (discId, discName) => {
+        if (!currentUser || !currentUser.uid) {
+            toast.error("You must be logged in to archive a disc.");
+            return;
+        }
+        if (window.confirm(`Are you sure you want to put ${discName} on the shelf?`)) {
+            try {
+                await updateDiscInBag(currentUser.uid, discId, { isArchived: true });
+                toast.success(`${discName} moved to 'On the Shelf'!`);
+            } catch (error) {
+                console.error("Failed to archive disc:", error);
+                toast.error("Failed to archive disc. Please try again.");
+            }
+        }
+    };
+
+    // --- Restore Disc Handler ---
+    const handleRestoreDisc = async (discId, discName) => {
+        if (!currentUser || !currentUser.uid) {
+            toast.error("You must be logged in to restore a disc.");
+            return;
+        }
+        try {
+            await updateDiscInBag(currentUser.uid, discId, { isArchived: false });
+            toast.success(`${discName} restored to your bag!`);
+        } catch (error) {
+            console.error("Failed to restore disc:", error);
+            toast.error("Failed to restore disc. Please try again.");
+        }
+    };
+
     // --- Delete Disc Handler ---
     const handleDeleteDisc = async (discId, discName) => {
         if (!currentUser || !currentUser.uid) {
@@ -112,20 +188,29 @@ export default function InTheBagPage() {
             return;
         }
 
-        if (window.confirm(`Are you sure you want to remove ${discName} from your bag?`)) {
+        if (window.confirm(`Are you sure you want to permanently delete ${discName}? This cannot be undone.`)) {
             try {
                 await deleteDiscFromBag(currentUser.uid, discId);
-                toast.success(`${discName} removed from your bag!`);
+                toast.success(`${discName} permanently deleted.`);
             } catch (error) {
                 console.error("Failed to delete disc:", error);
-                toast.error("Failed to remove disc. Please try again.");
+                toast.error("Failed to delete disc. Please try again.");
             }
         }
     };
 
-    // --- Group discs by type ---
-    const groupedDiscs = discs.reduce((acc, disc) => {
-        // Use 'Other' if type is empty or null/undefined
+    // --- Group active discs by type ---
+    const groupedActiveDiscs = activeDiscs.reduce((acc, disc) => {
+        const type = (disc.type && disc.type.trim() !== '') ? disc.type : 'Other';
+        if (!acc[type]) {
+            acc[type] = [];
+        }
+        acc[type].push(disc);
+        return acc;
+    }, {});
+
+    // --- Group archived discs by type ---
+    const groupedArchivedDiscs = archivedDiscs.reduce((acc, disc) => {
         const type = (disc.type && disc.type.trim() !== '') ? disc.type : 'Other';
         if (!acc[type]) {
             acc[type] = [];
@@ -140,17 +225,23 @@ export default function InTheBagPage() {
         'Fairway Driver',
         'Mid-range',
         'Putter',
-        'Hybrid', // Assuming 'Hybrid' is a type that can be selected
-        'Other' // For discs with no specified type
+        'Hybrid',
+        'Other'
     ];
 
-    // Create a sorted list of types that actually exist in the grouped discs
-    const sortedDiscTypes = discTypeOrder.filter(type => groupedDiscs[type]);
+    // Create a sorted list of types that actually exist in the grouped active discs
+    const sortedActiveDiscTypes = discTypeOrder.filter(type => groupedActiveDiscs[type]);
+    Object.keys(groupedActiveDiscs).forEach(type => {
+        if (!sortedActiveDiscTypes.includes(type)) {
+            sortedActiveDiscTypes.push(type);
+        }
+    });
 
-    // Add any types that exist in groupedDiscs but were not in discTypeOrder (e.g., custom types)
-    Object.keys(groupedDiscs).forEach(type => {
-        if (!sortedDiscTypes.includes(type)) {
-            sortedDiscTypes.push(type);
+    // Create a sorted list of types that actually exist in the grouped archived discs
+    const sortedArchivedDiscTypes = discTypeOrder.filter(type => groupedArchivedDiscs[type]);
+    Object.keys(groupedArchivedDiscs).forEach(type => {
+        if (!sortedArchivedDiscTypes.includes(type)) {
+            sortedArchivedDiscTypes.push(type);
         }
     });
 
@@ -163,51 +254,105 @@ export default function InTheBagPage() {
     }
 
     return (
-        <div ref={scrollContainerRef} className="min-h-screen bg-gray-100 text-gray-900 p-4 sm:p-6 lg:p-8">
+        <div ref={scrollContainerRef} className="max-h-screen bg-gray-100 text-gray-900 p-4 sm:p-6 lg:p-8">
 
             <h2 className="text-2xl font-bold text-center pt-5">In Your Bag</h2>
-            {/* Added the disc count here */}
-            {discs.length > 0 && (
-                <p className="text-md text-gray-600 text-center mb-6">{discs.length} total discs</p>
+            {/* Display active disc count */}
+            {activeDiscs.length > 0 && (
+                <p className="text-md text-gray-600 text-center mb-6">{activeDiscs.length} active discs</p>
             )}
 
 
-            {discs.length === 0 ? (
+            {activeDiscs.length === 0 && archivedDiscs.length === 0 ? (
                 <p className="text-center text-gray-600 text-lg">
                     You haven't added any discs to your bag yet! Click the '+' button to get started.
                 </p>
             ) : (
-                <div className="space-y-8"> {/* Adds vertical spacing between different type sections */}
-                    {sortedDiscTypes.map(type => (
+                <div className="space-y-8">
+                    {sortedActiveDiscTypes.map(type => (
                         <div key={type}>
                             <h3 className="text-xl font-normal mb-4 text-blue-700 border-b-2 border-blue-200 pb-2">
                                 {type}
                             </h3>
                             <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {groupedDiscs[type].map((disc) => (
+                                {groupedActiveDiscs[type].map((disc) => (
                                     <li
                                         key={disc.id}
                                         className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex justify-between items-center hover:shadow-md transition-shadow duration-200 ease-in-out"
                                     >
                                         <div>
-                                            {/* Display Manufacturer, Plastic, and Name together */}
                                             <h4 className="text-lg font-semibold text-gray-800">
                                                 {disc.manufacturer} {disc.plastic ? `${disc.plastic} ` : ''}{disc.name}
                                             </h4>
-                                            {/* Removed redundant plastic and type lines here, as type is the section header */}
                                         </div>
-                                        <button
-                                            onClick={() => handleDeleteDisc(disc.id, disc.name)}
-                                            className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 transition-colors"
-                                            title={`Remove ${disc.name}`}
-                                        >
-                                            <FaTrash size={20} />
-                                        </button>
+                                        <div className="flex space-x-2">
+                                            <button
+                                                onClick={() => handleArchiveDisc(disc.id, disc.name)}
+                                                className="text-gray-500 hover:text-blue-700 p-2 rounded-full hover:bg-blue-100 transition-colors"
+                                                title={`Archive ${disc.name} (On the Shelf)`}
+                                            >
+                                                <Archive size={20} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteDisc(disc.id, disc.name)}
+                                                className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 transition-colors"
+                                                title={`Delete ${disc.name} permanently`}
+                                            >
+                                                <FaTrash size={20} />
+                                            </button>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* NEW: On the Shelf (Archived Discs) Accordion */}
+            {archivedDiscs.length > 0 && (
+                <div className="mt-8">
+                    <Accordion title={`On the Shelf (${archivedDiscs.length} discs)`} defaultOpen={false}>
+                        <div className="space-y-8">
+                            {sortedArchivedDiscTypes.map(type => (
+                                <div key={`archived-${type}`}>
+                                    <h3 className="text-xl font-normal mb-4 text-gray-700 border-b-2 border-gray-300 pb-2">
+                                        {type} (Archived)
+                                    </h3>
+                                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {groupedArchivedDiscs[type].map((disc) => (
+                                            <li
+                                                key={disc.id}
+                                                className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex justify-between items-center hover:shadow-md transition-shadow duration-200 ease-in-out"
+                                            >
+                                                <div>
+                                                    <h4 className="text-lg font-semibold text-gray-800">
+                                                        {disc.manufacturer} {disc.plastic ? `${disc.plastic} ` : ''}{disc.name}
+                                                    </h4>
+                                                </div>
+                                                <div className="flex space-x-2">
+                                                    <button
+                                                        onClick={() => handleRestoreDisc(disc.id, disc.name)}
+                                                        className="text-green-500 hover:text-green-700 p-2 rounded-full hover:bg-green-100 transition-colors"
+                                                        title={`Restore ${disc.name} to bag`}
+                                                    >
+                                                        <FolderOpen size={20} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteDisc(disc.id, disc.name)}
+                                                        className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 transition-colors"
+                                                        title={`Delete ${disc.name} permanently`}
+                                                    >
+                                                        <FaTrash size={20} />
+                                                    </button>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    </Accordion>
                 </div>
             )}
 
