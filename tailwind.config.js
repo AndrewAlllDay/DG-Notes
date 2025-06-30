@@ -3,7 +3,7 @@ module.exports = {
     content: [
         './src/**/*.{html,js,jsx,ts,tsx}', // Tell Tailwind where to look for your files
     ],
-    darkMode: 'true', // Disables dark mode entirely (currently)
+    darkMode: 'class', // Disables dark mode entirely (currently)
     theme: {
         extend: {
             colors: {
