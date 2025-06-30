@@ -598,7 +598,7 @@ const getUserDiscsCollection = (userId) => {
 /**
  * Adds a new disc to a user's bag in Firestore.
  * @param {string} userId - The UID of the user who owns the disc.
- * @param {Object} discData - An object containing the disc's name, manufacturer, type, and plastic.
+ * @param {Object} discData - An object containing the disc's name, manufacturer, type, plastic, and displayOrder.
  * @returns {Promise<Object>} A promise that resolves with the new disc's ID and data.
  */
 export const addDiscToBag = async (userId, discData) => {
@@ -612,7 +612,8 @@ export const addDiscToBag = async (userId, discData) => {
 
         const newDiscData = {
             ...discData,
-            isArchived: false, // NEW: Default to not archived
+            isArchived: discData.isArchived !== undefined ? discData.isArchived : false, // Ensure isArchived is set
+            displayOrder: discData.displayOrder !== undefined ? discData.displayOrder : 0, // Ensure displayOrder is set
             createdAt: new Date(),
             userId: userId,
         };
@@ -628,10 +629,10 @@ export const addDiscToBag = async (userId, discData) => {
 
 /**
  * Updates an existing disc document in a user's bag.
- * Used for archiving/unarchiving or other disc property changes.
+ * Used for archiving/unarchiving or other disc property changes, including displayOrder.
  * @param {string} userId - The UID of the user who owns the disc.
  * @param {string} discId - The ID of the disc to update.
- * @param {Object} newData - The data to update in the disc document (e.g., { isArchived: true }).
+ * @param {Object} newData - The data to update in the disc document (e.g., { isArchived: true, displayOrder: 5 }).
  * @returns {Promise<void>}
  */
 export const updateDiscInBag = async (userId, discId, newData) => {
@@ -661,11 +662,11 @@ export const subscribeToUserDiscs = (userId, callback) => {
         return () => { };
     }
 
-    // Query for discs where isArchived is explicitly false or not present
+    // Query for discs where isArchived is explicitly false or not present, ordered by displayOrder
     const q = query(
         getUserDiscsCollection(userId),
         where('isArchived', '==', false), // Filter for active discs
-        orderBy('createdAt', 'desc')
+        orderBy('displayOrder', 'asc') // NEW: Order by displayOrder for drag and drop
     );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -695,11 +696,11 @@ export const subscribeToArchivedUserDiscs = (userId, callback) => {
         return () => { };
     }
 
-    // Query for discs where isArchived is explicitly true
+    // Query for discs where isArchived is explicitly true, ordered by displayOrder
     const q = query(
         getUserDiscsCollection(userId),
         where('isArchived', '==', true), // Filter for archived discs
-        orderBy('createdAt', 'desc')
+        orderBy('displayOrder', 'asc') // NEW: Order by displayOrder for drag and drop
     );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
