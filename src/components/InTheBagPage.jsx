@@ -133,7 +133,7 @@ export default function InTheBagPage() {
     }
 
     return (
-        <div ref={scrollContainerRef} className="min-h-screen bg-gray-100 text-gray-900 p-4 sm:p-6 lg:p-8">
+        <div ref={scrollContainerRef} className="max-h-screen bg-gray-100 text-gray-900 p-4 sm:p-6 lg:p-8">
 
             <h2 className="text-2xl font-bold mb-6 text-center pt-5">Settings</h2>
 
