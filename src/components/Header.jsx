@@ -89,8 +89,8 @@ const Header = ({ onNavigate, onOpenEncouragement, user, onOpenSendEncouragement
                     </div>
                 )}
 
-                {/* Settings link (only for non-non-players) */}
-                {!isNonPlayer && (
+                {/* Settings link - REMOVED !isNonPlayer CONDITION */}
+                {user && ( // Ensure user is logged in to see settings
                     <div
                         className={`flex flex-col items-center hover:text-blue-600 transition-colors cursor-pointer p-2
                             ${isActive('settings') ? activeTextColor : inactiveTextColor}`}
@@ -164,8 +164,8 @@ const Header = ({ onNavigate, onOpenEncouragement, user, onOpenSendEncouragement
                     </li>
                 )}
 
-                {/* Settings link (only for non-non-players) */}
-                {!isNonPlayer && (
+                {/* Settings link - REMOVED !isNonPlayer CONDITION */}
+                {user && ( // Ensure user is logged in to see settings
                     <li>
                         <a
                             href="#"

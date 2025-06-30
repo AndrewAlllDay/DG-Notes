@@ -55,6 +55,7 @@ export default function InTheBagPage() {
     const [newDiscManufacturer, setNewDiscManufacturer] = useState('');
     const [newDiscType, setNewDiscType] = useState('');
     const [newDiscPlastic, setNewDiscPlastic] = useState('');
+    const [newDiscColor, setNewDiscColor] = useState(''); // NEW: State for disc color
 
     // State to track which disc's action menu is open
     const [openDiscActionsId, setOpenDiscActionsId] = useState(null);
@@ -78,13 +79,11 @@ export default function InTheBagPage() {
         if (currentUser && currentUser.uid) {
             console.log("Subscribing to active discs for user:", currentUser.uid);
             unsubscribeActive = subscribeToUserDiscs(currentUser.uid, (fetchedDiscs) => {
-                // Ensure discs have a displayOrder for sorting, assign 0 if missing
-                // Firestore query now handles ordering, so local sort is primarily for initial state consistency
                 const discsWithOrder = fetchedDiscs.map(disc => ({
                     ...disc,
                     displayOrder: disc.displayOrder !== undefined ? disc.displayOrder : 0
                 }));
-                setActiveDiscs(discsWithOrder); // No need to sort here if Firestore query is ordered
+                setActiveDiscs(discsWithOrder);
             });
 
             console.log("Subscribing to archived discs for user:", currentUser.uid);
@@ -93,7 +92,7 @@ export default function InTheBagPage() {
                     ...disc,
                     displayOrder: disc.displayOrder !== undefined ? disc.displayOrder : 0
                 }));
-                setArchivedDiscs(discsWithOrder); // No need to sort here if Firestore query is ordered
+                setArchivedDiscs(discsWithOrder);
             });
         } else {
             setActiveDiscs([]);
@@ -159,6 +158,7 @@ export default function InTheBagPage() {
         setNewDiscManufacturer('');
         setNewDiscType('');
         setNewDiscPlastic('');
+        setNewDiscColor(''); // NEW: Clear color when opening add modal
         setIsAddDiscModalOpen(true);
         setOpenDiscActionsId(null);
     };
@@ -169,6 +169,7 @@ export default function InTheBagPage() {
         setNewDiscManufacturer('');
         setNewDiscType('');
         setNewDiscPlastic('');
+        setNewDiscColor(''); // NEW: Clear color when closing add modal
     };
 
     // Open Edit Disc Modal
@@ -178,6 +179,7 @@ export default function InTheBagPage() {
         setNewDiscManufacturer(disc.manufacturer);
         setNewDiscType(disc.type);
         setNewDiscPlastic(disc.plastic);
+        setNewDiscColor(disc.color || ''); // NEW: Set color when opening edit modal
         setIsEditDiscModalOpen(true);
         setOpenDiscActionsId(null);
     };
@@ -190,6 +192,7 @@ export default function InTheBagPage() {
         setNewDiscManufacturer('');
         setNewDiscType('');
         setNewDiscPlastic('');
+        setNewDiscColor(''); // NEW: Clear color when closing edit modal
     };
 
     // Toggle disc actions dropdown visibility
@@ -198,7 +201,8 @@ export default function InTheBagPage() {
     };
 
     // --- Add/Edit Disc Submission Handler (unified) ---
-    const handleSubmitDisc = async (name, manufacturer, type, plastic) => {
+    // NEW: Added 'color' parameter to handleSubmitDisc
+    const handleSubmitDisc = async (name, manufacturer, type, plastic, color) => {
         if (!currentUser || !currentUser.uid) {
             toast.error("You must be logged in to manage discs.");
             return;
@@ -210,6 +214,7 @@ export default function InTheBagPage() {
                 manufacturer: manufacturer.trim(),
                 type: type.trim(),
                 plastic: plastic.trim(),
+                color: color.trim(), // NEW: Include color in discData
             };
 
             if (currentDiscToEdit) {
@@ -217,8 +222,6 @@ export default function InTheBagPage() {
                 toast.success(`${name} updated successfully!`);
                 closeEditDiscModal();
             } else {
-                // When adding a new disc, assign it a displayOrder.
-                // Find the maximum current order across both active and archived lists
                 const allDiscs = [...activeDiscs, ...archivedDiscs];
                 const maxOrder = allDiscs.length > 0 ? Math.max(...allDiscs.map(d => d.displayOrder || 0)) : -1;
                 await addDiscToBag(currentUser.uid, { ...discData, isArchived: false, displayOrder: maxOrder + 1 });
@@ -259,12 +262,11 @@ export default function InTheBagPage() {
         }
 
         try {
-            // Use Promise.all to send updates concurrently for better performance
             const updates = discsToUpdate.map((disc, index) => {
-                if (disc.displayOrder !== index) { // Only update if order has changed
+                if (disc.displayOrder !== index) {
                     return updateDiscInBag(currentUser.uid, disc.id, { displayOrder: index });
                 }
-                return Promise.resolve(); // No update needed for this disc
+                return Promise.resolve();
             });
             await Promise.all(updates);
             toast.success(`Discs in '${listType}' reordered successfully!`);
@@ -275,48 +277,41 @@ export default function InTheBagPage() {
     };
 
     const handleDragStart = (e, discId, discType) => {
-        console.log(`DEBUG: Drag started for disc: ${discId}, type: ${discType}`); // Added debug log
+        console.log(`DEBUG: Drag started for disc: ${discId}, type: ${discType}`);
         draggedItem.current = { id: discId, type: discType };
-        e.dataTransfer.setData("text/plain", discId); // Set data for the drag operation
-        e.dataTransfer.effectAllowed = "move"; // Visual cue for drag operation
+        e.dataTransfer.setData("text/plain", discId);
+        e.dataTransfer.effectAllowed = "move";
 
-        // Set a custom drag image to ensure the drag starts visually
-        // Use the element itself as the drag image, with a slight offset
         e.dataTransfer.setDragImage(e.currentTarget, e.nativeEvent.offsetX, e.nativeEvent.offsetY);
 
-        e.currentTarget.classList.add('opacity-50', 'border-blue-500', 'border-2'); // Visual feedback
+        e.currentTarget.classList.add('opacity-50', 'border-blue-500', 'border-2');
     };
 
     const handleDragEnter = (e, discId) => {
-        e.preventDefault(); // Allow drop
-        console.log(`DEBUG: Drag entered target: ${discId}`); // Added debug log
-        // Add a class to the item being dragged over for visual feedback
+        e.preventDefault();
+        console.log(`DEBUG: Drag entered target: ${discId}`);
         if (e.currentTarget.id !== `disc-${draggedItem.current?.id}`) {
-            e.currentTarget.classList.add('bg-blue-100', 'dark:bg-blue-900', 'scale-105', 'border-dashed', 'border-blue-500'); // Added border-dashed
-            dragOverTarget.current = discId; // Store the ID of the element being dragged over
+            e.currentTarget.classList.add('bg-blue-100', 'dark:bg-blue-900', 'scale-105', 'border-dashed', 'border-blue-500');
+            dragOverTarget.current = discId;
         }
     };
 
     const handleDragLeave = (e) => {
-        console.log(`DEBUG: Drag left target: ${e.currentTarget.id}`); // Added debug log
-        // Remove the class when dragging leaves an item
-        e.currentTarget.classList.remove('bg-blue-100', 'dark:bg-blue-900', 'scale-105', 'border-dashed', 'border-blue-500'); // Removed border-dashed
-        dragOverTarget.current = null; // Clear the drag over target
+        console.log(`DEBUG: Drag left target: ${e.currentTarget.id}`);
+        e.currentTarget.classList.remove('bg-blue-100', 'dark:bg-blue-900', 'scale-105', 'border-dashed', 'border-blue-500');
+        dragOverTarget.current = null;
     };
 
     const handleDragOver = (e) => {
-        e.preventDefault(); // Necessary to allow dropping
-        e.dataTransfer.dropEffect = "move"; // Visual cue for drop
-        // console.log("DEBUG: Dragging over..."); // Can be very noisy, uncomment if needed
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
     };
 
     const handleDragEnd = (e) => {
-        console.log("DEBUG: Drag ended."); // Added debug log
-        // Clean up visual feedback after drag ends
+        console.log("DEBUG: Drag ended.");
         e.currentTarget.classList.remove('opacity-50', 'border-blue-500', 'border-2');
-        // Remove any lingering drag-over styles from all items
         document.querySelectorAll('.disc-item').forEach(item => {
-            item.classList.remove('bg-blue-100', 'dark:bg-blue-900', 'scale-105', 'border-dashed', 'border-blue-500'); // Removed border-dashed
+            item.classList.remove('bg-blue-100', 'dark:bg-blue-900', 'scale-105', 'border-dashed', 'border-blue-500');
         });
         draggedItem.current = null;
         dragOverTarget.current = null;
@@ -324,20 +319,18 @@ export default function InTheBagPage() {
 
     const handleDrop = async (e, targetDiscId, targetListType) => {
         e.preventDefault();
-        console.log(`DEBUG: Drop occurred on target: ${targetDiscId}, listType: ${targetListType}`); // Added debug log
-        e.currentTarget.classList.remove('bg-blue-100', 'dark:bg-blue-900', 'scale-105', 'border-dashed', 'border-blue-500'); // Clean up drag-over style
+        console.log(`DEBUG: Drop occurred on target: ${targetDiscId}, listType: ${targetListType}`);
+        e.currentTarget.classList.remove('bg-blue-100', 'dark:bg-blue-900', 'scale-105', 'border-dashed', 'border-blue-500');
 
-        // Retrieve the dragged disc ID from dataTransfer, which is the standard way
         const sourceDiscId = e.dataTransfer.getData("text/plain");
-        const sourceListType = draggedItem.current?.type; // Use optional chaining in case draggedItem.current is null
+        const sourceListType = draggedItem.current?.type;
 
-        if (!sourceDiscId || !sourceListType) { // Check both for validity
+        if (!sourceDiscId || !sourceListType) {
             console.warn("Drag operation incomplete: sourceDiscId or sourceListType missing.");
-            toast.error("Drag operation failed. Please try again."); // More user-friendly error
+            toast.error("Drag operation failed. Please try again.");
             return;
         }
 
-        // If dropping on itself, or no actual movement, or trying to drop into an invalid area
         if (sourceDiscId === targetDiscId && sourceListType === targetListType) {
             console.log("DEBUG: Dropped on self or no effective movement.");
             return;
@@ -347,7 +340,6 @@ export default function InTheBagPage() {
         let currentTargetList = targetListType === 'active' ? [...activeDiscs] : [...archivedDiscs];
 
         const draggedDiscIndex = currentSourceList.findIndex(d => d.id === sourceDiscId);
-        // If targetDiscId is null, it means we are dropping on the list background, so place at the end
         const targetIndex = targetDiscId ? currentTargetList.findIndex(d => d.id === targetDiscId) : currentTargetList.length;
 
         if (draggedDiscIndex === -1) {
@@ -358,42 +350,31 @@ export default function InTheBagPage() {
 
         const movedDisc = { ...currentSourceList[draggedDiscIndex] };
 
-        // Scenario 1: Reordering within the same list
         if (sourceListType === targetListType) {
             console.log("DEBUG: Reordering within the same list.");
-            // Ensure targetIndex is valid for reordering
             const finalTargetIndex = targetIndex === -1 ? currentSourceList.length - 1 : targetIndex;
             const reorderedList = reorderArray(currentSourceList, draggedDiscIndex, finalTargetIndex);
 
-            // Update local state immediately for responsiveness
             if (sourceListType === 'active') {
                 setActiveDiscs(reorderedList);
             } else {
                 setArchivedDiscs(reorderedList);
             }
 
-            // Persist the new order to Firestore
             await updateDiscOrdersInFirestore(reorderedList, sourceListType);
 
-        }
-        // Scenario 2: Moving between active and archived lists
-        else {
+        } else {
             console.log("DEBUG: Moving between lists.");
-            // Remove from source list
             currentSourceList.splice(draggedDiscIndex, 1);
 
-            // Update the 'isArchived' status of the moved disc
             movedDisc.isArchived = (targetListType === 'archived');
 
-            // Add to target list at the correct position
-            // If targetIndex is -1 (e.g., dropping into an empty list), append it.
             if (targetIndex === -1) {
                 currentTargetList.push(movedDisc);
             } else {
                 currentTargetList.splice(targetIndex, 0, movedDisc);
             }
 
-            // Update local states immediately
             if (sourceListType === 'active') {
                 setActiveDiscs(currentSourceList);
                 setArchivedDiscs(currentTargetList);
@@ -402,14 +383,10 @@ export default function InTheBagPage() {
                 setActiveDiscs(currentTargetList);
             }
 
-            // Update Firestore for the moved disc's archived status
-            // This also triggers the onSnapshot listeners, which will then re-sort and update displayOrder
             try {
                 await updateDiscInBag(currentUser.uid, movedDisc.id, { isArchived: movedDisc.isArchived });
                 toast.success(`${movedDisc.name} ${movedDisc.isArchived ? 'moved to Shelf' : 'restored to Bag'}!`);
 
-                // Re-index both lists in Firestore after a cross-list move
-                // This is crucial to maintain contiguous displayOrder values in both lists.
                 await updateDiscOrdersInFirestore(currentSourceList, sourceListType);
                 await updateDiscOrdersInFirestore(currentTargetList, targetListType);
 
@@ -427,13 +404,11 @@ export default function InTheBagPage() {
             toast.error("You must be logged in to archive a disc.");
             return;
         }
-        // Using a custom modal instead of window.confirm
-        // For this example, I'm keeping window.confirm for brevity, but in a real app, replace it.
         if (window.confirm(`Are you sure you want to put ${discName} on the shelf?`)) {
             try {
                 await updateDiscInBag(currentUser.uid, discId, { isArchived: true });
                 toast.success(`${discName} moved to 'On the Shelf'!`);
-                setOpenDiscActionsId(null); // Close dropdown after action
+                setOpenDiscActionsId(null);
             } catch (error) {
                 console.error("Failed to archive disc:", error);
                 toast.error("Failed to archive disc. Please try again.");
@@ -450,7 +425,7 @@ export default function InTheBagPage() {
         try {
             await updateDiscInBag(currentUser.uid, discId, { isArchived: false });
             toast.success(`${discName} restored to your bag!`);
-            setOpenDiscActionsId(null); // Close dropdown after action
+            setOpenDiscActionsId(null);
         } catch (error) {
             console.error("Failed to restore disc:", error);
             toast.error("Failed to restore disc. Please try again.");
@@ -464,13 +439,11 @@ export default function InTheBagPage() {
             return;
         }
 
-        // Using a custom modal instead of window.confirm
-        // For this example, I'm keeping window.confirm for brevity, but in a real app, replace it.
         if (window.confirm(`Are you sure you want to permanently delete ${discName}? This cannot be undone.`)) {
             try {
                 await deleteDiscFromBag(currentUser.uid, discId);
                 toast.success(`${discName} permanently deleted.`);
-                setOpenDiscActionsId(null); // Close dropdown after action
+                setOpenDiscActionsId(null);
             } catch (error) {
                 console.error("Failed to delete disc:", error);
                 toast.error("Failed to delete disc. Please try again.");
@@ -502,8 +475,8 @@ export default function InTheBagPage() {
     const discTypeOrder = [
         'Distance Driver',
         'Fairway Driver',
-        'Mid-range',
-        'Putter',
+        'Midrange',
+        'Putt/Approach',
         'Hybrid',
         'Other'
     ];
@@ -536,7 +509,6 @@ export default function InTheBagPage() {
         <div ref={scrollContainerRef} className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 p-4 sm:p-6 lg:p-8">
 
             <h2 className="text-2xl font-bold text-center pt-5">In Your Bag</h2>
-            {/* Display active disc count */}
             {activeDiscs.length > 0 && (
                 <p className="text-md text-gray-600 dark:text-gray-400 text-center mb-6">{activeDiscs.length} active discs</p>
             )}
@@ -556,32 +528,32 @@ export default function InTheBagPage() {
                             <ul
                                 className="grid grid-cols-1 md:grid-cols-2 gap-4"
                                 onDragOver={handleDragOver}
-                                // onDrop here handles dropping into an empty category or on the list background
                                 onDrop={(e) => handleDrop(e, null, 'active')}
                             >
                                 {groupedActiveDiscs[type].map((disc) => (
                                     <li
                                         key={disc.id}
-                                        id={`disc-${disc.id}`} // Add ID for easy targeting
-                                        draggable="true" // Make it draggable
+                                        id={`disc-${disc.id}`}
+                                        draggable="true"
                                         onDragStart={(e) => handleDragStart(e, disc.id, 'active')}
                                         onDragEnter={(e) => handleDragEnter(e, disc.id)}
                                         onDragLeave={handleDragLeave}
                                         onDragEnd={handleDragEnd}
-                                        onDrop={(e) => handleDrop(e, disc.id, 'active')} // Drop on another item
-                                        className="disc-item bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-4 flex justify-between items-center hover:shadow-md transition-shadow duration-200 ease-in-out relative cursor-grab" // Added cursor-grab
-                                        style={{ userSelect: 'none' }} // Added user-select: none
-                                        onMouseDown={() => console.log(`DEBUG: Mouse down on disc: ${disc.id}`)} // Added mousedown log
+                                        onDrop={(e) => handleDrop(e, disc.id, 'active')}
+                                        className="disc-item bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-4 flex justify-between items-center hover:shadow-md transition-shadow duration-200 ease-in-out relative cursor-grab"
+                                        style={{ userSelect: 'none' }}
+                                        onMouseDown={() => console.log(`DEBUG: Mouse down on disc: ${disc.id}`)}
                                     >
                                         <div>
                                             <h4 className="text-lg font-semibold text-gray-800 dark:text-white">
-                                                {disc.manufacturer} {disc.plastic ? `${disc.plastic} ` : ''}{disc.name}
+                                                {disc.manufacturer} {disc.name} {disc.plastic ? `(${disc.plastic})` : ''}  {/* NEW: Display disc color */}
                                             </h4>
+                                            <h4 className='italic'>{disc.color ? `  ${disc.color}` : ''}</h4>
                                         </div>
-                                        <div className="relative"> {/* Container for the gear icon and dropdown */}
+                                        <div className="relative">
                                             <button
                                                 onClick={() => {
-                                                    console.log(`DEBUG: MoreVertical button clicked for disc: ${disc.id}`); // Added log
+                                                    console.log(`DEBUG: MoreVertical button clicked for disc: ${disc.id}`);
                                                     handleToggleDiscActions(disc.id);
                                                 }}
                                                 className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -592,7 +564,7 @@ export default function InTheBagPage() {
 
                                             {openDiscActionsId === disc.id && (
                                                 <div
-                                                    ref={dropdownRef} // Attach ref to the currently open dropdown
+                                                    ref={dropdownRef}
                                                     className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg z-10 border border-gray-200 dark:border-gray-600"
                                                 >
                                                     <button
@@ -637,32 +609,30 @@ export default function InTheBagPage() {
                                     <ul
                                         className="grid grid-cols-1 md:grid-cols-2 gap-4"
                                         onDragOver={handleDragOver}
-                                        // onDrop here handles dropping into an empty category or on the list background
                                         onDrop={(e) => handleDrop(e, null, 'archived')}
                                     >
                                         {groupedArchivedDiscs[type].map((disc) => (
                                             <li
                                                 key={disc.id}
-                                                id={`disc-${disc.id}`} // Add ID for easy targeting
-                                                draggable="true" // Make it draggable
+                                                id={`disc-${disc.id}`}
+                                                draggable="true"
                                                 onDragStart={(e) => handleDragStart(e, disc.id, 'archived')}
                                                 onDragEnter={(e) => handleDragEnter(e, disc.id)}
                                                 onDragLeave={handleDragLeave}
                                                 onDragEnd={handleDragEnd}
-                                                onDrop={(e) => handleDrop(e, disc.id, 'archived')} // Drop on another item
-                                                className="disc-item bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-4 flex justify-between items-center hover:shadow-md transition-shadow duration-200 ease-in-out relative cursor-grab" // Added cursor-grab
-                                                style={{ userSelect: 'none' }} // Added user-select: none
-                                                onMouseDown={() => console.log(`DEBUG: Mouse down on disc: ${disc.id}`)} // Added mousedown log
+                                                onDrop={(e) => handleDrop(e, disc.id, 'archived')}
+                                                className="disc-item bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-4 flex justify-between items-center hover:shadow-md transition-shadow duration-200 ease-in-out relative cursor-grab"
+                                                style={{ userSelect: 'none' }}
+                                                onMouseDown={() => console.log(`DEBUG: Mouse down on disc: ${disc.id}`)}
                                             >
                                                 <div>
                                                     <h4 className="text-lg font-semibold text-gray-800 dark:text-white">
-                                                        {disc.manufacturer} {disc.plastic ? `${disc.plastic} ` : ''}{disc.name}
+                                                        {disc.manufacturer} {disc.name} {disc.plastic ? `(${disc.plastic})` : ''} {disc.color ? ` - ${disc.color}` : ''} {/* NEW: Display disc color */}
                                                     </h4>
                                                 </div>
-                                                <div className="relative"> {/* Container for the gear icon and dropdown */}
+                                                <div className="relative">
                                                     <button
                                                         onClick={() => {
-                                                            console.log(`DEBUG: MoreVertical button clicked for disc: ${disc.id}`); // Added log
                                                             handleToggleDiscActions(disc.id);
                                                         }}
                                                         className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -673,7 +643,7 @@ export default function InTheBagPage() {
 
                                                     {openDiscActionsId === disc.id && (
                                                         <div
-                                                            ref={dropdownRef} // Attach ref to the currently open dropdown
+                                                            ref={dropdownRef}
                                                             className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg z-10 border border-gray-200 dark:border-gray-600"
                                                         >
                                                             <button
@@ -684,15 +654,15 @@ export default function InTheBagPage() {
                                                             </button>
                                                             <button
                                                                 onClick={() => handleRestoreDisc(disc.id, disc.name)}
-                                                                className="flex items-center w-full px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900"
+                                                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
                                                             >
-                                                                <FolderOpen size={16} className="mr-2" /> Add to Bag
+                                                                <FolderOpen size={16} className="mr-2" /> Restore to Bag
                                                             </button>
                                                             <button
                                                                 onClick={() => handleDeleteDisc(disc.id, disc.name)}
                                                                 className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded-b-md"
                                                             >
-                                                                <FaTrash size={16} className="mr-2" /> Delete Permanently
+                                                                <FaTrash size={16} className="mr-2" /> Delete
                                                             </button>
                                                         </div>
                                                     )}
@@ -707,22 +677,21 @@ export default function InTheBagPage() {
                 </div>
             )}
 
-
-            {/* FAB for Add Disc */}
+            {/* Floating Action Button */}
             <button
                 onClick={openAddDiscModal}
                 className={`fixed bottom-6 right-6 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
-                    transition-transform duration-300 ease-in-out
-                    ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
-                aria-label="Add New Disc"
+                            transition-transform duration-1000 ease-in-out // UPDATED DURATION
+                            ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
+                title="Add New Disc"
             >
                 <span className="text-2xl">＋</span>
             </button>
 
-            {/* Add Disc Modal (for adding new discs) */}
+            {/* Add/Edit Disc Modal */}
             <DiscFormModal
-                isOpen={isAddDiscModalOpen}
-                onClose={closeAddDiscModal}
+                isOpen={isAddDiscModalOpen || isEditDiscModalOpen}
+                onClose={currentDiscToEdit ? closeEditDiscModal : closeAddDiscModal}
                 onSubmit={handleSubmitDisc}
                 newDiscName={newDiscName}
                 setNewDiscName={setNewDiscName}
@@ -732,24 +701,8 @@ export default function InTheBagPage() {
                 setNewDiscType={setNewDiscType}
                 newDiscPlastic={newDiscPlastic}
                 setNewDiscPlastic={setNewDiscPlastic}
-                isEditing={false}
-            />
-
-            {/* Edit Disc Modal (for editing existing discs) */}
-            <DiscFormModal
-                isOpen={isEditDiscModalOpen}
-                onClose={closeEditDiscModal}
-                onSubmit={handleSubmitDisc}
-                initialDiscData={currentDiscToEdit}
-                newDiscName={newDiscName}
-                setNewDiscName={setNewDiscName}
-                newDiscManufacturer={newDiscManufacturer}
-                setNewDiscManufacturer={setNewDiscManufacturer}
-                newDiscType={newDiscType}
-                setNewDiscType={setNewDiscType}
-                newDiscPlastic={newDiscPlastic}
-                setNewDiscPlastic={setNewDiscPlastic}
-                isEditing={true}
+                newDiscColor={newDiscColor} // NEW: Pass color state to modal
+                setNewDiscColor={setNewDiscColor} // NEW: Pass color setter to modal
             />
         </div>
     );
