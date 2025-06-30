@@ -70,8 +70,9 @@ export default function AddDiscModal({
                             value={newDiscType}
                             onChange={(e) => setNewDiscType(e.target.value)}
                             className="w-full border rounded px-3 py-2 bg-white focus:ring-blue-500 focus:border-blue-500"
+                            required
                         >
-                            <option value="">Select Type (Optional)</option>
+                            <option value="">Select Type</option>
                             <option value="Distance Driver">Distance Driver</option>
                             <option value="Fairway Driver">Fairway Driver</option>
                             <option value="Mid-range">Mid-range</option>

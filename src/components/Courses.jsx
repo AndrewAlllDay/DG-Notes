@@ -7,7 +7,7 @@ import AddCourseModal from './AddCourseModal';
 import AddHoleModal from './AddHoleModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 
-import { ChevronLeft } from 'lucide-react'; // This import can now be removed if not used elsewhere
+// import { ChevronLeft } from 'lucide-react'; // This import can now be removed if not used elsewhere
 
 import {
     subscribeToCourses,
@@ -27,7 +27,8 @@ export default function Courses() {
     const [courses, setCourses] = useState([]);
     const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
     const [newCourseName, setNewCourseName] = useState('');
-    const [newCourseTournamentName, setNewCourseTournamentName] = '';
+    // FIX: Correctly initialize newCourseTournamentName state using useState
+    const [newCourseTournamentName, setNewCourseTournamentName] = useState('');
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [editingHoleData, setEditingHoleData] = useState({});
     const [swipedCourseId, setSwipedCourseId] = useState(null);
@@ -194,7 +195,7 @@ export default function Courses() {
             await addCourse(courseName, tournamentName, userId);
             setIsAddCourseModalOpen(false);
             setNewCourseName('');
-            setNewCourseTournamentName('');
+            setNewCourseTournamentName(''); // This will now correctly call the state setter
             showAppMessage('success', `Course "${courseName}" added successfully!`);
         } catch (error) {
             console.error("Failed to add course:", error);
@@ -434,6 +435,7 @@ export default function Courses() {
                         onSubmit={handleAddCourse}
                         newCourseName={newCourseName}
                         setNewCourseName={setNewCourseName}
+                        // These props are now correctly passed
                         newCourseTournamentName={newCourseTournamentName}
                         setNewCourseTournamentName={setNewCourseTournamentName}
                     />

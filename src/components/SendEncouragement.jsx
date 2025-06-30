@@ -1,18 +1,19 @@
 // src/components/SendEncouragement.jsx
-import React, { useState, useEffect, useRef } from 'react'; // Added useRef
+import React, { useState, useEffect, useRef } from 'react';
 import { addEncouragementNote, subscribeToAllUserDisplayNames } from '../services/firestoreService';
-import { useFirebase } from '../firebase'; // To get the sender's UID
+import { useFirebase } from '../firebase';
 import { ChevronDown, Check } from 'lucide-react'; // Import ChevronDown and Check icons
 
-const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => {
+// Removed onSendSuccess and showBackButton from props as they are no longer needed for navigation
+const SendEncouragement = ({ onClose }) => {
     const { user, isAuthReady } = useFirebase();
     const [noteText, setNoteText] = useState('');
     const [recipients, setRecipients] = useState([]);
     const [selectedRecipientId, setSelectedRecipientId] = useState('');
-    const [message, setMessage] = useState('');
+    const [message, setMessage] = useState(''); // { type: 'success' | 'error', text: '...' }
     const [isLoading, setIsLoading] = useState(false);
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false); // State for custom dropdown visibility
-    const dropdownRef = useRef(null); // Ref for custom dropdown to detect clicks outside
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
 
     // Effect to fetch all user display names
     useEffect(() => {
@@ -82,7 +83,7 @@ const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setMessage('');
+        setMessage(''); // Clear previous messages
         if (!user || !user.uid) {
             setMessage({ type: 'error', text: 'You must be logged in to send a note.' });
             return;
@@ -102,9 +103,12 @@ const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => {
             const senderDisplayName = user.displayName || user.email || 'Anonymous Sender';
 
             await addEncouragementNote(user.uid, selectedRecipientId, senderDisplayName, recipientDisplayName, noteText.trim());
-            onSendSuccess(`Note sent to ${recipientDisplayName}!`);
-            setNoteText('');
-            setSelectedRecipientId(recipients.length > 0 ? recipients[0].id : '');
+            // Instead of calling onSendSuccess for navigation, display success message on this page
+            setMessage({ type: 'success', text: `Note sent to ${recipientDisplayName}! Ready for another!` });
+            setNoteText(''); // Clear the note text input
+            // Optionally, reset the selected recipient to the first one or clear it
+            setSelectedRecipientId(recipients.length > 0 ? recipients[0].id : ''); // Keeps first option selected
+            // setSelectedRecipientId(''); // Clears selection, forcing user to pick again if desired
         } catch (error) {
             console.error("Error sending note:", error);
             setMessage({ type: 'error', text: `Failed to send note: ${error.message}` });
@@ -120,7 +124,7 @@ const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => {
 
     const handleSelectRecipient = (recipientId) => {
         setSelectedRecipientId(recipientId);
-        setIsDropdownOpen(false); // Close dropdown after selection
+        setIsDropdownOpen(false);
     };
 
     return (
@@ -137,10 +141,9 @@ const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => {
                         <label htmlFor="recipient-select-button" className="block text-sm font-medium text-gray-700 mb-1">
                             Send to:
                         </label>
-                        {/* Custom dropdown implementation */}
                         <div className="relative" ref={dropdownRef}>
                             <button
-                                type="button" // Important: Prevents form submission
+                                type="button"
                                 id="recipient-select-button"
                                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                                 className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 !bg-white flex justify-between items-center text-gray-700 hover:border-gray-400 transition-colors duration-200"
@@ -178,7 +181,7 @@ const SendEncouragement = ({ onSendSuccess, onClose, showBackButton }) => {
                                 </div>
                             ))}
                         </div>
-                        {recipients.length === 0 && user?.role !== 'admin' && !isDropdownOpen && ( // Only show message if dropdown is closed
+                        {recipients.length === 0 && user?.role !== 'admin' && !isDropdownOpen && (
                             <p className="text-sm text-gray-500 mt-1">
                                 Join a team in Settings to send notes to teammates!
                             </p>

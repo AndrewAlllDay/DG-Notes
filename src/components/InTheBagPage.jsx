@@ -83,7 +83,6 @@ export default function InTheBagPage() {
     };
 
     // --- Add Disc Submission Handler ---
-    // Update handleAddDisc to accept plastic as a parameter
     const handleAddDisc = async (name, manufacturer, type, plastic) => {
         if (!currentUser || !currentUser.uid) {
             toast.error("You must be logged in to add a disc.");
@@ -95,7 +94,7 @@ export default function InTheBagPage() {
                 name: name.trim(),
                 manufacturer: manufacturer.trim(),
                 type: type.trim(),
-                plastic: plastic.trim() // Include plastic type
+                plastic: plastic.trim()
             };
             await addDiscToBag(currentUser.uid, discData);
             toast.success(`${name} added to your bag!`);
@@ -124,6 +123,37 @@ export default function InTheBagPage() {
         }
     };
 
+    // --- Group discs by type ---
+    const groupedDiscs = discs.reduce((acc, disc) => {
+        // Use 'Other' if type is empty or null/undefined
+        const type = (disc.type && disc.type.trim() !== '') ? disc.type : 'Other';
+        if (!acc[type]) {
+            acc[type] = [];
+        }
+        acc[type].push(disc);
+        return acc;
+    }, {});
+
+    // Define the desired order of disc types for display
+    const discTypeOrder = [
+        'Distance Driver',
+        'Fairway Driver',
+        'Mid-range',
+        'Putter',
+        'Hybrid', // Assuming 'Hybrid' is a type that can be selected
+        'Other' // For discs with no specified type
+    ];
+
+    // Create a sorted list of types that actually exist in the grouped discs
+    const sortedDiscTypes = discTypeOrder.filter(type => groupedDiscs[type]);
+
+    // Add any types that exist in groupedDiscs but were not in discTypeOrder (e.g., custom types)
+    Object.keys(groupedDiscs).forEach(type => {
+        if (!sortedDiscTypes.includes(type)) {
+            sortedDiscTypes.push(type);
+        }
+    });
+
     if (!currentUser) {
         return (
             <div className="flex justify-center items-center h-screen bg-gray-100">
@@ -133,39 +163,52 @@ export default function InTheBagPage() {
     }
 
     return (
-        <div ref={scrollContainerRef} className="max-h-screen bg-gray-100 text-gray-900 p-4 sm:p-6 lg:p-8">
+        <div ref={scrollContainerRef} className="min-h-screen bg-gray-100 text-gray-900 p-4 sm:p-6 lg:p-8">
 
-            <h2 className="text-2xl font-bold mb-6 text-center pt-5">Settings</h2>
+            <h2 className="text-2xl font-bold text-center pt-5">In Your Bag</h2>
+            {/* Added the disc count here */}
+            {discs.length > 0 && (
+                <p className="text-md text-gray-600 text-center mb-6">{discs.length} total discs</p>
+            )}
+
 
             {discs.length === 0 ? (
                 <p className="text-center text-gray-600 text-lg">
                     You haven't added any discs to your bag yet! Click the '+' button to get started.
                 </p>
             ) : (
-                <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {discs.map((disc) => (
-                        <li
-                            key={disc.id}
-                            className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex justify-between items-center hover:shadow-md transition-shadow duration-200 ease-in-out"
-                        >
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-800">{disc.manufacturer} {disc.plastic} {disc.name}</h3>
-                                {/* Display plastic type */}
-
-                                {disc.type && (
-                                    <p className="text-sm text-gray-600">Type: {disc.type}</p>
-                                )}
-                            </div>
-                            <button
-                                onClick={() => handleDeleteDisc(disc.id, disc.name)}
-                                className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 transition-colors"
-                                title={`Remove ${disc.name}`}
-                            >
-                                <FaTrash size={20} />
-                            </button>
-                        </li>
+                <div className="space-y-8"> {/* Adds vertical spacing between different type sections */}
+                    {sortedDiscTypes.map(type => (
+                        <div key={type}>
+                            <h3 className="text-xl font-normal mb-4 text-blue-700 border-b-2 border-blue-200 pb-2">
+                                {type}
+                            </h3>
+                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {groupedDiscs[type].map((disc) => (
+                                    <li
+                                        key={disc.id}
+                                        className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 flex justify-between items-center hover:shadow-md transition-shadow duration-200 ease-in-out"
+                                    >
+                                        <div>
+                                            {/* Display Manufacturer, Plastic, and Name together */}
+                                            <h4 className="text-lg font-semibold text-gray-800">
+                                                {disc.manufacturer} {disc.plastic ? `${disc.plastic} ` : ''}{disc.name}
+                                            </h4>
+                                            {/* Removed redundant plastic and type lines here, as type is the section header */}
+                                        </div>
+                                        <button
+                                            onClick={() => handleDeleteDisc(disc.id, disc.name)}
+                                            className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 transition-colors"
+                                            title={`Remove ${disc.name}`}
+                                        >
+                                            <FaTrash size={20} />
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
                     ))}
-                </ul>
+                </div>
             )}
 
 
@@ -184,7 +227,6 @@ export default function InTheBagPage() {
             <AddDiscModal
                 isOpen={isAddDiscModalOpen}
                 onClose={closeAddDiscModal}
-                // Pass newDiscPlastic and setNewDiscPlastic to the modal
                 onSubmit={handleAddDisc}
                 newDiscName={newDiscName}
                 setNewDiscName={setNewDiscName}
