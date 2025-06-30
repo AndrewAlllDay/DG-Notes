@@ -1,22 +1,24 @@
 // src/App.jsx
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import Header from './components/Header.jsx'; // Added .jsx extension
-import Courses from './components/Courses.jsx'; // Added .jsx extension
-import EncouragementModal from './components/EncouragementModal.jsx'; // Added .jsx extension
-import LoginPage from './components/LoginPage.jsx'; // Added .jsx extension
-import NotificationToast from './components/NotificationToast.jsx'; // Added .jsx extension
+import Header from './components/Header.jsx';
+import Courses from './components/Courses.jsx';
+import EncouragementModal from './components/EncouragementModal.jsx';
+import LoginPage from './components/LoginPage.jsx';
+import NotificationToast from './components/NotificationToast.jsx';
 
 import './styles/EncouragementModal.css';
 
-import { useFirebase, auth } from './firebase.js'; // Added .js extension
-import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService.jsx'; // Added .js extension
+import { useFirebase, auth } from './firebase.js';
+import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService.jsx';
 
 import * as Dialog from '@radix-ui/react-dialog';
 
-const LazySettingsPage = lazy(() => import('./components/SettingsPage.jsx')); // Added .jsx extension
-const LazySendEncouragement = lazy(() => import('./components/SendEncouragement.jsx')); // Added .jsx extension
-const LazyWeatherDisplay = lazy(() => import('./components/WeatherDisplay.jsx')); // Added .jsx extension
+const LazySettingsPage = lazy(() => import('./components/SettingsPage.jsx'));
+const LazySendEncouragement = lazy(() => import('./components/SendEncouragement.jsx'));
+const LazyWeatherDisplay = lazy(() => import('./components/WeatherDisplay.jsx'));
+// ADD THIS LINE
+const LazyInTheBagPage = lazy(() => import('./components/InTheBagPage.jsx'));
 
 const LoadingScreen = () => {
   return (
@@ -91,7 +93,7 @@ function App() {
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                   console.log('Service Worker: New worker installed and waiting. Showing reload prompt.');
                   setWaitingWorker(newWorker); // Store the reference to the waiting worker
-                  setShowReloadPrompt(true);   // Show the UI prompt
+                  setShowReloadPrompt(true);   // Show the UI prompt
                 } else if (newWorker.state === 'activated') {
                   // This case happens if the new worker activates without a prompt (e.g., all tabs closed)
                   // or if skipWaiting was called directly in the SW.
@@ -279,16 +281,16 @@ function App() {
       <Header
         onNavigate={handleNavigate}
         onOpenEncouragement={() => setIsEncouragementModalOpen(true)}
-        onSignOut={handleSignOut}
+        // onSignOut is no longer needed directly in Header as Logout is in SettingsPage
         user={user}
         onOpenSendEncouragement={() => handleNavigate('send-note')}
         canSendEncouragement={canSendEncouragement}
-        currentPage={currentPage} // <--- Added this prop
+        currentPage={currentPage}
       />
 
       {appMessage.text && (
         <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-lg shadow-lg text-white
-                                ${appMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
+                                  ${appMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
           {appMessage.text}
         </div>
       )}
@@ -310,7 +312,8 @@ function App() {
         )}
         {currentPage === 'settings' && (
           <Suspense fallback={<div>Loading Settings...</div>}>
-            <LazySettingsPage />
+            {/* THIS IS THE KEY CHANGE: Pass onSignOut to SettingsPage */}
+            <LazySettingsPage onSignOut={handleSignOut} />
           </Suspense>
         )}
         {currentPage === 'send-note' && (
@@ -325,6 +328,12 @@ function App() {
         {currentPage === 'weather' && (
           <Suspense fallback={<div>Loading Weather...</div>}>
             <LazyWeatherDisplay />
+          </Suspense>
+        )}
+        {/* ADD THIS BLOCK */}
+        {currentPage === 'in-the-bag' && (
+          <Suspense fallback={<div>Loading In The Bag...</div>}>
+            <LazyInTheBagPage />
           </Suspense>
         )}
       </main>

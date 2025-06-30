@@ -1,7 +1,7 @@
 // src/components/SettingsPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useFirebase } from '../firebase'; // Import the useFirebase hook
-import { Copy, ChevronDown, ChevronUp, PlusCircle, Trash2, UserPlus, UserMinus } from 'lucide-react'; // Import icons
+import { Copy, ChevronDown, ChevronUp, PlusCircle, Trash2, UserPlus, UserMinus, LogOut } from 'lucide-react'; // Import icons, including LogOut
 import {
     setUserProfile,
     subscribeToAllUserProfiles,
@@ -39,7 +39,7 @@ const Accordion = ({ title, children, defaultOpen = false }) => {
     );
 };
 
-export default function SettingsPage() {
+export default function SettingsPage({ onSignOut }) { // Accept onSignOut as a prop
     const { user, userId, isAuthReady } = useFirebase(); // Get user, userId, and isAuthReady from the hook. User now includes 'role'.
     const [copyMessage, setCopyMessage] = useState('');
     const [displayNameInput, setDisplayNameInput] = useState('');
@@ -303,6 +303,19 @@ export default function SettingsPage() {
                 </div>
                 {user.email && <p className="text-gray-600 text-sm mt-3">Logged in as: {user.email}</p>}
                 <p className="text-gray-600 text-sm">Your Role: <span className="font-semibold capitalize">{user.role || 'non-player'}</span></p>
+            </Accordion>
+
+            {/* Account Actions Accordion - NEW */}
+            <Accordion title="Account Actions" defaultOpen={false}>
+                {user && (
+                    <button
+                        onClick={onSignOut} // <-- This is the key change!
+                        className="w-full flex items-center justify-center gap-2 !bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500"
+                    >
+                        <LogOut size={20} />
+                        Logout
+                    </button>
+                )}
             </Accordion>
 
             {/* Admin Role Management Section - Only visible to admin users */}

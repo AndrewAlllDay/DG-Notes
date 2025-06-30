@@ -1,11 +1,12 @@
 // src/components/Header.jsx
 
 import React from "react";
-import { ThumbsUp, LogOut, Send, Settings, Flag } from "lucide-react";
+// Remove LogOut from imports
+import { ThumbsUp, Send, Settings, Flag, Backpack } from "lucide-react"; // Import Backpack icon, removed LogOut
 import LogoImage from '../assets/DG Logo.svg';
 
-// Add `currentPage` to the destructured props
-const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEncouragement, canSendEncouragement, currentPage }) => {
+// Remove onSignOut from destructured props
+const Header = ({ onNavigate, onOpenEncouragement, user, onOpenSendEncouragement, canSendEncouragement, currentPage }) => {
 
     const isNonPlayer = user && user.role === 'non-player';
 
@@ -55,6 +56,17 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEn
                         <span className="text-xs mt-1">Courses</span>
                     </div>
                 )}
+                {/* In The Bag link (only for non-non-players) */}
+                {!isNonPlayer && (
+                    <div
+                        className={`flex flex-col items-center hover:text-blue-600 transition-colors cursor-pointer p-2
+                            ${isActive('in-the-bag') ? activeTextColor : inactiveTextColor}`}
+                        onClick={(e) => handleNavigate('in-the-bag', e)}
+                    >
+                        <Backpack size={20} className={isActive('in-the-bag') ? activeIconColor : inactiveIconColor} />
+                        <span className="text-xs mt-1">In The Bag</span>
+                    </div>
+                )}
                 {/* Send Note link (for any logged-in user who can send) */}
                 {user && canSendEncouragement && (
                     <div
@@ -67,7 +79,6 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEn
                     </div>
                 )}
                 {/* Encourage Me! link (no direct page, so this one is special) */}
-                {/* For Encourage Me, you might need a different logic or no active state */}
                 {!isNonPlayer && (
                     <div
                         className="flex flex-col items-center text-black hover:text-purple-800 transition-colors cursor-pointer p-2"
@@ -78,7 +89,7 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEn
                     </div>
                 )}
 
-                {/* Settings link (only for non-non-players) - Re-added to main mobile nav */}
+                {/* Settings link (only for non-non-players) */}
                 {!isNonPlayer && (
                     <div
                         className={`flex flex-col items-center hover:text-blue-600 transition-colors cursor-pointer p-2
@@ -90,17 +101,7 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEn
                     </div>
                 )}
 
-                {/* Logout link (for any logged-in user) - Re-added to main mobile nav */}
-                {/* Logout also doesn't represent a 'page', so no active state needed */}
-                {user && (
-                    <div
-                        className="flex flex-col items-center text-red-600 hover:text-red-800 transition-colors cursor-pointer p-2"
-                        onClick={onSignOut}
-                    >
-                        <LogOut size={20} />
-                        <span className="text-xs mt-1">Logout</span>
-                    </div>
-                )}
+                {/* Logout link removed from here */}
             </nav>
 
             {/* Desktop nav links */}
@@ -115,6 +116,19 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEn
                                 ${isActive('courses') ? activeTextColor : inactiveTextColor}`}
                         >
                             Courses
+                        </a>
+                    </li>
+                )}
+                {/* In The Bag link (only for non-non-players) */}
+                {!isNonPlayer && (
+                    <li>
+                        <a
+                            href="#"
+                            onClick={(e) => handleNavigate('in-the-bag', e)}
+                            className={`hover:text-blue-600 transition-colors duration-150
+                                ${isActive('in-the-bag') ? activeTextColor : inactiveTextColor}`}
+                        >
+                            In The Bag
                         </a>
                     </li>
                 )}
@@ -164,21 +178,7 @@ const Header = ({ onNavigate, onOpenEncouragement, onSignOut, user, onOpenSendEn
                     </li>
                 )}
 
-                {/* Logout link (no active state for this one) */}
-                {user && (
-                    <li>
-                        <a
-                            href="#"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                onSignOut();
-                            }}
-                            className="hover:text-red-600 transition-colors duration-150"
-                        >
-                            Logout
-                        </a>
-                    </li>
-                )}
+                {/* Logout link removed from here */}
             </nav>
         </header>
     );

@@ -42,6 +42,15 @@ const getTeamsCollection = () => {
     return collection(db, `artifacts/${appId}/teams`);
 };
 
+// NEW: Function to get the user-specific discs collection path
+const getUserDiscsCollection = (userId) => {
+    if (!userId) {
+        console.error("Attempted to access user discs collection without a userId.");
+        throw new Error("User not authenticated or userId is missing.");
+    }
+    return collection(db, `artifacts/${appId}/users/${userId}/discs`);
+};
+
 // --- USER PROFILE MANAGEMENT ---
 
 /**
@@ -568,6 +577,93 @@ export const markEncouragementNoteAsRead = async (noteId, userId) => {
         console.log(`Encouragement note ${noteId} marked as read by ${userId}.`);
     } catch (e) {
         console.error("Error marking encouragement note as read: ", e);
+        throw e;
+    }
+};
+
+// --- NEW DISC MANAGEMENT FUNCTIONS ---
+
+/**
+ * Function to get the user-specific discs collection path.
+ * This is already defined at the top of the file.
+ * const getUserDiscsCollection = (userId) => { ... };
+ */
+
+/**
+ * Adds a new disc to a user's bag in Firestore.
+ * @param {string} userId - The UID of the user who owns the disc.
+ * @param {Object} discData - An object containing the disc's name, manufacturer, and type.
+ * @returns {Promise<Object>} A promise that resolves with the new disc's ID and data.
+ */
+export const addDiscToBag = async (userId, discData) => {
+    try {
+        if (!userId) {
+            throw new Error("Cannot add disc: User ID is missing.");
+        }
+        if (!discData || !discData.name || !discData.manufacturer) {
+            throw new Error("Disc name and manufacturer are required to add a disc.");
+        }
+
+        const newDiscData = {
+            ...discData,
+            createdAt: new Date(),
+            userId: userId, // Redundant but good for queries and security rules
+        };
+
+        const docRef = await addDoc(getUserDiscsCollection(userId), newDiscData);
+        console.log("Disc added to bag with ID: ", docRef.id);
+        return { id: docRef.id, ...newDiscData };
+    } catch (e) {
+        console.error("Error adding disc to bag: ", e);
+        throw e;
+    }
+};
+
+/**
+ * Subscribes to real-time updates for all discs in a user's bag.
+ * @param {string} userId - The UID of the user whose discs to subscribe to.
+ * @param {function} callback - Callback function to receive an array of disc objects.
+ * @returns {function} An unsubscribe function.
+ */
+export const subscribeToUserDiscs = (userId, callback) => {
+    if (!userId) {
+        console.warn("Attempted to subscribe to user discs without a userId. Returning no discs.");
+        callback([]);
+        return () => { };
+    }
+
+    const q = query(getUserDiscsCollection(userId), orderBy('createdAt', 'desc')); // Order by most recently added
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const discs = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        console.log(`DEBUG firestoreService: Fetched ${discs.length} discs for user ${userId}`);
+        callback(discs);
+    }, (error) => {
+        console.error("Error subscribing to user discs: ", error);
+    });
+
+    return unsubscribe;
+};
+
+/**
+ * Deletes a disc from a user's bag.
+ * @param {string} userId - The UID of the user who owns the disc.
+ * @param {string} discId - The ID of the disc to delete.
+ * @returns {Promise<void>}
+ */
+export const deleteDiscFromBag = async (userId, discId) => {
+    try {
+        if (!userId || !discId) {
+            throw new Error("User ID and Disc ID are required to delete a disc.");
+        }
+        const discDocRef = doc(getUserDiscsCollection(userId), discId);
+        await deleteDoc(discDocRef);
+        console.log(`Disc ${discId} deleted from user ${userId}'s bag.`);
+    } catch (e) {
+        console.error("Error deleting disc from bag: ", e);
         throw e;
     }
 };

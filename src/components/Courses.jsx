@@ -391,7 +391,7 @@ export default function Courses() {
                     {/* FAB for Add Hole */}
                     <button
                         onClick={() => setIsAddHoleModalOpen(true)}
-                        className={`fixed bottom-6 right-6 !bg-green-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
+                        className={`fixed bottom-6 right-6 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
                             transition-transform duration-1000 ease-in-out // UPDATED DURATION
                             ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
                         aria-label="Add Hole"
@@ -420,7 +420,7 @@ export default function Courses() {
                     {/* FAB for Add Course */}
                     <button
                         onClick={() => setIsAddCourseModalOpen(true)}
-                        className={`fab-fix fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
+                        className={`fab-fix fixed bottom-6 right-6 !bg-blue-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
                             transition-transform duration-1000 ease-in-out // UPDATED DURATION
                             ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
                         aria-label="Add Course"
