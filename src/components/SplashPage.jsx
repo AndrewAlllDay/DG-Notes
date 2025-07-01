@@ -15,10 +15,11 @@ const SplashPage = ({ onEnterApp }) => {
             </h2>
 
             <p className="text-lg md:text-xl text-center max-w-2xl leading-relaxed mb-10 animate-fade-in delay-400">
-                Your ultimate companion for disc golf courses and personal notes.
-                Keep track of your hole notes, discs, and receive encouragement from your community.
+                Your ultimate disc golf companion.
+                Take notes on courses, track your bag, and receive encouragement from your community.
                 Get ready to elevate your game!
             </p>
+
             <button
                 onClick={onEnterApp}
                 className="px-8 py-4 spec-sec-bg hover:bg-blue-700 text-white font-semibold rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 animate-fade-in delay-600"

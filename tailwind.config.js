@@ -1,28 +1,58 @@
+// tailwind.config.js
+import plugin from 'tailwindcss/plugin'; // <-- Import the plugin helper
+
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+export default {
     content: [
-        './src/**/*.{html,js,jsx,ts,tsx}', // Tell Tailwind where to look for your files
+        "./index.html",
+        "./src/**/*.{js,ts,jsx,tsx}",
     ],
-    darkMode: 'class', // Enables dark mode (class strategy)
     theme: {
         extend: {
-            colors: {
-                // Custom colors for light mode buttons
-                primary: '#333333',  // Blue button background
-                secondary: '#9333EA', // Purple button background
-                lightButtonText: '#FFFFFF', // Light button text color
-                lightButtonHoverBg: '#2563EB', // Hover state for blue button
-                lightButtonHoverText: '#E0E0E0', // Hover text color for light button
-                specsecbutton: '#FC9215',
-
-                // Custom dark mode colors (only if you re-enable dark mode in the future)
-                darkButtonBg: '#333333',    // Dark mode button background
-                darkButtonText: '#FFFFFF',  // Dark mode button text color
-                darkButtonHoverBg: '#444444', // Dark mode button hover background
-                darkButtonHoverText: '#CCCCCC', // Dark mode button hover text color
+            keyframes: {
+                overlayShow: {
+                    from: { opacity: '0' },
+                    to: { opacity: '1' },
+                },
+                overlayHide: {
+                    from: { opacity: '1' },
+                    to: { opacity: '0' },
+                },
+                contentShow: {
+                    from: {
+                        opacity: '0',
+                        transform: 'translate(-50%, -48%) scale(0.96)',
+                    },
+                    to: {
+                        opacity: '1',
+                        transform: 'translate(-50%, -50%) scale(1)',
+                    },
+                },
+                contentHide: {
+                    from: {
+                        opacity: '1',
+                        transform: 'translate(-50%, -50%) scale(1)',
+                    },
+                    to: {
+                        opacity: '0',
+                        transform: 'translate(-50%, -48%) scale(0.96)',
+                    },
+                },
             },
-            // --- REMOVED KEYFRAMES AND ANIMATION BLOCKS FROM HERE ---
+            animation: { // Keep these definitions
+                overlayShow: 'overlayShow 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                overlayHide: 'overlayHide 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                contentShow: 'contentShow 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                contentHide: 'contentHide 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards',
+            },
         },
     },
-    plugins: [],
-}
+    plugins: [
+        plugin(function ({ addVariant }) {
+            // Define custom variants for Radix UI data-state attributes
+            // These will allow classes like `data-open:animate-overlayShow`
+            addVariant('data-open', '&[data-state="open"]');
+            addVariant('data-closed', '&[data-state="closed"]');
+        }),
+    ],
+};

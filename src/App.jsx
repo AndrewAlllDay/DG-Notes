@@ -4,9 +4,9 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import Header from './components/Header.jsx';
 import Courses from './components/Courses.jsx';
 import EncouragementModal from './components/EncouragementModal.jsx';
-import LoginPage from './components/LoginPage.jsx';
+import LoginModal from './components/LoginModal.jsx'; // IMPORT THE NEW MODAL COMPONENT
 import NotificationToast from './components/NotificationToast.jsx';
-import SplashPage from './components/SplashPage.jsx'; // Import the new SplashPage component
+import SplashPage from './components/SplashPage.jsx';
 
 import './styles/EncouragementModal.css';
 
@@ -21,7 +21,6 @@ const LazyWeatherDisplay = lazy(() => import('./components/WeatherDisplay.jsx'))
 const LazyInTheBagPage = lazy(() => import('./components/InTheBagPage.jsx'));
 
 const LoadingScreen = ({ isDarkMode }) => {
-  // Determine background based on dark mode state
   const bgColor = isDarkMode ? 'bg-black' : 'bg-gray-100';
   const textColor = isDarkMode ? 'text-gray-300' : 'text-gray-700';
   const spinnerColor = isDarkMode ? 'border-blue-300' : 'border-blue-500';
@@ -38,9 +37,13 @@ const LoadingScreen = ({ isDarkMode }) => {
 
 
 function App() {
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
   const handleLoginSuccess = (uid) => {
     console.log("DEBUG App.jsx: handleLoginSuccess triggered for UID:", uid);
     showAppMessage('success', 'You have been successfully logged in!');
+    setIsLoginModalOpen(false); // Close the login modal on success
+    setShowSplash(false); // <--- NEW: Hide splash page ONLY on successful login
   };
 
   const handleLogoutSuccess = () => {
@@ -74,30 +77,24 @@ function App() {
     }, 5000);
   };
 
-  // NEW: Dark Mode State and Logic
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    // Initialize from localStorage or system preference
     const savedMode = localStorage.getItem('darkMode');
     if (savedMode !== null) {
       return JSON.parse(savedMode);
     }
-    // Fallback to system preference if no saved mode
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
-  // NEW: Splash Page state
-  const [showSplash, setShowSplash] = useState(true); // Control visibility of splash page
+  const [showSplash, setShowSplash] = useState(true);
 
-  // Effect to apply/remove 'dark' class to the <html> element
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-    // Save preference to localStorage
     localStorage.setItem('darkMode', JSON.stringify(isDarkMode));
-  }, [isDarkMode]); // Re-run effect when isDarkMode changes
+  }, [isDarkMode]);
 
   const toggleDarkMode = () => {
     setIsDarkMode(prevMode => !prevMode);
@@ -237,7 +234,7 @@ function App() {
         setCurrentNotification(null);
         setAllPublicUserProfiles([]);
         setHasInitialNonPlayerRedirected(false);
-        setShowSplash(true); // <--- THIS LINE IS CRUCIAL: Show splash page again on logout
+        setShowSplash(true); // Show splash page again on logout
       } catch (error) {
         console.error("DEBUG App.jsx handleSignOut: Error signing out:", error);
         showAppMessage('error', `Failed to sign out: ${error.message}`);
@@ -277,34 +274,40 @@ function App() {
     }
   };
 
-  // Function to transition from SplashPage to LoginPage
+  // Function to transition from SplashPage to LoginPage (now LoginModal)
   const handleEnterApp = () => {
-    setShowSplash(false);
+    // setShowSplash(false); // REMOVED: Keep splash page visible
+    setIsLoginModalOpen(true); // Open the login modal
   };
 
 
-  // Conditional rendering based on splash state, authReady, and user
-  if (showSplash) {
-    return <SplashPage onEnterApp={handleEnterApp} />;
-  }
+  // === CONDITIONAL RENDERING LOGIC ===
 
+  // 1. Show a full loading screen if Firebase Auth is not ready yet.
   if (!isAuthReady) {
-    return <LoadingScreen isDarkMode={isDarkMode} />; // Pass isDarkMode to LoadingScreen
+    return <LoadingScreen isDarkMode={isDarkMode} />;
   }
 
+  // 2. If user is NOT logged in:
+  //    - Always show the SplashPage (it becomes the background).
+  //    - If the "Enter App" button has been clicked, open the LoginModal on top.
   if (!user) {
     return (
-      // LoginPage will handle its own background, but ensure its container is transparent
-      <div className="min-h-screen flex flex-col bg-transparent">
-        <LoginPage />
-      </div>
+      <>
+        <SplashPage onEnterApp={handleEnterApp} />
+        <LoginModal
+          isOpen={isLoginModalOpen}
+          onClose={() => setIsLoginModalOpen(false)} // Allows closing the modal and returning to SplashPage
+        />
+      </>
     );
   }
 
+  // 3. If user IS logged in (showSplash is now false due to handleLoginSuccess):
+  //    - Render the main application UI.
   const showSendNoteBackButton = user.role !== 'non-player';
 
   return (
-    // Main App container: controls global background and default text color
     <div className="App min-h-screen flex flex-col bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100">
       <Header
         onNavigate={handleNavigate}
@@ -313,8 +316,8 @@ function App() {
         onOpenSendEncouragement={() => handleNavigate('send-note')}
         canSendEncouragement={canSendEncouragement}
         currentPage={currentPage}
-        isDarkMode={isDarkMode} // Pass isDarkMode to Header
-        toggleDarkMode={toggleDarkMode} // Pass toggleDarkMode to Header
+        isDarkMode={isDarkMode}
+        toggleDarkMode={toggleDarkMode}
       />
 
       {appMessage.text && (
@@ -332,7 +335,6 @@ function App() {
       )}
 
       <main className="flex-grow">
-        {/* Conditional rendering for different pages */}
         {currentPage === 'courses' && (
           <Courses
             key={coursesKey}
@@ -370,7 +372,6 @@ function App() {
         onClose={() => setIsEncouragementModalOpen(false)}
       />
 
-      {/* Service Worker Update Prompt Dialog */}
       <Dialog.Root open={showReloadPrompt} onOpenChange={setShowReloadPrompt}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
