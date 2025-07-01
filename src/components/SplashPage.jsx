@@ -10,9 +10,7 @@ const SplashPage = ({ onEnterApp }) => {
                 alt="DG Caddy Notes Logo"
                 className="h-24 w-auto mb-8 animate-fade-in" // Increased size, added mb-8 for spacing, and a simple animation
             />
-            <h2 className="text-2xl md:text-5xl font-bold text-center mb-2 animate-fade-in delay-200">
-                Welcome to DG Notes!
-            </h2>
+
 
             <p className="text-lg md:text-xl text-center max-w-2xl leading-relaxed mb-10 animate-fade-in delay-400">
                 Your ultimate disc golf companion.
