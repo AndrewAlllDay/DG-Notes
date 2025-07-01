@@ -124,6 +124,20 @@ export default function HoleItem({
                             />
                         </label>
                         <label className="block">
+                            <span className="text-gray-700 dark:text-gray-300 text-sm">Par:</span>
+                            <input
+                                type="number"
+                                placeholder="Par"
+                                name="par"
+                                value={currentEditPar}
+                                onChange={handleLocalInputChange}
+                                className="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                required
+                            />
+                        </label>
+
+
+                        <label className="block">
                             <span className="text-gray-700 dark:text-gray-300 text-sm">Recommended Disc:</span>
                             <select
                                 name="discId"
@@ -149,18 +163,6 @@ export default function HoleItem({
                             )}
                         </label>
                         <label className="block">
-                            <span className="text-gray-700 dark:text-gray-300 text-sm">Par:</span>
-                            <input
-                                type="number"
-                                placeholder="Par"
-                                name="par"
-                                value={currentEditPar}
-                                onChange={handleLocalInputChange}
-                                className="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                required
-                            />
-                        </label>
-                        <label className="block">
                             <span className="text-gray-700 dark:text-gray-300 text-sm">Note:</span>
                             <textarea
                                 placeholder="Add a note"
@@ -171,29 +173,25 @@ export default function HoleItem({
                                 rows="3"
                             />
                         </label>
-
-
-
-                        {/* --- Modified Buttons: Icons Only --- */}
                         <div className="flex flex-wrap gap-2 mt-3">
                             <button
                                 onClick={() => onSave(hole.id)}
                                 className="!bg-green-600 text-white p-2 rounded hover:bg-green-700 transition-colors"
-                                aria-label="Save Changes" // Added for accessibility
+                                aria-label="Save Changes"
                             >
                                 <Save size={20} />
                             </button>
                             <button
                                 onClick={() => onDelete(hole.id)}
                                 className="!bg-red-600 text-white p-2 rounded hover:bg-red-700 transition-colors"
-                                aria-label="Delete Hole" // Added for accessibility
+                                aria-label="Delete Hole"
                             >
                                 <Trash size={20} />
                             </button>
                             <button
                                 onClick={handleCancelEdit}
                                 className="!bg-gray-300 text-gray-800 p-2 rounded hover:bg-gray-400 transition-colors dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
-                                aria-label="Cancel" // Added for accessibility
+                                aria-label="Cancel"
                             >
                                 <X size={20} />
                             </button>
@@ -202,7 +200,7 @@ export default function HoleItem({
                     </div>
                 ) : (
                     // Display mode
-                    <div className='flex-grow'> {/* Added flex-grow here to align content better */}
+                    <div className='flex-grow'>
                         <p className='mb-2 text-gray-800 dark:text-white'>
                             <span className='font-bold text-lg'>Hole {hole.number}</span> - Par {hole.par}
                         </p>
@@ -221,11 +219,11 @@ export default function HoleItem({
                     </div>
                 )}
             </div>
-            {/* Edit button remains in display mode, also as an icon */}
+            {/* --- Edit button in Display mode (Icon Only, No Background) --- */}
             {!isCurrentlyEditing && (
                 <button
                     onClick={() => onToggleEdit(hole.id, hole)}
-                    className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 ml-4 mt-1 flex-shrink-0 p-1 rounded "
+                    className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 ml-4 p-1 rounded !bg-transparent"
                     aria-label="Edit Hole"
                 >
                     <Edit size={20} />
