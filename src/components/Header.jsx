@@ -21,8 +21,8 @@ const Header = ({ onNavigate, onOpenEncouragement, user, onOpenSendEncouragement
     // Helper function to determine if a link is active
     const isActive = (pageName) => currentPage === pageName;
 
-    const activeIconColor = 'text-blue-600'; // Define your active color
-    const activeTextColor = 'font-bold text-blue-600'; // Define active text color
+    const activeIconColor = 'spec-sec'; // Define your active color
+    const activeTextColor = 'font-bold spec-sec'; // Define active text color
     const inactiveIconColor = 'text-gray-700'; // Default inactive color
     const inactiveTextColor = 'text-gray-700'; // Default inactive text color
 

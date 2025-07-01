@@ -508,7 +508,7 @@ export default function InTheBagPage() {
     return (
         <div ref={scrollContainerRef} className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 p-4 sm:p-6 lg:p-8">
 
-            <h2 className="text-2xl font-bold text-center pt-5">In Your Bag</h2>
+            <h2 className="text-2xl font-bold text-center pt-5 mb-2">In Your Bag</h2>
             {activeDiscs.length > 0 && (
                 <p className="text-md text-gray-600 dark:text-gray-400 text-center mb-6">{activeDiscs.length} active discs</p>
             )}
@@ -523,7 +523,7 @@ export default function InTheBagPage() {
                     {sortedActiveDiscTypes.map(type => (
                         <div key={type}>
                             <h3 className="text-xl font-normal mb-4 text-blue-700 dark:text-blue-400 border-b-2 border-blue-200 dark:border-blue-700 pb-2">
-                                {type}
+                                {type} <span className='text-black text-sm'>({groupedActiveDiscs[type].length} discs)</span>
                             </h3>
                             <ul
                                 className="grid grid-cols-1 md:grid-cols-2 gap-4"
@@ -546,9 +546,9 @@ export default function InTheBagPage() {
                                     >
                                         <div>
                                             <h4 className="text-lg font-semibold text-gray-800 dark:text-white">
-                                                {disc.manufacturer} {disc.name} {disc.plastic ? `(${disc.plastic})` : ''}  {/* NEW: Display disc color */}
+                                                <span className='font-bold'>{disc.manufacturer}</span> {disc.plastic ? `${disc.plastic}` : ''} {disc.name}
                                             </h4>
-                                            <h4 className='italic'>{disc.color ? `  ${disc.color}` : ''}</h4>
+                                            <h4 className='italic'>{disc.color ? ` ${disc.color}` : ''}</h4>
                                         </div>
                                         <div className="relative">
                                             <button
@@ -604,7 +604,7 @@ export default function InTheBagPage() {
                             {sortedArchivedDiscTypes.map(type => (
                                 <div key={`archived-${type}`}>
                                     <h3 className="text-xl font-normal mb-4 text-gray-700 dark:text-gray-300 border-b-2 border-gray-300 dark:border-gray-600 pb-2">
-                                        {type} (Archived)
+                                        {type} ({groupedArchivedDiscs[type].length}) (Archived)
                                     </h3>
                                     <ul
                                         className="grid grid-cols-1 md:grid-cols-2 gap-4"
@@ -627,7 +627,7 @@ export default function InTheBagPage() {
                                             >
                                                 <div>
                                                     <h4 className="text-lg font-semibold text-gray-800 dark:text-white">
-                                                        {disc.manufacturer} {disc.name} {disc.plastic ? `(${disc.plastic})` : ''} {disc.color ? ` - ${disc.color}` : ''} {/* NEW: Display disc color */}
+                                                        {disc.manufacturer} {disc.name} {disc.plastic ? `(${disc.plastic})` : ''} {disc.color ? ` - ${disc.color}` : ''}
                                                     </h4>
                                                 </div>
                                                 <div className="relative">
@@ -677,33 +677,22 @@ export default function InTheBagPage() {
                 </div>
             )}
 
-            {/* Floating Action Button */}
-            <button
-                onClick={openAddDiscModal}
-                className={`fixed bottom-6 right-6 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
-                            transition-transform duration-1000 ease-in-out // UPDATED DURATION
-                            ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
-                title="Add New Disc"
-            >
-                <span className="text-2xl">＋</span>
-            </button>
-
-            {/* Add/Edit Disc Modal */}
+            {/* Disc Form Modal */}
             <DiscFormModal
                 isOpen={isAddDiscModalOpen || isEditDiscModalOpen}
                 onClose={currentDiscToEdit ? closeEditDiscModal : closeAddDiscModal}
                 onSubmit={handleSubmitDisc}
-                newDiscName={newDiscName}
-                setNewDiscName={setNewDiscName}
-                newDiscManufacturer={newDiscManufacturer}
-                setNewDiscManufacturer={setNewDiscManufacturer}
-                newDiscType={newDiscType}
-                setNewDiscType={setNewDiscType}
-                newDiscPlastic={newDiscPlastic}
-                setNewDiscPlastic={setNewDiscPlastic}
-                newDiscColor={newDiscColor} // NEW: Pass color state to modal
-                setNewDiscColor={setNewDiscColor} // NEW: Pass color setter to modal
+                initialData={currentDiscToEdit}
             />
+
+            {/* Floating Action Button */}
+            <button
+                className={`fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition-transform duration-300 ease-in-out ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
+                onClick={openAddDiscModal}
+                title="Add New Disc"
+            >
+                <FaPlus size={24} />
+            </button>
         </div>
     );
 }
