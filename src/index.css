@@ -117,3 +117,7 @@ button:focus-visible {
 .spec-sec {
   color: var(--secondary-special);
 }
+
+.spec-sec-bg {
+  background-color: var(--secondary-special);
+}

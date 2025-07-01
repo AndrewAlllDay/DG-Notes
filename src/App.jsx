@@ -6,6 +6,7 @@ import Courses from './components/Courses.jsx';
 import EncouragementModal from './components/EncouragementModal.jsx';
 import LoginPage from './components/LoginPage.jsx';
 import NotificationToast from './components/NotificationToast.jsx';
+import SplashPage from './components/SplashPage.jsx'; // Import the new SplashPage component
 
 import './styles/EncouragementModal.css';
 
@@ -84,6 +85,9 @@ function App() {
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
+  // NEW: Splash Page state
+  const [showSplash, setShowSplash] = useState(true); // Control visibility of splash page
+
   // Effect to apply/remove 'dark' class to the <html> element
   useEffect(() => {
     if (isDarkMode) {
@@ -98,7 +102,6 @@ function App() {
   const toggleDarkMode = () => {
     setIsDarkMode(prevMode => !prevMode);
   };
-
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -234,6 +237,7 @@ function App() {
         setCurrentNotification(null);
         setAllPublicUserProfiles([]);
         setHasInitialNonPlayerRedirected(false);
+        setShowSplash(true); // <--- THIS LINE IS CRUCIAL: Show splash page again on logout
       } catch (error) {
         console.error("DEBUG App.jsx handleSignOut: Error signing out:", error);
         showAppMessage('error', `Failed to sign out: ${error.message}`);
@@ -273,6 +277,17 @@ function App() {
     }
   };
 
+  // Function to transition from SplashPage to LoginPage
+  const handleEnterApp = () => {
+    setShowSplash(false);
+  };
+
+
+  // Conditional rendering based on splash state, authReady, and user
+  if (showSplash) {
+    return <SplashPage onEnterApp={handleEnterApp} />;
+  }
+
   if (!isAuthReady) {
     return <LoadingScreen isDarkMode={isDarkMode} />; // Pass isDarkMode to LoadingScreen
   }
@@ -304,7 +319,7 @@ function App() {
 
       {appMessage.text && (
         <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-lg shadow-lg text-white
-                                 ${appMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
+                                     ${appMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
           {appMessage.text}
         </div>
       )}
