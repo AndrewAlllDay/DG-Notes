@@ -36,6 +36,23 @@ select {
   /* Make space for the custom arrow */
 }
 
+/* In your main CSS file (e.g., src/index.css or src/App.css) */
+
+optgroup {
+  font-weight: bold;
+  color: #646cff;
+  /* Optional: Make the text darker for better contrast */
+  /* You can add more styles here if you want to further customize the category labels */
+}
+
+optgroup option {
+  font-weight: normal;
+  /* Ensures options are not bold (though they don't inherit font-weight) */
+  color: #000;
+  /* Explicitly sets the color of the individual options to black */
+  /* Or use a slightly lighter shade if you prefer: color: #555; */
+}
+
 a {
   font-weight: 500;
   color: #646cff;
