@@ -1,5 +1,7 @@
+// src/components/CourseItem.jsx
+
 import React from 'react';
-import { Trash } from 'lucide-react';
+import { Trash, ChevronRight } from 'lucide-react';
 
 export default function CourseItem({
     course,
@@ -9,46 +11,69 @@ export default function CourseItem({
     onTouchStart,
     onTouchMove,
     onTouchEnd,
-    // NEW: Accept the tournamentName prop
     tournamentName,
 }) {
+    const isSwiped = swipedCourseId === course.id;
+
+    // Define the width of the delete button and how far the content slides.
+    // The delete button's width should be GREATER THAN the distance the main content slides.
+    const deleteButtonWidthClass = 'w-28'; // Button is 112px wide
+    const swipeDistance = '-80px';      // Main content slides 80px to the left
+
     return (
-        <li className="relative h-16 overflow-hidden select-none touch-pan-y">
-            {/* DELETE BUTTON - updated border-radius */}
+        <li className="relative h-20 select-none touch-pan-y mb-2 overflow-hidden">
+
+            {/* DELETE BUTTON - Ensures the icon is centered */}
             <button
                 onClick={(e) => {
-                    e.stopPropagation(); // Prevents the click from bubbling up to the div
-                    onDelete(course.id); // Pass the specific course.id to the onDelete handler
+                    e.stopPropagation();
+                    onDelete(course.id);
                 }}
-                // Added rounded-tr-lg and rounded-br-lg for top-right and bottom-right radius
-                className="fab-fix absolute right-0 top-0 bottom-0 w-20 bg-red-600 text-white flex items-center justify-center z-10 del-btn-fix"
+                className={`absolute right-0 top-0 bottom-0 ${deleteButtonWidthClass} !bg-red-600 text-white flex items-center justify-center z-10 rounded-r-lg`}
                 aria-label={`Delete ${course.name}`}
             >
-                <Trash />
+                <Trash className='ml-5' size={24} />
             </button>
 
             {/* MAIN COURSE CONTENT DIV */}
             <div
                 id={`course-${course.id}`}
-                className="absolute inset-0 bg-white border z-20 flex items-center px-4 cursor-pointer hover:bg-gray-50"
+                className={`
+                    absolute inset-0
+                    bg-white dark:bg-gray-800
+                    border border-gray-200 dark:border-gray-700
+                    rounded-lg
+                    shadow-sm
+                    z-20
+                    flex items-center justify-between
+                    px-4
+                    cursor-pointer
+                    transition-all duration-300 ease-in-out
+                    hover:bg-gray-50 dark:hover:bg-gray-700
+                    hover:shadow-md
+                    active:bg-gray-100 dark:active:bg-gray-600
+                    transform
+                `}
                 style={{
-                    // This transform value is dynamically set based on the swipedCourseId
-                    transform: swipedCourseId === course.id ? 'translateX(-80px)' : 'translateX(0)',
-                    // REMOVED: transition: 'transform 0.3s ease',
-                    // This transition is now controlled by the parent Courses.jsx component
-                    // via direct DOM manipulation in handleTouchStart and handleTouchEnd.
+                    transform: isSwiped ? `translateX(${swipeDistance})` : 'translateX(0)',
                 }}
                 onClick={() => onClick(course)}
                 onTouchStart={(e) => onTouchStart(e, course.id)}
                 onTouchMove={(e) => onTouchMove(e, course.id)}
                 onTouchEnd={() => onTouchEnd(course.id)}
             >
-                <div> {/* Added a div to stack course name and tournament name */}
-                    <p className="font-semibold text-xl">{course.name}</p>
-                    {/* NEW: Display Tournament Name if it exists */}
+                <div>
+                    <p className="text-lg text-gray-800 dark:text-white">
+                        <span className='font-bold'>{course.name}</span>
+                    </p>
                     {tournamentName && (
-                        <p className="text-sm text-gray-600 mt-1">{tournamentName}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">
+                            {tournamentName}
+                        </p>
                     )}
+                </div>
+                <div className="ml-auto text-gray-400 dark:text-gray-500">
+                    <ChevronRight size={20} />
                 </div>
             </div>
         </li>
