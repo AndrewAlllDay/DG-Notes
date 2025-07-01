@@ -152,7 +152,7 @@ export default function HoleItem({
                                 name="discId"
                                 value={currentEditDiscId}
                                 onChange={handleLocalInputChange}
-                                className="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 custom-select-dropdown"
                             >
                                 <option value="">No Disc Selected</option>
                                 {sortedDiscTypes.map(type => (

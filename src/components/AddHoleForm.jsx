@@ -106,7 +106,7 @@ export default function AddHoleForm({ onAddHole, onCancel, discs }) { // <--- AD
             </label>
             <select
                 id="discSelect"
-                className="w-full border rounded px-3 py-2"
+                className="w-full border rounded px-3 py-2 custom-select-dropdown"
                 value={selectedDiscId}
                 onChange={(e) => setSelectedDiscId(e.target.value)}
             >
