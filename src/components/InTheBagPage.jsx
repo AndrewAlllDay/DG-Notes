@@ -591,7 +591,7 @@ export default function InTheBagPage() {
                                     >
                                         <div>
                                             <h4 className="text-lg font-semibold text-gray-800 dark:text-white">
-                                                <span className='font-bold'>{disc.manufacturer}</span> {disc.plastic ? `${disc.plastic}` : ''} {disc.name}
+                                                <span className='font-extrabold'>{disc.manufacturer}</span> {disc.plastic ? `${disc.plastic}` : ''} {disc.name}
                                             </h4>
                                             <h4 className='italic'>{disc.color ? ` ${disc.color}` : ''}</h4>
                                         </div>
