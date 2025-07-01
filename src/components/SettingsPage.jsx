@@ -56,7 +56,7 @@ export default function SettingsPage({ onSignOut }) {
     const [teamMessage, setTeamMessage] = useState({ type: '', text: '' });
     const [pendingTeamMembers, setPendingTeamMembers] = useState({});
 
-    const APP_VERSION = 'v1.0.7';
+    const APP_VERSION = 'v1.1';
 
     // Effect to load the user's current display name when the component mounts or user changes
     useEffect(() => {
