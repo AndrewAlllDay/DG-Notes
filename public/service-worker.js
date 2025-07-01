@@ -3,7 +3,7 @@
 // IMPORTANT: Increment this CACHE_NAME any time you make changes to your app's code or assets
 // that you want users to see immediately. This forces the browser to download new assets.
 // You should match this with your APP_VERSION in SettingsPage.jsx for consistency if you have one.
-const CACHE_NAME = 'dgnotes-cache-v1.0.103'; // <-- INCREMENT THIS VERSION FOR NEW DEPLOYMENTS!
+const CACHE_NAME = 'dgnotes-cache-v1.0.105'; // <-- INCREMENT THIS VERSION FOR NEW DEPLOYMENTS!
 const urlsToCache = [
     '/',
     '/index.html',
