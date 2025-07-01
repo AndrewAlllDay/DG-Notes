@@ -84,6 +84,7 @@ export default function InTheBagPage() {
                     displayOrder: disc.displayOrder !== undefined ? disc.displayOrder : 0
                 }));
                 setActiveDiscs(discsWithOrder);
+                console.log("Active discs updated:", discsWithOrder); // Added console log
             });
 
             console.log("Subscribing to archived discs for user:", currentUser.uid);
@@ -93,6 +94,7 @@ export default function InTheBagPage() {
                     displayOrder: disc.displayOrder !== undefined ? disc.displayOrder : 0
                 }));
                 setArchivedDiscs(discsWithOrder);
+                console.log("Archived discs updated:", discsWithOrder); // Added console log
             });
         } else {
             setActiveDiscs([]);
@@ -120,8 +122,10 @@ export default function InTheBagPage() {
             if (Math.abs(currentScrollY - lastScrollY.current) > 10) {
                 if (currentScrollY > lastScrollY.current) {
                     setShowFab(false);
+                    console.log("FAB hidden due to scroll down."); // Added console log
                 } else {
                     setShowFab(true);
+                    console.log("FAB shown due to scroll up."); // Added console log
                 }
             }
             lastScrollY.current = currentScrollY;
@@ -139,6 +143,7 @@ export default function InTheBagPage() {
         const handleClickOutside = (event) => {
             if (openDiscActionsId && dropdownRef.current && !dropdownRef.current.contains(event.target)) {
                 setOpenDiscActionsId(null);
+                console.log("Closing disc actions dropdown due to outside click."); // Added console log
             }
         };
 
@@ -161,6 +166,7 @@ export default function InTheBagPage() {
         setNewDiscColor(''); // NEW: Clear color when opening add modal
         setIsAddDiscModalOpen(true);
         setOpenDiscActionsId(null);
+        console.log("Opening Add Disc Modal."); // Added console log
     };
 
     const closeAddDiscModal = () => {
@@ -170,6 +176,7 @@ export default function InTheBagPage() {
         setNewDiscType('');
         setNewDiscPlastic('');
         setNewDiscColor(''); // NEW: Clear color when closing add modal
+        console.log("Closing Add Disc Modal."); // Added console log
     };
 
     // Open Edit Disc Modal
@@ -182,6 +189,7 @@ export default function InTheBagPage() {
         setNewDiscColor(disc.color || ''); // NEW: Set color when opening edit modal
         setIsEditDiscModalOpen(true);
         setOpenDiscActionsId(null);
+        console.log("Opening Edit Disc Modal for disc:", disc.id); // Added console log
     };
 
     // Close Edit Disc Modal
@@ -193,18 +201,25 @@ export default function InTheBagPage() {
         setNewDiscType('');
         setNewDiscPlastic('');
         setNewDiscColor(''); // NEW: Clear color when closing edit modal
+        console.log("Closing Edit Disc Modal."); // Added console log
     };
 
     // Toggle disc actions dropdown visibility
     const handleToggleDiscActions = (discId) => {
-        setOpenDiscActionsId(prevId => (prevId === discId ? null : discId));
+        setOpenDiscActionsId(prevId => {
+            const newState = (prevId === discId ? null : discId);
+            console.log(`Toggling disc actions for ${discId}. New state: ${newState ? 'Open' : 'Closed'}`); // Added console log
+            return newState;
+        });
     };
 
     // --- Add/Edit Disc Submission Handler (unified) ---
     // NEW: Added 'color' parameter to handleSubmitDisc
     const handleSubmitDisc = async (name, manufacturer, type, plastic, color) => {
+        console.log("Attempting to save disc:", { name, manufacturer, type, plastic, color }); // Added console log
         if (!currentUser || !currentUser.uid) {
             toast.error("You must be logged in to manage discs.");
+            console.error("User not logged in, cannot save disc."); // Added console log
             return;
         }
 
@@ -221,12 +236,14 @@ export default function InTheBagPage() {
                 await updateDiscInBag(currentUser.uid, currentDiscToEdit.id, discData);
                 toast.success(`${name} updated successfully!`);
                 closeEditDiscModal();
+                console.log("Disc updated successfully:", discData); // Added console log
             } else {
                 const allDiscs = [...activeDiscs, ...archivedDiscs];
                 const maxOrder = allDiscs.length > 0 ? Math.max(...allDiscs.map(d => d.displayOrder || 0)) : -1;
                 await addDiscToBag(currentUser.uid, { ...discData, isArchived: false, displayOrder: maxOrder + 1 });
                 toast.success(`${name} added to your bag!`);
                 closeAddDiscModal();
+                console.log("Disc added successfully:", discData); // Added console log
             }
         } catch (error) {
             console.error("Failed to save disc:", error);
@@ -244,6 +261,7 @@ export default function InTheBagPage() {
      * @returns {Array} The reordered array.
      */
     const reorderArray = (list, startIndex, endIndex) => {
+        console.log(`Reordering array: startIndex=${startIndex}, endIndex=${endIndex}`); // Added console log
         const result = Array.from(list);
         const [removed] = result.splice(startIndex, 1);
         result.splice(endIndex, 0, removed);
@@ -256,20 +274,24 @@ export default function InTheBagPage() {
      * @param {string} listType - 'active' or 'archived' for logging purposes.
      */
     const updateDiscOrdersInFirestore = async (discsToUpdate, listType) => {
+        console.log(`Updating disc orders in Firestore for ${listType} list.`); // Added console log
         if (!currentUser || !currentUser.uid) {
             toast.error("You must be logged in to reorder discs.");
+            console.error("User not logged in, cannot reorder discs."); // Added console log
             return;
         }
 
         try {
             const updates = discsToUpdate.map((disc, index) => {
                 if (disc.displayOrder !== index) {
+                    console.log(`Updating disc ${disc.id} displayOrder from ${disc.displayOrder} to ${index}`); // Added console log
                     return updateDiscInBag(currentUser.uid, disc.id, { displayOrder: index });
                 }
                 return Promise.resolve();
             });
             await Promise.all(updates);
             toast.success(`Discs in '${listType}' reordered successfully!`);
+            console.log(`Disc orders in '${listType}' updated successfully in Firestore.`); // Added console log
         } catch (error) {
             console.error(`Failed to update disc order in Firestore for ${listType}:`, error);
             toast.error("Failed to save new disc order. Please try again.");
@@ -285,6 +307,7 @@ export default function InTheBagPage() {
         e.dataTransfer.setDragImage(e.currentTarget, e.nativeEvent.offsetX, e.nativeEvent.offsetY);
 
         e.currentTarget.classList.add('opacity-50', 'border-blue-500', 'border-2');
+        console.log(`Drag image set for disc ${discId}.`); // Added console log
     };
 
     const handleDragEnter = (e, discId) => {
@@ -293,6 +316,7 @@ export default function InTheBagPage() {
         if (e.currentTarget.id !== `disc-${draggedItem.current?.id}`) {
             e.currentTarget.classList.add('bg-blue-100', 'dark:bg-blue-900', 'scale-105', 'border-dashed', 'border-blue-500');
             dragOverTarget.current = discId;
+            console.log(`Highlighting drag target: ${discId}`); // Added console log
         }
     };
 
@@ -300,11 +324,13 @@ export default function InTheBagPage() {
         console.log(`DEBUG: Drag left target: ${e.currentTarget.id}`);
         e.currentTarget.classList.remove('bg-blue-100', 'dark:bg-blue-900', 'scale-105', 'border-dashed', 'border-blue-500');
         dragOverTarget.current = null;
+        console.log(`Removing highlight from drag target: ${e.currentTarget.id}`); // Added console log
     };
 
     const handleDragOver = (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
+        console.log("DEBUG: Drag over."); // Added console log
     };
 
     const handleDragEnd = (e) => {
@@ -315,6 +341,7 @@ export default function InTheBagPage() {
         });
         draggedItem.current = null;
         dragOverTarget.current = null;
+        console.log("Resetting drag state and removing all drag highlights."); // Added console log
     };
 
     const handleDrop = async (e, targetDiscId, targetListType) => {
@@ -324,6 +351,8 @@ export default function InTheBagPage() {
 
         const sourceDiscId = e.dataTransfer.getData("text/plain");
         const sourceListType = draggedItem.current?.type;
+
+        console.log(`Source Disc ID: ${sourceDiscId}, Source List Type: ${sourceListType}`); // Added console log
 
         if (!sourceDiscId || !sourceListType) {
             console.warn("Drag operation incomplete: sourceDiscId or sourceListType missing.");
@@ -342,6 +371,8 @@ export default function InTheBagPage() {
         const draggedDiscIndex = currentSourceList.findIndex(d => d.id === sourceDiscId);
         const targetIndex = targetDiscId ? currentTargetList.findIndex(d => d.id === targetDiscId) : currentTargetList.length;
 
+        console.log(`Dragged disc index: ${draggedDiscIndex}, Target index: ${targetIndex}`); // Added console log
+
         if (draggedDiscIndex === -1) {
             console.error("Dragged disc not found in source list.");
             toast.error("Error: Dragged disc not found.");
@@ -357,8 +388,10 @@ export default function InTheBagPage() {
 
             if (sourceListType === 'active') {
                 setActiveDiscs(reorderedList);
+                console.log("Active discs reordered locally."); // Added console log
             } else {
                 setArchivedDiscs(reorderedList);
+                console.log("Archived discs reordered locally."); // Added console log
             }
 
             await updateDiscOrdersInFirestore(reorderedList, sourceListType);
@@ -378,14 +411,17 @@ export default function InTheBagPage() {
             if (sourceListType === 'active') {
                 setActiveDiscs(currentSourceList);
                 setArchivedDiscs(currentTargetList);
+                console.log("Disc moved from active to archived lists locally."); // Added console log
             } else {
                 setArchivedDiscs(currentSourceList);
                 setActiveDiscs(currentTargetList);
+                console.log("Disc moved from archived to active lists locally."); // Added console log
             }
 
             try {
                 await updateDiscInBag(currentUser.uid, movedDisc.id, { isArchived: movedDisc.isArchived });
                 toast.success(`${movedDisc.name} ${movedDisc.isArchived ? 'moved to Shelf' : 'restored to Bag'}!`);
+                console.log(`Firestore updated for disc ${movedDisc.id} isArchived status to ${movedDisc.isArchived}.`); // Added console log
 
                 await updateDiscOrdersInFirestore(currentSourceList, sourceListType);
                 await updateDiscOrdersInFirestore(currentTargetList, targetListType);
@@ -400,8 +436,10 @@ export default function InTheBagPage() {
 
     // --- Archive Disc Handler (kept for dropdown menu) ---
     const handleArchiveDisc = async (discId, discName) => {
+        console.log(`Attempting to archive disc: ${discName} (${discId})`); // Added console log
         if (!currentUser || !currentUser.uid) {
             toast.error("You must be logged in to archive a disc.");
+            console.error("User not logged in, cannot archive disc."); // Added console log
             return;
         }
         if (window.confirm(`Are you sure you want to put ${discName} on the shelf?`)) {
@@ -409,6 +447,7 @@ export default function InTheBagPage() {
                 await updateDiscInBag(currentUser.uid, discId, { isArchived: true });
                 toast.success(`${discName} moved to 'On the Shelf'!`);
                 setOpenDiscActionsId(null);
+                console.log(`${discName} archived successfully.`); // Added console log
             } catch (error) {
                 console.error("Failed to archive disc:", error);
                 toast.error("Failed to archive disc. Please try again.");
@@ -418,14 +457,17 @@ export default function InTheBagPage() {
 
     // --- Restore Disc Handler (kept for dropdown menu) ---
     const handleRestoreDisc = async (discId, discName) => {
+        console.log(`Attempting to restore disc: ${discName} (${discId})`); // Added console log
         if (!currentUser || !currentUser.uid) {
             toast.error("You must be logged in to restore a disc.");
+            console.error("User not logged in, cannot restore disc."); // Added console log
             return;
         }
         try {
             await updateDiscInBag(currentUser.uid, discId, { isArchived: false });
             toast.success(`${discName} restored to your bag!`);
             setOpenDiscActionsId(null);
+            console.log(`${discName} restored successfully.`); // Added console log
         } catch (error) {
             console.error("Failed to restore disc:", error);
             toast.error("Failed to restore disc. Please try again.");
@@ -434,8 +476,10 @@ export default function InTheBagPage() {
 
     // --- Delete Disc Handler ---
     const handleDeleteDisc = async (discId, discName) => {
+        console.log(`Attempting to delete disc: ${discName} (${discId})`); // Added console log
         if (!currentUser || !currentUser.uid) {
             toast.error("You must be logged in to delete a disc.");
+            console.error("User not logged in, cannot delete disc."); // Added console log
             return;
         }
 
@@ -444,6 +488,7 @@ export default function InTheBagPage() {
                 await deleteDiscFromBag(currentUser.uid, discId);
                 toast.success(`${discName} permanently deleted.`);
                 setOpenDiscActionsId(null);
+                console.log(`${discName} deleted permanently.`); // Added console log
             } catch (error) {
                 console.error("Failed to delete disc:", error);
                 toast.error("Failed to delete disc. Please try again.");
@@ -677,22 +722,35 @@ export default function InTheBagPage() {
                 </div>
             )}
 
-            {/* Disc Form Modal */}
-            <DiscFormModal
-                isOpen={isAddDiscModalOpen || isEditDiscModalOpen}
-                onClose={currentDiscToEdit ? closeEditDiscModal : closeAddDiscModal}
-                onSubmit={handleSubmitDisc}
-                initialData={currentDiscToEdit}
-            />
-
             {/* Floating Action Button */}
             <button
-                className={`fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition-transform duration-300 ease-in-out ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
                 onClick={openAddDiscModal}
+                className={`fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition-all duration-300 ${showFab ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full'}`}
                 title="Add New Disc"
             >
                 <FaPlus size={24} />
             </button>
+
+            {/* Add/Edit Disc Modal */}
+            {(isAddDiscModalOpen || isEditDiscModalOpen) && (
+                <DiscFormModal
+                    isOpen={isAddDiscModalOpen || isEditDiscModalOpen}
+                    onClose={isAddDiscModalOpen ? closeAddDiscModal : closeEditDiscModal}
+                    onSubmit={handleSubmitDisc}
+                    initialData={currentDiscToEdit}
+                    // --- NEW PROPS ADDED HERE ---
+                    newDiscName={newDiscName}
+                    setNewDiscName={setNewDiscName}
+                    newDiscManufacturer={newDiscManufacturer}
+                    setNewDiscManufacturer={setNewDiscManufacturer}
+                    newDiscType={newDiscType}
+                    setNewDiscType={setNewDiscType}
+                    newDiscPlastic={newDiscPlastic}
+                    setNewDiscPlastic={setNewDiscPlastic}
+                    newDiscColor={newDiscColor}
+                    setNewDiscColor={setNewDiscColor}
+                />
+            )}
         </div>
     );
 }

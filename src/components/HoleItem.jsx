@@ -159,7 +159,7 @@ export default function HoleItem({
                                     <optgroup key={type} label={type}>
                                         {groupedDiscs[type].map(disc => (
                                             <option key={disc.id} value={disc.id}>
-                                                {disc.name} ({disc.manufacturer})
+                                                {disc.name}
                                             </option>
                                         ))}
                                     </optgroup>
