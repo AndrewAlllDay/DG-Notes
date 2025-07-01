@@ -65,7 +65,7 @@ export default function HoleItem({
 
     const displayDisc = hole.discId && discs ? discs.find(d => d.id === hole.discId) : null;
 
-    // --- New logic to group discs by type for the dropdown ---
+    // --- Logic to group discs by type for the dropdown ---
     const groupedDiscs = {};
     if (discs) {
         discs.forEach(disc => {
@@ -95,9 +95,9 @@ export default function HoleItem({
             {...draggableProps}
             {...dragHandleProps}
             className={`
-                mb-4 border rounded p-4 bg-white flex justify-between items-start HoleItem
-                transition-all duration-200 ease-in-out
-                ${isCurrentlyEditing ? 'border-blue-500' : 'border-gray-200'}
+                mb-4 border rounded p-4 bg-white dark:bg-gray-800 flex justify-between items-start
+                transition-all duration-200 ease-in-out shadow-sm
+                ${isCurrentlyEditing ? 'border-blue-500 dark:border-blue-500' : 'border-gray-200 dark:border-gray-700'}
             `}
             data-hole-id={hole.id}
         >
@@ -109,50 +109,27 @@ export default function HoleItem({
 
             <div className="flex-grow">
                 {isCurrentlyEditing ? (
+                    // Editing Mode
                     <div className="space-y-2">
                         <label className="block">
-                            <span className="text-gray-700 text-sm">Hole Number:</span>
+                            <span className="text-gray-700 dark:text-gray-300 text-sm">Hole Number:</span>
                             <input
                                 type="number"
                                 placeholder="Hole Number"
                                 name="number"
                                 value={currentEditNumber}
                                 onChange={handleLocalInputChange}
-                                className="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 required
                             />
                         </label>
                         <label className="block">
-                            <span className="text-gray-700 text-sm">Par:</span>
-                            <input
-                                type="number"
-                                placeholder="Par"
-                                name="par"
-                                value={currentEditPar}
-                                onChange={handleLocalInputChange}
-                                className="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-                                required
-                            />
-                        </label>
-                        <label className="block">
-                            <span className="text-gray-700 text-sm">Note:</span>
-                            <textarea
-                                placeholder="Add a note"
-                                name="note"
-                                value={currentEditNote}
-                                onChange={handleLocalInputChange}
-                                className="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-                                rows="3"
-                            />
-                        </label>
-
-                        <label className="block">
-                            <span className="text-gray-700 text-sm">Recommended Disc:</span>
+                            <span className="text-gray-700 dark:text-gray-300 text-sm">Recommended Disc:</span>
                             <select
                                 name="discId"
                                 value={currentEditDiscId}
                                 onChange={handleLocalInputChange}
-                                className="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 custom-select-dropdown"
+                                className="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 custom-select-dropdown dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             >
                                 <option value="">No Disc Selected</option>
                                 {sortedDiscTypes.map(type => (
@@ -166,57 +143,92 @@ export default function HoleItem({
                                 ))}
                             </select>
                             {discs && discs.length === 0 && (
-                                <p className="text-sm text-gray-500 mt-1">
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                     No discs found in your bag. Add some in "In The Bag" section.
                                 </p>
                             )}
                         </label>
+                        <label className="block">
+                            <span className="text-gray-700 dark:text-gray-300 text-sm">Par:</span>
+                            <input
+                                type="number"
+                                placeholder="Par"
+                                name="par"
+                                value={currentEditPar}
+                                onChange={handleLocalInputChange}
+                                className="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                required
+                            />
+                        </label>
+                        <label className="block">
+                            <span className="text-gray-700 dark:text-gray-300 text-sm">Note:</span>
+                            <textarea
+                                placeholder="Add a note"
+                                name="note"
+                                value={currentEditNote}
+                                onChange={handleLocalInputChange}
+                                className="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                rows="3"
+                            />
+                        </label>
 
+
+
+                        {/* --- Modified Buttons: Icons Only --- */}
                         <div className="flex flex-wrap gap-2 mt-3">
                             <button
                                 onClick={() => onSave(hole.id)}
-                                className="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 flex items-center gap-1 transition-colors"
+                                className="!bg-green-600 text-white p-2 rounded hover:bg-green-700 transition-colors"
+                                aria-label="Save Changes" // Added for accessibility
                             >
-                                <Save size={16} /> Save Changes
-                            </button>
-                            <button
-                                onClick={handleCancelEdit}
-                                className="bg-gray-300 text-gray-800 py-2 px-4 rounded hover:bg-gray-400 flex items-center gap-1 transition-colors"
-                            >
-                                <X size={16} /> Cancel
+                                <Save size={20} />
                             </button>
                             <button
                                 onClick={() => onDelete(hole.id)}
-                                className="bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 flex items-center gap-1 transition-colors"
+                                className="!bg-red-600 text-white p-2 rounded hover:bg-red-700 transition-colors"
+                                aria-label="Delete Hole" // Added for accessibility
                             >
-                                <Trash size={16} /> Delete
+                                <Trash size={20} />
                             </button>
+                            <button
+                                onClick={handleCancelEdit}
+                                className="!bg-gray-300 text-gray-800 p-2 rounded hover:bg-gray-400 transition-colors dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
+                                aria-label="Cancel" // Added for accessibility
+                            >
+                                <X size={20} />
+                            </button>
+
                         </div>
                     </div>
                 ) : (
-                    // Display mode (reverted to original display, without disc type)
-                    <div className=''>
-                        <p className='mb-2'><span className='font-bold text-lg'>Hole {hole.number}</span> - Par {hole.par}</p>
+                    // Display mode
+                    <div className='flex-grow'> {/* Added flex-grow here to align content better */}
+                        <p className='mb-2 text-gray-800 dark:text-white'>
+                            <span className='font-bold text-lg'>Hole {hole.number}</span> - Par {hole.par}
+                        </p>
 
-                        {/* Display the recommended disc as before */}
                         {displayDisc && (
-                            <p className="text-gray-600 text-sm italic mt-1">
+                            <p className="text-gray-600 dark:text-gray-400 text-sm italic mt-1">
                                 Recommended: {displayDisc.name} ({displayDisc.manufacturer})
                             </p>
                         )}
 
-                        {hole.note && <p className='text-gray-700 text-sm whitespace-pre-wrap'>{hole.note}</p>}
-                        {!hole.note && <p className='text-gray-500 text-sm italic'>No note added yet.</p>}
+                        {hole.note ? (
+                            <p className='text-gray-700 dark:text-gray-300 text-sm whitespace-pre-wrap'>{hole.note}</p>
+                        ) : (
+                            <p className='text-gray-500 dark:text-gray-400 text-sm italic'>No note added yet.</p>
+                        )}
                     </div>
                 )}
             </div>
+            {/* Edit button remains in display mode, also as an icon */}
             {!isCurrentlyEditing && (
                 <button
                     onClick={() => onToggleEdit(hole.id, hole)}
-                    className="text-gray-500 !bg-transparent hover:text-gray-700 ml-4 mt-1 flex-shrink-0"
+                    className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 ml-4 mt-1 flex-shrink-0 p-1 rounded "
                     aria-label="Edit Hole"
                 >
-                    <Edit size={16} />
+                    <Edit size={20} />
                 </button>
             )}
         </li>
