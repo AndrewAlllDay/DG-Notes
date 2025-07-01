@@ -2,15 +2,18 @@
 import React from 'react';
 import LogoImage from '../assets/DG Logo.svg'; // Make sure this path is correct
 
+// Import the SVG for the disc golf basket
+import DiscGolfBasketSVG from '../assets/DiscGolfBasket.svg'; // You'll need to create this file!
+
 const SplashPage = ({ onEnterApp }) => {
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 transition-colors duration-300">
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 transition-colors duration-300 relative overflow-hidden">
+            {/* Main content */}
             <img
                 src={LogoImage}
                 alt="DG Caddy Notes Logo"
-                className="h-24 w-auto mb-8 animate-fade-in" // Increased size, added mb-8 for spacing, and a simple animation
+                className="h-24 w-auto mb-8 animate-fade-in"
             />
-
 
             <p className="text-lg md:text-xl text-center max-w-2xl leading-relaxed mb-10 animate-fade-in delay-400">
                 Your ultimate disc golf companion.
@@ -24,6 +27,13 @@ const SplashPage = ({ onEnterApp }) => {
             >
                 Start Taking Notes!
             </button>
+
+            {/* Disc Golf Basket SVG */}
+            <img
+                src={DiscGolfBasketSVG}
+                alt="Disc Golf Basket"
+                className="absolute bottom-[-100px] left-1/2 transform -translate-x-1/2 w-48 h-auto opacity-30 dark:opacity-20 pointer-events-none"
+            />
         </div>
     );
 };
