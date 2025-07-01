@@ -1,7 +1,7 @@
 // src/components/HoleList.jsx
 import React from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import HoleItem from './HoleItem'; // <--- ADDED: Import HoleItem
+import HoleItem from './HoleItem';
 
 export default function HoleList({
     holes,
@@ -11,6 +11,7 @@ export default function HoleList({
     saveHoleChanges,
     onDragEnd,
     deleteHole,
+    discs, // <--- CRITICAL: Now receiving the 'discs' prop from Courses.jsx
 }) {
     return (
         <DragDropContext onDragEnd={onDragEnd}>
@@ -33,13 +34,16 @@ export default function HoleList({
                                         index={index}
                                         editingHoleData={editingHoleData}
                                         setEditingHoleData={setEditingHoleData}
-                                        onToggleEdit={() => toggleEditing(hole.id)}
+                                        // The onToggleEdit prop in HoleItem expects the full hole object for accurate data initialization on edit.
+                                        // Ensure toggleEditing from Courses.jsx receives this too.
+                                        onToggleEdit={() => toggleEditing(hole.id, hole)}
                                         onSave={() => saveHoleChanges(hole.id)}
                                         onDelete={() => deleteHole(hole.id)}
                                         // Pass the draggable props down to the HoleItem
                                         draggableProps={providedDraggable.draggableProps}
                                         dragHandleProps={providedDraggable.dragHandleProps}
                                         innerRef={providedDraggable.innerRef}
+                                        discs={discs} // <--- CRITICAL: Now passing the 'discs' prop to HoleItem
                                     />
                                 )}
                             </Draggable>

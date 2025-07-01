@@ -3,7 +3,7 @@
 import React from 'react';
 import AddHoleForm from './AddHoleForm';
 
-export default function AddHoleModal({ isOpen, onClose, onAddHole }) {
+export default function AddHoleModal({ isOpen, onClose, onAddHole, discs }) { // <--- ADD 'discs' PROP HERE
     if (!isOpen) return null;
 
     return (
@@ -12,11 +12,13 @@ export default function AddHoleModal({ isOpen, onClose, onAddHole }) {
                 <h3 className="text-xl font-semibold mb-4">Add New Hole</h3>
                 <AddHoleForm
                     // MODIFIED: Capture the tournamentName from AddHoleForm and pass it to onAddHole
-                    onAddHole={(n, p, note, tournament) => {
-                        onAddHole(n, p, note, tournament); // Pass all four arguments
+                    // MODIFIED: Pass the discs prop down to AddHoleForm
+                    onAddHole={(n, p, note, discId) => { // <--- Changed 'tournament' to 'discId'
+                        onAddHole(n, p, note, discId); // Pass all four arguments
                         onClose(); // Close modal after adding
                     }}
                     onCancel={onClose}
+                    discs={discs} // <--- PASS DISCS DOWN TO ADDHOLEFORM
                 />
             </div>
         </div>

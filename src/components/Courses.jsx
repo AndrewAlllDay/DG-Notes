@@ -7,8 +7,6 @@ import AddCourseModal from './AddCourseModal';
 import AddHoleModal from './AddHoleModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 
-// import { ChevronLeft } from 'lucide-react'; // This import can now be removed if not used elsewhere
-
 import {
     subscribeToCourses,
     addCourse,
@@ -17,6 +15,7 @@ import {
     updateHoleInCourse,
     deleteHoleFromCourse,
     reorderHolesInCourse,
+    subscribeToUserDiscs,
 } from '../services/firestoreService.jsx';
 
 import { useFirebase } from '../firebase.js';
@@ -27,7 +26,6 @@ export default function Courses() {
     const [courses, setCourses] = useState([]);
     const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
     const [newCourseName, setNewCourseName] = useState('');
-    // FIX: Correctly initialize newCourseTournamentName state using useState
     const [newCourseTournamentName, setNewCourseTournamentName] = useState('');
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [editingHoleData, setEditingHoleData] = useState({});
@@ -54,15 +52,31 @@ export default function Courses() {
         }, 5000);
     };
 
+    const [discs, setDiscs] = useState([]);
+
+    const handleToggleEditingHole = (holeId, currentHoleData) => {
+        setSelectedCourse(prevCourse => {
+            if (!prevCourse) return null;
+            return {
+                ...prevCourse,
+                holes: prevCourse.holes.map(hole =>
+                    hole.id === holeId ? { ...hole, editing: !hole.editing } : { ...hole, editing: false }
+                )
+            };
+        });
+        setEditingHoleData(currentHoleData);
+    };
+
     useEffect(() => {
         if (!isAuthReady || !userId) {
-            console.log("Auth not ready or userId not available, skipping course subscription.");
+            console.log("Auth not ready or userId not available, skipping data subscriptions.");
             setCourses([]);
+            setDiscs([]);
             return;
         }
 
-        console.log("Service Worker: Subscribing to courses for userId:", userId);
-        const unsubscribe = subscribeToCourses(userId, (fetchedCourses) => {
+        console.log("Subscribing to courses for userId:", userId);
+        const unsubscribeCourses = subscribeToCourses(userId, (fetchedCourses) => {
             console.log("Fetched courses in Courses.jsx:", fetchedCourses);
             setCourses(fetchedCourses);
             if (selectedCourse) {
@@ -83,7 +97,17 @@ export default function Courses() {
                 }
             }
         });
-        return () => unsubscribe();
+
+        console.log("Subscribing to discs for userId:", userId);
+        const unsubscribeDiscs = subscribeToUserDiscs(userId, (fetchedDiscs) => {
+            console.log("Fetched discs in Courses.jsx:", fetchedDiscs);
+            setDiscs(fetchedDiscs);
+        });
+
+        return () => {
+            unsubscribeCourses();
+            unsubscribeDiscs();
+        };
     }, [isAuthReady, userId, selectedCourse]);
 
     useEffect(() => {
@@ -195,7 +219,7 @@ export default function Courses() {
             await addCourse(courseName, tournamentName, userId);
             setIsAddCourseModalOpen(false);
             setNewCourseName('');
-            setNewCourseTournamentName(''); // This will now correctly call the state setter
+            setNewCourseTournamentName('');
             showAppMessage('success', `Course "${courseName}" added successfully!`);
         } catch (error) {
             console.error("Failed to add course:", error);
@@ -254,7 +278,8 @@ export default function Courses() {
         setHoleToDeleteId(null);
     };
 
-    const handleAddHole = async (holeNumber, holePar, holeNote) => {
+    // Modified handleAddHole to accept discId
+    const handleAddHole = async (holeNumber, holePar, holeNote, discId = null) => {
         if (!holeNumber.trim() || !holePar.trim() || !selectedCourse || !userId) {
             showAppMessage('error', "Hole number and par are required, a course must be selected, and user must be authenticated.");
             return;
@@ -264,6 +289,7 @@ export default function Courses() {
             number: holeNumber,
             par: holePar,
             note: holeNote || '',
+            discId: discId, // Added discId to new hole object
         };
         try {
             await addHoleToCourse(selectedCourse.id, newHole, userId);
@@ -275,40 +301,19 @@ export default function Courses() {
         }
     };
 
-    const handleToggleEditingHole = (holeId) => {
-        setSelectedCourse(prev => {
-            if (!prev) return null;
-            const updatedHoles = prev.holes.map(hole => {
-                if (hole.id === holeId) {
-                    return { ...hole, editing: !hole.editing };
-                } else {
-                    return { ...hole, editing: false };
-                }
-            });
-            const holeToEdit = updatedHoles.find((h) => h.id === holeId);
-            if (holeToEdit && holeToEdit.editing) {
-                setEditingHoleData({
-                    number: holeToEdit.number,
-                    par: holeToEdit.par,
-                    note: holeToEdit.note,
-                });
-            } else {
-                setEditingHoleData({});
-            }
-            return { ...prev, holes: updatedHoles };
-        });
-    };
-
+    // Modified handleSaveHoleChanges to include discId if necessary (will handle later)
     const handleSaveHoleChanges = async (holeId) => {
         if (!selectedCourse || !userId) {
             showAppMessage('error', "User not authenticated or course not selected.");
             return;
         }
+        // Need to ensure editingHoleData includes discId if selected
         const updatedHole = {
             id: holeId,
             number: editingHoleData.number,
             par: editingHoleData.par,
             note: editingHoleData.note,
+            discId: editingHoleData.discId !== undefined ? editingHoleData.discId : null, // Ensure discId is passed
         };
         try {
             await updateHoleInCourse(selectedCourse.id, holeId, updatedHole, userId);
@@ -354,6 +359,7 @@ export default function Courses() {
     }
 
     console.log("DEBUG Courses.jsx Render: selectedCourse =", selectedCourse);
+    console.log("DEBUG Courses.jsx Render: discs =", discs);
 
     return (
         <div ref={scrollContainerRef} className="max-h-screen bg-gray-100 p-4 overflow-y-auto">
@@ -367,8 +373,6 @@ export default function Courses() {
 
             {selectedCourse ? (
                 <div className="relative min-h-screen bg-gray-100 p-4 pt-5">
-                    {/* REMOVED: The "Back" button was here */}
-
                     <div className="text-center mb-6 pt-5">
                         <h2 className="text-2xl font-bold mb-3">
                             {selectedCourse.name}
@@ -382,10 +386,12 @@ export default function Courses() {
                             holes={selectedCourse.holes || []}
                             editingHoleData={editingHoleData}
                             setEditingHoleData={setEditingHoleData}
-                            toggleEditing={handleToggleEditingHole}
+                            toggleEditing={(holeId, currentHoleData) => handleToggleEditingHole(holeId, currentHoleData)}
                             saveHoleChanges={handleSaveHoleChanges}
                             deleteHole={handleDeleteHoleClick}
                             onDragEnd={onDragEnd}
+                            discs={discs}
+                            backToList={backToList}
                         />
                     </div>
 
@@ -393,7 +399,7 @@ export default function Courses() {
                     <button
                         onClick={() => setIsAddHoleModalOpen(true)}
                         className={`fixed bottom-6 right-6 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
-                            transition-transform duration-1000 ease-in-out // UPDATED DURATION
+                            transition-transform duration-1000 ease-in-out
                             ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
                         aria-label="Add Hole"
                     >
@@ -404,6 +410,7 @@ export default function Courses() {
                         isOpen={isAddHoleModalOpen}
                         onClose={() => setIsAddHoleModalOpen(false)}
                         onAddHole={handleAddHole}
+                        discs={discs}
                     />
 
                     <DeleteConfirmationModal
@@ -422,7 +429,7 @@ export default function Courses() {
                     <button
                         onClick={() => setIsAddCourseModalOpen(true)}
                         className={`fab-fix fixed bottom-6 right-6 !bg-blue-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
-                            transition-transform duration-1000 ease-in-out // UPDATED DURATION
+                            transition-transform duration-1000 ease-in-out
                             ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
                         aria-label="Add Course"
                     >
@@ -435,7 +442,6 @@ export default function Courses() {
                         onSubmit={handleAddCourse}
                         newCourseName={newCourseName}
                         setNewCourseName={setNewCourseName}
-                        // These props are now correctly passed
                         newCourseTournamentName={newCourseTournamentName}
                         setNewCourseTournamentName={setNewCourseTournamentName}
                     />
