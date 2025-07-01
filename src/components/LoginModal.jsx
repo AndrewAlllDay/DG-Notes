@@ -139,15 +139,13 @@ function LoginModal({ isOpen, onClose }) {
             <Dialog.Root open={isOpen}>
                 <Dialog.Portal>
                     <Dialog.Overlay
-                        // Changed classes to use explicit data-state prefixes
-                        className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center
-                                   data-open:animate-overlayShow data-closed:animate-overlayHide"
+                        // Removed animation classes
+                        className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center"
                     >
                         <Dialog.Content
-                            // Changed classes to use explicit data-state prefixes
+                            // Removed animation classes
                             className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-                                       bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md text-center text-gray-700 dark:text-gray-300
-                                       data-open:animate-contentShow data-closed:animate-contentHide"
+                                       bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md text-center text-700 dark:text-gray-300"
                         >
                             {/* Radix UI recommends a DialogTitle even for loading states for accessibility */}
                             <Dialog.Title asChild>
@@ -166,18 +164,14 @@ function LoginModal({ isOpen, onClose }) {
     return (
         <Dialog.Root open={isOpen} onOpenChange={onClose}>
             <Dialog.Portal>
-                {/* Overlay with Fade In/Out */}
+                {/* Overlay without animations */}
                 <Dialog.Overlay
-                    // Changed classes to use explicit data-state prefixes
-                    className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center
-                               data-open:animate-overlayShow data-closed:animate-overlayHide"
+                    className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center"
                 >
-                    {/* Content with Fade In and Scale Up/Down */}
+                    {/* Content without animations */}
                     <Dialog.Content
-                        // Changed classes to use explicit data-state prefixes
                         className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-                                   bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md text-gray-900 dark:text-gray-100
-                                   data-open:animate-contentShow data-closed:animate-contentHide"
+                                   bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md text-gray-900 dark:text-gray-100"
                     >
                         <Dialog.Close asChild>
                             <button
