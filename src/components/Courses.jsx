@@ -408,7 +408,7 @@ export default function Courses() {
                     <button
                         onClick={() => setIsAddHoleModalOpen(true)}
                         className={`fixed bottom-6 right-6 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
-                            transition-transform duration-1000 ease-in-out
+                            transition-transform duration-500 ease-in-out
                             ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
                         aria-label="Add Hole"
                     >

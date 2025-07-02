@@ -1,46 +1,114 @@
 // src/components/AddDiscModal.jsx
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function AddDiscModal({
     isOpen,
     onClose,
     onSubmit,
-    newDiscName,
-    setNewDiscName,
-    newDiscManufacturer,
-    setNewDiscManufacturer,
-    newDiscType,
-    setNewDiscType,
-    newDiscPlastic,
-    setNewDiscPlastic,
-    // Add new props for disc color
-    newDiscColor,
-    setNewDiscColor,
+    initialData = null, // This prop will be 'currentDiscToEdit' when editing
+    // The individual newDisc... props below become less crucial for internal state,
+    // but we keep them as they are currently used by InTheBagPage.jsx for new disc setup.
+    // However, the modal will now prioritize its own internal state for form inputs.
+    newDiscName: propNewDiscName, // Renamed to differentiate from internal 'name' state
+    setNewDiscName: setPropNewDiscName,
+    newDiscManufacturer: propNewDiscManufacturer,
+    setNewDiscManufacturer: setPropNewDiscManufacturer,
+    newDiscType: propNewDiscType,
+    setNewDiscType: setPropNewDiscType,
+    newDiscPlastic: propNewDiscPlastic,
+    setNewDiscPlastic: setPropNewDiscPlastic,
+    newDiscColor: propNewDiscColor,
+    setNewDiscColor: setPropNewDiscColor,
+    newDiscSpeed: propNewDiscSpeed,
+    setNewDiscSpeed: setPropNewDiscSpeed,
 }) {
+    // INTERNAL STATE for form fields
+    const [name, setName] = useState('');
+    const [manufacturer, setManufacturer] = useState('');
+    const [type, setType] = useState('');
+    const [plastic, setPlastic] = useState('');
+    const [color, setColor] = useState('');
+    const [speed, setSpeed] = useState(''); // Internal state for speed
+
+    // useEffect to synchronize internal state with initialData or clear it
+    useEffect(() => {
+        if (isOpen) {
+            if (initialData) {
+                // EDIT MODE: Populate internal state from initialData (currentDiscToEdit)
+                setName(initialData.name || '');
+                setManufacturer(initialData.manufacturer || '');
+                setType(initialData.type || '');
+                setPlastic(initialData.plastic || '');
+                setColor(initialData.color || '');
+                // Crucial for speed: convert to string and handle undefined/null
+                setSpeed(initialData.speed !== undefined && initialData.speed !== null ? String(initialData.speed) : '');
+            } else {
+                // ADD MODE: Optionally use parent's newDisc... props or clear
+                // If the parent explicitly passes blank values for a new disc, use them.
+                // Otherwise, ensure they are cleared.
+                setName(propNewDiscName || '');
+                setManufacturer(propNewDiscManufacturer || '');
+                setType(propNewDiscType || '');
+                setPlastic(propNewDiscPlastic || '');
+                setColor(propNewDiscColor || '');
+                setSpeed(propNewDiscSpeed || '');
+            }
+        } else {
+            // When modal closes, reset internal form state
+            setName('');
+            setManufacturer('');
+            setType('');
+            setPlastic('');
+            setColor('');
+            setSpeed('');
+        }
+    }, [
+        isOpen,
+        initialData,
+        // Include propNewDisc... values as dependencies in case the parent updates them
+        // while the modal is closed and then opens it for a new disc.
+        propNewDiscName, propNewDiscManufacturer, propNewDiscType,
+        propNewDiscPlastic, propNewDiscColor, propNewDiscSpeed
+    ]);
+
+
     if (!isOpen) return null;
 
     const handleSubmit = (e) => {
         e.preventDefault();
+
         // Basic validation: Disc Name and Manufacturer are required
-        if (!newDiscName.trim() || !newDiscManufacturer.trim()) {
-            // You might want to add visual feedback for the user here (e.g., a toast notification)
-            alert("Disc Name and Manufacturer are required!"); // Simple alert for demonstration
+        if (!name.trim() || !manufacturer.trim()) {
+            alert("Disc Name and Manufacturer are required!");
             return;
         }
+
+        // Validate disc speed if it's not empty, ensure it's a number
+        if (speed && isNaN(Number(speed))) {
+            alert("Disc Speed must be a number!");
+            return;
+        }
+
+        // Call the parent's onSubmit with the INTERNAL state values
         onSubmit(
-            newDiscName,
-            newDiscManufacturer,
-            newDiscType,
-            newDiscPlastic,
-            newDiscColor // Pass the new color to the onSubmit handler
+            name,
+            manufacturer,
+            type,
+            plastic,
+            color,
+            Number(speed) || null // Pass speed as a number, or null if empty/invalid
         );
+
+        // The useEffect will handle clearing the state when the modal closes via onClose
     };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
             <div className="bg-white rounded-lg p-6 w-11/12 max-w-md">
-                <h3 className="text-xl font-semibold mb-4 text-gray-800">Add New Disc</h3>
+                <h3 className="text-xl font-semibold mb-4 text-gray-800">
+                    {initialData ? 'Edit Disc' : 'Add New Disc'} {/* Dynamic title */}
+                </h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label htmlFor="discName" className="block text-sm font-medium text-gray-700 mb-1">Disc Name (e.g., Destroyer)</label>
@@ -48,8 +116,8 @@ export default function AddDiscModal({
                             type="text"
                             id="discName"
                             placeholder="Disc Name"
-                            value={newDiscName}
-                            onChange={(e) => setNewDiscName(e.target.value)}
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
                             className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                             required
                         />
@@ -60,8 +128,8 @@ export default function AddDiscModal({
                             type="text"
                             id="discManufacturer"
                             placeholder="Manufacturer"
-                            value={newDiscManufacturer}
-                            onChange={(e) => setNewDiscManufacturer(e.target.value)}
+                            value={manufacturer}
+                            onChange={(e) => setManufacturer(e.target.value)}
                             className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                             required
                         />
@@ -70,8 +138,8 @@ export default function AddDiscModal({
                         <label htmlFor="discType" className="block text-sm font-medium text-gray-700 mb-1">Disc Type</label>
                         <select
                             id="discType"
-                            value={newDiscType}
-                            onChange={(e) => setNewDiscType(e.target.value)}
+                            value={type}
+                            onChange={(e) => setType(e.target.value)}
                             className="w-full border rounded px-3 py-2 bg-white focus:ring-blue-500 focus:border-blue-500"
                             required
                         >
@@ -90,21 +158,35 @@ export default function AddDiscModal({
                             type="text"
                             id="discPlastic"
                             placeholder="Plastic Type (Optional)"
-                            value={newDiscPlastic}
-                            onChange={(e) => setNewDiscPlastic(e.target.value)}
+                            value={plastic}
+                            onChange={(e) => setPlastic(e.target.value)}
                             className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                     </div>
-                    {/* NEW: Input field for Disc Color */}
+                    {/* Input field for Disc Color */}
                     <div>
                         <label htmlFor="discColor" className="block text-sm font-medium text-gray-700 mb-1">Disc Color (e.g., Blue, Red)</label>
                         <input
                             type="text"
                             id="discColor"
                             placeholder="Disc Color (Optional)"
-                            value={newDiscColor}
-                            onChange={(e) => setNewDiscColor(e.target.value)}
+                            value={color}
+                            onChange={(e) => setColor(e.target.value)}
                             className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                    </div>
+                    {/* NEW: Input field for Disc Speed */}
+                    <div>
+                        <label htmlFor="discSpeed" className="block text-sm font-medium text-gray-700 mb-1">Disc Speed (e.g., 12)</label>
+                        <input
+                            type="number"
+                            id="discSpeed"
+                            placeholder="Disc Speed (Optional)"
+                            value={speed}
+                            onChange={(e) => setSpeed(e.target.value)}
+                            className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                            min="1"
+                            max="15"
                         />
                     </div>
 
@@ -120,7 +202,7 @@ export default function AddDiscModal({
                             type="submit"
                             className="!bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-semibold transition-colors"
                         >
-                            Add Disc
+                            {initialData ? 'Update Disc' : 'Add Disc'} {/* Dynamic button text */}
                         </button>
                     </div>
                 </form>
