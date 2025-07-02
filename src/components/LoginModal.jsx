@@ -31,16 +31,9 @@ function LoginModal({ isOpen, onClose }) {
 
     const isFormValid = email.trim() !== '' && password.trim() !== '';
 
-    useEffect(() => {
-        // If a user logs in successfully while the modal is open, close it after a short delay
-        if (user && isAuthReady && isOpen) {
-            const timer = setTimeout(() => {
-                onClose();
-            }, 1000); // Give a moment for the success message to be seen
-            return () => clearTimeout(timer);
-        }
-    }, [user, isAuthReady, isOpen, onClose]);
-
+    // Removed the useEffect that caused a 1-second delay in closing the modal.
+    // The modal will now close immediately when the user state updates in App.jsx
+    // and App.jsx calls onClose.
 
     const handleAuth = async (e) => {
         e.preventDefault();
@@ -145,7 +138,7 @@ function LoginModal({ isOpen, onClose }) {
                         <Dialog.Content
                             // Removed animation classes
                             className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-                                       bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md text-center text-700 dark:text-gray-300"
+                                        bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md text-center text-700 dark:text-gray-300"
                         >
                             {/* Radix UI recommends a DialogTitle even for loading states for accessibility */}
                             <Dialog.Title asChild>
@@ -166,12 +159,12 @@ function LoginModal({ isOpen, onClose }) {
             <Dialog.Portal>
                 {/* Overlay without animations */}
                 <Dialog.Overlay
-                    className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center"
+                    className="fixed inset-0 z-50 bg-black/70 flex items-center justify-content"
                 >
                     {/* Content without animations */}
                     <Dialog.Content
                         className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-                                   bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md text-gray-900 dark:text-gray-100"
+                                        bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md text-gray-900 dark:text-gray-100"
                     >
                         <Dialog.Close asChild>
                             <button
