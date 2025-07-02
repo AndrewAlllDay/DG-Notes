@@ -413,7 +413,7 @@ export default function InTheBagPage() {
     };
 
 
-    // --- Archive Disc Handler (kept for dropdown menu) ---
+    // --- Archive Disc Handler (removed confirmation) ---
     const handleArchiveDisc = async (discId, discName) => {
         console.log(`Attempting to archive disc: ${discName} (${discId})`);
         if (!currentUser || !currentUser.uid) {
@@ -421,16 +421,14 @@ export default function InTheBagPage() {
             console.error("User not logged in, cannot archive disc.");
             return;
         }
-        if (window.confirm(`Are you sure you want to put ${discName} on the shelf?`)) {
-            try {
-                await updateDiscInBag(currentUser.uid, discId, { isArchived: true });
-                toast.success(`${discName} moved to 'On the Shelf'!`);
-                setOpenDiscActionsId(null);
-                console.log(`${discName} archived successfully.`);
-            } catch (error) {
-                console.error("Failed to archive disc:", error);
-                toast.error("Failed to archive disc. Please try again.");
-            }
+        try {
+            await updateDiscInBag(currentUser.uid, discId, { isArchived: true });
+            toast.success(`${discName} moved to 'On the Shelf'!`);
+            setOpenDiscActionsId(null);
+            console.log(`${discName} archived successfully.`);
+        } catch (error) {
+            console.error("Failed to archive disc:", error);
+            toast.error("Failed to archive disc. Please try again.");
         }
     };
 
@@ -651,6 +649,11 @@ export default function InTheBagPage() {
                 </div>
             )}
 
+            {/* Conditional Horizontal Rule */}
+            {archivedDiscs.length > 0 && (
+                <hr className="my-8 border-t border-gray-200 dark:border-gray-700" />
+            )}
+
             {/* On the Shelf (Archived Discs) Accordion */}
             {archivedDiscs.length > 0 && (
                 <div className="mt-8">
@@ -678,6 +681,7 @@ export default function InTheBagPage() {
                                                 onDrop={(e) => handleDrop(e, disc.id, 'archived')}
                                                 className="disc-item bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-4 flex justify-between items-center hover:shadow-md transition-shadow duration-200 ease-in-out relative cursor-grab"
                                                 style={{ userSelect: 'none' }}
+                                                onMouseDown={() => console.log(`DEBUG: Mouse down on disc: ${disc.id}`)}
                                             >
                                                 <div>
                                                     <h4 className="text-lg font-normal text-gray-800 dark:text-white">
@@ -696,7 +700,6 @@ export default function InTheBagPage() {
                                                     >
                                                         <MoreVertical size={20} />
                                                     </button>
-
                                                     {openDiscActionsId === disc.id && (
                                                         <div
                                                             ref={dropdownRef}
@@ -733,26 +736,25 @@ export default function InTheBagPage() {
                 </div>
             )}
 
-
-            {/* Floating Action Button */}
             {showFab && (
                 <button
                     onClick={openAddDiscModal}
                     className={`fab-fix fixed bottom-6 right-6 !bg-blue-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50`}
-                    aria-label="Add new disc"
+                    aria-label="Add Disc"
                 >
                     <span className="text-2xl">＋</span>
                 </button>
             )}
 
-            {/* Modals */}
-            <DiscFormModal
-                isOpen={isAddDiscModalOpen || isEditDiscModalOpen}
-                onClose={currentDiscToEdit ? closeEditDiscModal : closeAddDiscModal}
-                onSubmit={handleSubmitDisc}
-                initialData={currentDiscToEdit || {}}
-                formType={currentDiscToEdit ? "edit" : "add"}
-            />
+            {/* Add Disc Modal (re-used for editing) */}
+            {(isAddDiscModalOpen || isEditDiscModalOpen) && (
+                <DiscFormModal
+                    isOpen={isAddDiscModalOpen || isEditDiscModalOpen}
+                    onClose={isAddDiscModalOpen ? closeAddDiscModal : closeEditDiscModal}
+                    onSubmit={handleSubmitDisc}
+                    initialData={currentDiscToEdit}
+                />
+            )}
         </div>
     );
 }
