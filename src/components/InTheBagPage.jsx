@@ -56,7 +56,7 @@ export default function InTheBagPage() {
     const [newDiscType, setNewDiscType] = useState('');
     const [newDiscPlastic, setNewDiscPlastic] = useState('');
     const [newDiscColor, setNewDiscColor] = useState('');
-    const [newDiscSpeed, setNewDiscSpeed] = useState(''); // NEW: State for disc speed
+    const [newDiscStability, setNewDiscStability] = useState(''); // Changed from newDiscSpeed to newDiscStability
 
     // State to track which disc's action menu is open
     const [openDiscActionsId, setOpenDiscActionsId] = useState(null);
@@ -139,7 +139,7 @@ export default function InTheBagPage() {
         setNewDiscType('');
         setNewDiscPlastic('');
         setNewDiscColor('');
-        setNewDiscSpeed(''); // NEW: Clear speed when opening add modal
+        setNewDiscStability(''); // Changed from setNewDiscSpeed to setNewDiscStability
         setIsAddDiscModalOpen(true);
         setOpenDiscActionsId(null);
         console.log("Opening Add Disc Modal.");
@@ -152,7 +152,7 @@ export default function InTheBagPage() {
         setNewDiscType('');
         setNewDiscPlastic('');
         setNewDiscColor('');
-        setNewDiscSpeed(''); // NEW: Clear speed when closing add modal
+        setNewDiscStability(''); // Changed from setNewDiscSpeed to setNewDiscStability
         console.log("Closing Add Disc Modal.");
     };
 
@@ -164,7 +164,7 @@ export default function InTheBagPage() {
         setNewDiscType(disc.type);
         setNewDiscPlastic(disc.plastic);
         setNewDiscColor(disc.color || '');
-        setNewDiscSpeed(disc.speed !== undefined ? String(disc.speed) : ''); // NEW: Set speed when opening edit modal
+        setNewDiscStability(disc.stability !== undefined ? String(disc.stability) : ''); // Changed from disc.speed to disc.stability
         setIsEditDiscModalOpen(true);
         setOpenDiscActionsId(null);
         console.log("Opening Edit Disc Modal for disc:", disc.id);
@@ -179,7 +179,7 @@ export default function InTheBagPage() {
         setNewDiscType('');
         setNewDiscPlastic('');
         setNewDiscColor('');
-        setNewDiscSpeed(''); // NEW: Clear speed when closing edit modal
+        setNewDiscStability(''); // Changed from setNewDiscSpeed to setNewDiscStability
         console.log("Closing Edit Disc Modal.");
     };
 
@@ -193,8 +193,8 @@ export default function InTheBagPage() {
     };
 
     // --- Add/Edit Disc Submission Handler (unified) ---
-    const handleSubmitDisc = async (name, manufacturer, type, plastic, color, speed) => { // Added 'speed' parameter
-        console.log("Attempting to save disc:", { name, manufacturer, type, plastic, color, speed });
+    const handleSubmitDisc = async (name, manufacturer, type, plastic, color, stability) => { // Changed 'speed' parameter to 'stability'
+        console.log("Attempting to save disc:", { name, manufacturer, type, plastic, color, stability });
         if (!currentUser || !currentUser.uid) {
             toast.error("You must be logged in to manage discs.");
             console.error("User not logged in, cannot save disc.");
@@ -208,7 +208,7 @@ export default function InTheBagPage() {
                 type: type.trim(),
                 plastic: plastic.trim(),
                 color: color.trim(),
-                speed: speed, // NEW: Include speed in discData
+                stability: stability, // Changed from speed to stability in discData
             };
 
             if (currentDiscToEdit) {
@@ -475,7 +475,7 @@ export default function InTheBagPage() {
         }
     };
 
-    // --- Group active discs by type and then sort by speed (Highest to Lowest) ---
+    // --- Group active discs by type and then sort by stability (Lowest to Highest) ---
     const groupedActiveDiscs = activeDiscs.reduce((acc, disc) => {
         const type = (disc.type && disc.type.trim() !== '') ? disc.type : 'Other';
         if (!acc[type]) {
@@ -485,19 +485,19 @@ export default function InTheBagPage() {
         return acc;
     }, {});
 
-    // Sort discs within each type by speed (highest to lowest, no speed at bottom)
+    // Sort discs within each type by stability (lowest to highest, no stability at bottom)
     for (const type in groupedActiveDiscs) {
         groupedActiveDiscs[type].sort((a, b) => {
-            // Assign a very small number to discs with no defined speed, so they go to the bottom
-            const speedA = a.speed !== undefined && a.speed !== null ? a.speed : -Infinity;
-            const speedB = b.speed !== undefined && b.speed !== null ? b.speed : -Infinity;
+            // Assign a very large number to discs with no defined stability, so they go to the bottom
+            const stabilityA = a.stability !== undefined && a.stability !== null ? a.stability : Infinity; // Changed from speed to stability
+            const stabilityB = b.stability !== undefined && b.stability !== null ? b.stability : Infinity; // Changed from speed to stability
 
-            // For descending order, subtract a from b: b - a
-            return speedB - speedA;
+            // For ascending order, subtract b from a: a - b
+            return stabilityA - stabilityB; // Changed from speedB - speedA
         });
     }
 
-    // --- Group archived discs by type and then sort by speed (Highest to Lowest) ---
+    // --- Group archived discs by type and then sort by stability (Lowest to Highest) ---
     const groupedArchivedDiscs = archivedDiscs.reduce((acc, disc) => {
         const type = (disc.type && disc.type.trim() !== '') ? disc.type : 'Other';
         if (!acc[type]) {
@@ -507,15 +507,15 @@ export default function InTheBagPage() {
         return acc;
     }, {});
 
-    // Sort discs within each type by speed (highest to lowest, no speed at bottom)
+    // Sort discs within each type by stability (lowest to highest, no stability at bottom)
     for (const type in groupedArchivedDiscs) {
         groupedArchivedDiscs[type].sort((a, b) => {
-            // Assign a very small number to discs with no defined speed, so they go to the bottom
-            const speedA = a.speed !== undefined && a.speed !== null ? a.speed : -Infinity;
-            const speedB = b.speed !== undefined && b.speed !== null ? b.speed : -Infinity;
+            // Assign a very large number to discs with no defined stability, so they go to the bottom
+            const stabilityA = a.stability !== undefined && a.stability !== null ? a.stability : Infinity; // Changed from speed to stability
+            const stabilityB = b.stability !== undefined && b.stability !== null ? b.stability : Infinity; // Changed from speed to stability
 
-            // For descending order, subtract a from b: b - a
-            return speedB - speedA;
+            // For ascending order, subtract b from a: a - b
+            return stabilityA - stabilityB; // Changed from speedB - speedA
         });
     }
 
@@ -597,7 +597,8 @@ export default function InTheBagPage() {
                                                 <span className='font-bold'>{disc.manufacturer}</span> {disc.plastic ? `${disc.plastic}` : ''} {disc.name}
                                             </h4>
                                             <p className='text-sm text-gray-600 dark:text-gray-400'>
-                                                {disc.color ? `${disc.color}` : ''} {disc.speed !== undefined && disc.speed !== null ? ` | Speed: ${disc.speed}` : ''}
+                                                {disc.color ? `${disc.color}` : ''}
+                                                {disc.stability !== undefined && disc.stability !== null ? ` | Stability: ${disc.stability}` : ''} {/* Display stability */}
                                             </p>
                                         </div>
                                         <div className="relative">
@@ -679,7 +680,8 @@ export default function InTheBagPage() {
                                                         <span className='font-bold'>{disc.manufacturer}</span> {disc.plastic ? `${disc.plastic}` : ''} {disc.name}
                                                     </h4>
                                                     <p className='text-sm text-gray-600 dark:text-gray-400'>
-                                                        {disc.color ? `${disc.color}` : ''} {disc.speed !== undefined && disc.speed !== null ? ` | Speed: ${disc.speed}` : ''}
+                                                        {disc.color ? `${disc.color}` : ''}
+                                                        {disc.stability !== undefined && disc.stability !== null ? ` | Stability: ${disc.stability}` : ''} {/* Display stability */}
                                                     </p>
                                                 </div>
                                                 <div className="relative">
@@ -690,6 +692,7 @@ export default function InTheBagPage() {
                                                     >
                                                         <MoreVertical size={20} />
                                                     </button>
+
                                                     {openDiscActionsId === disc.id && (
                                                         <div
                                                             ref={dropdownRef}
@@ -726,28 +729,53 @@ export default function InTheBagPage() {
                 </div>
             )}
 
-            {/* FAB - Floating Action Button */}
             {showFab && (
                 <button
                     onClick={openAddDiscModal}
-                    className="fab-fix fixed bottom-6 right-6 !bg-blue-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
+                    className="fixed bottom-6 right-6 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors z-40"
                     title="Add New Disc"
+                    aria-label="Add New Disc"
                 >
-                    <span className="text-2xl">＋</span>
+                    <FaPlus size={24} />
                 </button>
             )}
 
+            {/* Add Disc Modal */}
+            <DiscFormModal
+                isOpen={isAddDiscModalOpen}
+                onClose={closeAddDiscModal}
+                onSubmit={handleSubmitDisc}
+                newDiscName={newDiscName}
+                setNewDiscName={setNewDiscName}
+                newDiscManufacturer={newDiscManufacturer}
+                setNewDiscManufacturer={setNewDiscManufacturer}
+                newDiscType={newDiscType}
+                setNewDiscType={setNewDiscType}
+                newDiscPlastic={newDiscPlastic}
+                setNewDiscPlastic={setNewDiscPlastic}
+                newDiscColor={newDiscColor}
+                setNewDiscColor={setNewDiscColor}
+                newDiscStability={newDiscStability} // Pass stability prop
+                setNewDiscStability={setNewDiscStability} // Pass setter for stability
+            />
 
-            {/* Disc Form Modal (Add/Edit) */}
-            {(isAddDiscModalOpen || isEditDiscModalOpen) && (
-                <DiscFormModal
-                    isOpen={isAddDiscModalOpen || isEditDiscModalOpen}
-                    onClose={isAddDiscModalOpen ? closeAddDiscModal : closeEditDiscModal}
-                    onSubmit={handleSubmitDisc}
-                    initialData={currentDiscToEdit}
-                    isEditing={!!currentDiscToEdit}
-                />
-            )}
+            {/* Edit Disc Modal */}
+            <DiscFormModal
+                isOpen={isEditDiscModalOpen}
+                onClose={closeEditDiscModal}
+                onSubmit={handleSubmitDisc}
+                initialData={currentDiscToEdit}
+                // When editing, the modal uses its own internal state,
+                // so we don't strictly need to pass these individual newDisc... props,
+                // but for consistency with the Add Disc Modal, they can remain.
+                newDiscName={newDiscName}
+                setNewDiscName={setNewDiscName}
+                newDiscManufacturer={newDiscManufacturer}
+                newDiscType={newDiscType}
+                newDiscPlastic={newDiscPlastic}
+                newDiscColor={newDiscColor}
+                newDiscStability={newDiscStability} // Pass stability prop
+            />
         </div>
     );
 }

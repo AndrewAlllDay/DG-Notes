@@ -11,17 +11,17 @@ export default function AddDiscModal({
     // but we keep them as they are currently used by InTheBagPage.jsx for new disc setup.
     // However, the modal will now prioritize its own internal state for form inputs.
     newDiscName: propNewDiscName, // Renamed to differentiate from internal 'name' state
-    setNewDiscName: setPropNewDiscName,
+    setPropNewDiscName,
     newDiscManufacturer: propNewDiscManufacturer,
-    setNewDiscManufacturer: setPropNewDiscManufacturer,
+    setPropNewDiscManufacturer,
     newDiscType: propNewDiscType,
-    setNewDiscType: setPropNewDiscType,
+    setPropNewDiscType,
     newDiscPlastic: propNewDiscPlastic,
-    setNewDiscPlastic: setPropNewDiscPlastic,
+    setPropNewDiscPlastic,
     newDiscColor: propNewDiscColor,
-    setNewDiscColor: setPropNewDiscColor,
-    newDiscSpeed: propNewDiscSpeed,
-    setNewDiscSpeed: setPropNewDiscSpeed,
+    setPropNewDiscColor,
+    newDiscStability: propNewDiscStability, // Changed from newDiscSpeed
+    setPropNewDiscStability, // Changed from setNewDiscSpeed
 }) {
     // INTERNAL STATE for form fields
     const [name, setName] = useState('');
@@ -29,7 +29,7 @@ export default function AddDiscModal({
     const [type, setType] = useState('');
     const [plastic, setPlastic] = useState('');
     const [color, setColor] = useState('');
-    const [speed, setSpeed] = useState(''); // Internal state for speed
+    const [stability, setStability] = useState(''); // Changed from speed to stability
 
     // useEffect to synchronize internal state with initialData or clear it
     useEffect(() => {
@@ -41,8 +41,8 @@ export default function AddDiscModal({
                 setType(initialData.type || '');
                 setPlastic(initialData.plastic || '');
                 setColor(initialData.color || '');
-                // Crucial for speed: convert to string and handle undefined/null
-                setSpeed(initialData.speed !== undefined && initialData.speed !== null ? String(initialData.speed) : '');
+                // Crucial for stability: convert to string and handle undefined/null
+                setStability(initialData.stability !== undefined && initialData.stability !== null ? String(initialData.stability) : ''); // Changed from speed
             } else {
                 // ADD MODE: Optionally use parent's newDisc... props or clear
                 // If the parent explicitly passes blank values for a new disc, use them.
@@ -52,7 +52,7 @@ export default function AddDiscModal({
                 setType(propNewDiscType || '');
                 setPlastic(propNewDiscPlastic || '');
                 setColor(propNewDiscColor || '');
-                setSpeed(propNewDiscSpeed || '');
+                setStability(propNewDiscStability || ''); // Changed from propNewDiscSpeed
             }
         } else {
             // When modal closes, reset internal form state
@@ -61,7 +61,7 @@ export default function AddDiscModal({
             setType('');
             setPlastic('');
             setColor('');
-            setSpeed('');
+            setStability(''); // Changed from speed
         }
     }, [
         isOpen,
@@ -69,7 +69,7 @@ export default function AddDiscModal({
         // Include propNewDisc... values as dependencies in case the parent updates them
         // while the modal is closed and then opens it for a new disc.
         propNewDiscName, propNewDiscManufacturer, propNewDiscType,
-        propNewDiscPlastic, propNewDiscColor, propNewDiscSpeed
+        propNewDiscPlastic, propNewDiscColor, propNewDiscStability // Changed from propNewDiscSpeed
     ]);
 
 
@@ -84,9 +84,9 @@ export default function AddDiscModal({
             return;
         }
 
-        // Validate disc speed if it's not empty, ensure it's a number
-        if (speed && isNaN(Number(speed))) {
-            alert("Disc Speed must be a number!");
+        // Validate disc stability if it's not empty, ensure it's a number
+        if (stability && isNaN(Number(stability))) { // Changed from speed
+            alert("Disc Stability must be a number!"); // Changed from Disc Speed
             return;
         }
 
@@ -97,7 +97,7 @@ export default function AddDiscModal({
             type,
             plastic,
             color,
-            Number(speed) || null // Pass speed as a number, or null if empty/invalid
+            Number(stability) || null // Changed from speed
         );
 
         // The useEffect will handle clearing the state when the modal closes via onClose
@@ -175,18 +175,19 @@ export default function AddDiscModal({
                             className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                     </div>
-                    {/* NEW: Input field for Disc Speed */}
+                    {/* NEW: Input field for Disc Stability */}
                     <div>
-                        <label htmlFor="discSpeed" className="block text-sm font-medium text-gray-700 mb-1">Disc Speed (e.g., 12)</label>
+                        <label htmlFor="discStability" className="block text-sm font-medium text-gray-700 mb-1">Disc Stability (e.g., 0, -1, 1)</label> {/* Updated label */}
                         <input
-                            type="number"
-                            id="discSpeed"
-                            placeholder="Disc Speed (Optional)"
-                            value={speed}
-                            onChange={(e) => setSpeed(e.target.value)}
+                            type="number" // Still a number, as stability ratings are numeric
+                            id="discStability" // Updated ID
+                            placeholder="Disc Stability (Optional)" // Updated placeholder
+                            value={stability} // Using the new stability state
+                            onChange={(e) => setStability(e.target.value)} // Using the new setStability
                             className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                            min="1"
-                            max="15"
+                            // You might want to adjust min/max values based on typical stability ratings
+                            min="-5" // Common range for stability (understable to overstable)
+                            max="5"
                         />
                     </div>
 
