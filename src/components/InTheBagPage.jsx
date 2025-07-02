@@ -725,10 +725,12 @@ export default function InTheBagPage() {
             {/* Floating Action Button */}
             <button
                 onClick={openAddDiscModal}
-                className={`fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition-all duration-300 ${showFab ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full'}`}
+                className={`fixed bottom-6 right-6 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
+                            transition-transform duration-1000 ease-in-out
+                            ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
                 title="Add New Disc"
             >
-                <FaPlus size={24} />
+                <span className="text-2xl">＋</span>
             </button>
 
             {/* Add/Edit Disc Modal */}
