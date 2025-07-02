@@ -134,29 +134,7 @@ export default function Courses() {
         };
     }, [selectedCourse]);
 
-    // --- REMOVED FAB SCROLL LOGIC ---
-    // The useEffect hook for `handleScroll` has been removed to keep FABs always visible.
-    // useEffect(() => {
-    //     const handleScroll = () => {
-    //         const currentScrollY = window.scrollY;
 
-    //         if (Math.abs(currentScrollY - lastScrollY.current) > 10) {
-    //             if (currentScrollY > lastScrollY.current) {
-    //                 setShowFab(false); // Scrolling down
-    //             } else {
-    //                 setShowFab(true); // Scrolling up
-    //             }
-    //         }
-    //         lastScrollY.current = currentScrollY;
-    //     };
-
-    //     window.addEventListener('scroll', handleScroll);
-
-    //     return () => {
-    //         window.removeEventListener('scroll', handleScroll);
-    //     };
-    // }, []);
-    // --- END REMOVED FAB SCROLL LOGIC ---
 
     const closeAllHoleEdits = () => {
         if (!selectedCourse) return;
