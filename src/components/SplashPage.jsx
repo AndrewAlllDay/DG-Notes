@@ -32,7 +32,7 @@ const SplashPage = ({ onEnterApp }) => {
             <img
                 src={DiscGolfBasketSVG}
                 alt="Disc Golf Basket"
-                className="absolute bottom-[-100px] left-1/2 transform -translate-x-1/2 w-48 h-auto opacity-30 dark:opacity-20 pointer-events-none"
+                className="absolute bottom-[-100px] left-1/2 transform -translate-x-1/2 w-48 h-auto opacity-20 dark:opacity-20 pointer-events-none"
             />
         </div>
     );

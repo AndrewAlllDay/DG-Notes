@@ -138,7 +138,7 @@ function LoginModal({ isOpen, onClose }) {
                         <Dialog.Content
                             // Removed animation classes
                             className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-                                        bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md text-center text-700 dark:text-gray-300"
+                                     bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-sm text-center text-700 dark:text-gray-300" // Changed max-w-md to max-w-sm
                         >
                             {/* Radix UI recommends a DialogTitle even for loading states for accessibility */}
                             <Dialog.Title asChild>
@@ -164,7 +164,7 @@ function LoginModal({ isOpen, onClose }) {
                     {/* Content without animations */}
                     <Dialog.Content
                         className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-                                        bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md text-gray-900 dark:text-gray-100"
+                                     bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-sm text-gray-900 dark:text-gray-100" // Changed max-w-md to max-w-sm
                     >
                         <Dialog.Close asChild>
                             <button
