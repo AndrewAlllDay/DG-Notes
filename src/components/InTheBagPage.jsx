@@ -554,7 +554,7 @@ export default function InTheBagPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 p-4 sm:p-6 lg:p-8">
+        <div className="max-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 p-4 sm:p-6 lg:p-8">
 
             <h2 className="text-2xl font-bold text-center pt-5 mb-2">In Your Bag</h2>
             {activeDiscs.length > 0 && (
