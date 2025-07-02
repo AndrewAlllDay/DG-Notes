@@ -76,7 +76,7 @@ function App() {
     setAppMessage({ type, text });
     setTimeout(() => {
       setAppMessage({ type: '', text: '' });
-    }, 5000);
+    }, 1500); // Changed from 5000 to 3000 milliseconds (3 seconds)
   };
 
   const [isDarkMode, setIsDarkMode] = useState(() => {

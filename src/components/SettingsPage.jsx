@@ -31,7 +31,7 @@ const Accordion = ({ title, children, defaultOpen = false }) => {
                 {isOpen ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
             </button>
             {isOpen && (
-                <div className="px-6 pb-6 pt-2 border-t border-gray-200">
+                <div className="px-6 pb-6 pt-6 border-t border-gray-200">
                     {children}
                 </div>
             )}

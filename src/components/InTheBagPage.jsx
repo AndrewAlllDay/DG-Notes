@@ -1,4 +1,3 @@
-// src/components/InTheBagPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useFirebase } from "../firebase";
 import DiscFormModal from '../components/AddDiscModal'; // Renamed conceptually to DiscFormModal
@@ -44,13 +43,12 @@ export default function InTheBagPage() {
     const { user: currentUser } = useFirebase();
     const [activeDiscs, setActiveDiscs] = useState([]);
     const [archivedDiscs, setArchivedDiscs] = useState([]);
-    const [isAddDiscModalOpen, setIsAddDiscModalOpen] = useState(false);
+    const [isDiscFormModalOpen, setIsDiscFormModalOpen] = useState(false); // Unified modal state
 
     // State for editing discs
-    const [isEditDiscModalOpen, setIsEditDiscModalOpen] = useState(false);
-    const [currentDiscToEdit, setCurrentDiscToEdit] = useState(null);
+    const [currentDiscToEdit, setCurrentDiscToEdit] = useState(null); // This is key!
 
-    // State for new disc input fields (will be used by the modal for both add and edit)
+    // State for new disc input fields (will be passed to the modal for both add and edit)
     const [newDiscName, setNewDiscName] = useState('');
     const [newDiscManufacturer, setNewDiscManufacturer] = useState('');
     const [newDiscType, setNewDiscType] = useState('');
@@ -132,55 +130,49 @@ export default function InTheBagPage() {
     }, [openDiscActionsId]);
 
     // --- Modal Handlers ---
+
+    // Open modal for adding a new disc
     const openAddDiscModal = () => {
-        setCurrentDiscToEdit(null);
+        setCurrentDiscToEdit(null); // Explicitly set to null for "add" mode
+        // Clear all state values for new disc
         setNewDiscName('');
         setNewDiscManufacturer('');
         setNewDiscType('');
         setNewDiscPlastic('');
         setNewDiscColor('');
         setNewDiscStability('');
-        setIsAddDiscModalOpen(true);
-        setOpenDiscActionsId(null);
+        setIsDiscFormModalOpen(true); // Open the unified modal
+        setOpenDiscActionsId(null); // Close any open action menus
         console.log("Opening Add Disc Modal.");
     };
 
-    const closeAddDiscModal = () => {
-        setIsAddDiscModalOpen(false);
-        setNewDiscName('');
-        setNewDiscManufacturer('');
-        setNewDiscType('');
-        setNewDiscPlastic('');
-        setNewDiscColor('');
-        setNewDiscStability('');
-        console.log("Closing Add Disc Modal.");
-    };
-
-    // Open Edit Disc Modal
+    // Open modal for editing an existing disc
     const openEditDiscModal = (disc) => {
-        setCurrentDiscToEdit(disc);
+        setCurrentDiscToEdit(disc); // Set the disc object for "edit" mode
+        // Pre-fill modal input states with current disc data
         setNewDiscName(disc.name);
         setNewDiscManufacturer(disc.manufacturer);
         setNewDiscType(disc.type);
         setNewDiscPlastic(disc.plastic);
         setNewDiscColor(disc.color || '');
-        setNewDiscStability(disc.stability !== undefined ? String(disc.stability) : '');
-        setIsEditDiscModalOpen(true);
-        setOpenDiscActionsId(null);
+        setNewDiscStability(disc.stability !== undefined && disc.stability !== null ? String(disc.stability) : '');
+        setIsDiscFormModalOpen(true); // Open the unified modal
+        setOpenDiscActionsId(null); // Close any open action menus
         console.log("Opening Edit Disc Modal for disc:", disc.id);
     };
 
-    // Close Edit Disc Modal
-    const closeEditDiscModal = () => {
-        setIsEditDiscModalOpen(false);
-        setCurrentDiscToEdit(null);
+    // Close the unified disc form modal
+    const closeDiscFormModal = () => {
+        setIsDiscFormModalOpen(false);
+        setCurrentDiscToEdit(null); // Reset currentDiscToEdit when modal closes
+        // Clear all states after modal closes
         setNewDiscName('');
         setNewDiscManufacturer('');
         setNewDiscType('');
         setNewDiscPlastic('');
         setNewDiscColor('');
         setNewDiscStability('');
-        console.log("Closing Edit Disc Modal.");
+        console.log("Closing Disc Form Modal.");
     };
 
     // Toggle disc actions dropdown visibility
@@ -202,26 +194,36 @@ export default function InTheBagPage() {
         }
 
         try {
+            const parsedStability = stability === '' ? null : parseFloat(stability);
+
+            if (stability !== '' && isNaN(parsedStability)) {
+                toast.error("Stability must be a valid number (e.g., -2, 0, 1.5).");
+                console.error("Invalid stability value entered:", stability);
+                return;
+            }
+
             const discData = {
                 name: name.trim(),
                 manufacturer: manufacturer.trim(),
                 type: type.trim(),
                 plastic: plastic.trim(),
                 color: color.trim(),
-                stability: stability,
+                stability: parsedStability,
             };
 
             if (currentDiscToEdit) {
+                // Update existing disc
                 await updateDiscInBag(currentUser.uid, currentDiscToEdit.id, discData);
                 toast.success(`${name} updated successfully!`);
-                closeEditDiscModal();
+                closeDiscFormModal(); // Close the unified modal
                 console.log("Disc updated successfully:", discData);
             } else {
+                // Add new disc
                 const allDiscs = [...activeDiscs, ...archivedDiscs];
                 const maxOrder = allDiscs.length > 0 ? Math.max(...allDiscs.map(d => d.displayOrder || 0)) : -1;
                 await addDiscToBag(currentUser.uid, { ...discData, isArchived: false, displayOrder: maxOrder + 1 });
                 toast.success(`${name} added to your bag!`);
-                closeAddDiscModal();
+                closeDiscFormModal(); // Close the unified modal
                 console.log("Disc added successfully:", discData);
             }
         } catch (error) {
@@ -490,8 +492,8 @@ export default function InTheBagPage() {
             const stabilityA = a.stability !== undefined && a.stability !== null ? a.stability : Infinity;
             const stabilityB = b.stability !== undefined && b.stability !== null ? b.stability : Infinity;
 
-            // For ascending order, subtract b from a: a - b
-            return stabilityA - stabilityB;
+            // Sort from lowest stability to highest.
+            return stabilityA - stabilityB; // Changed to A - B for ascending order
         });
     }
 
@@ -513,7 +515,7 @@ export default function InTheBagPage() {
             const stabilityB = b.stability !== undefined && b.stability !== null ? b.stability : Infinity;
 
             // For ascending order, subtract b from a: a - b
-            return stabilityA - stabilityB;
+            return stabilityB - stabilityA; // Changed to A - B for ascending order
         });
     }
 
@@ -600,7 +602,8 @@ export default function InTheBagPage() {
                                             </h4>
                                             <p className='text-sm text-gray-600 dark:text-gray-400'>
                                                 {disc.color ? `${disc.color}` : ''}
-                                                {disc.stability !== undefined && disc.stability !== null ? ` | Stability: ${disc.stability}` : ''}
+                                                {/* Display stability only if it's a number (including 0) */}
+                                                {(disc.stability !== undefined && disc.stability !== null) ? ` | Stability: ${disc.stability}` : ''}
                                             </p>
                                         </div>
                                         <div className="relative">
@@ -660,10 +663,15 @@ export default function InTheBagPage() {
                     <Accordion title={`On the Shelf (${archivedDiscs.length} discs)`} defaultOpen={false}>
                         <div className="space-y-4">
                             {sortedArchivedDiscTypes.map(type => (
-                                <div key={`archived-${type}`}>
-                                    <h3 className="text-xl font-normal mb-4 text-gray-700 dark:text-gray-300 border-b-2 border-gray-200 dark:border-gray-700 pb-2">
-                                        {type} <span className='text-black dark:text-white text-sm'>({groupedArchivedDiscs[type].length} discs)</span>
-                                    </h3>
+                                <Accordion
+                                    key={`archived-${type}`}
+                                    title={
+                                        <span className='text-gray-600 dark:text-gray-400'>
+                                            {type} <span className='text-black dark:text-white text-base'>({groupedArchivedDiscs[type].length} discs)</span>
+                                        </span>
+                                    }
+                                    defaultOpen={false}
+                                >
                                     <ul
                                         className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2"
                                         onDragOver={handleDragOver}
@@ -679,23 +687,23 @@ export default function InTheBagPage() {
                                                 onDragLeave={handleDragLeave}
                                                 onDragEnd={handleDragEnd}
                                                 onDrop={(e) => handleDrop(e, disc.id, 'archived')}
-                                                className="disc-item bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-4 flex justify-between items-center hover:shadow-md transition-shadow duration-200 ease-in-out relative cursor-grab"
+                                                className="disc-item bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm p-4 flex justify-between items-center hover:shadow-md transition-shadow duration-200 ease-in-out relative cursor-grab opacity-75"
                                                 style={{ userSelect: 'none' }}
                                                 onMouseDown={() => console.log(`DEBUG: Mouse down on disc: ${disc.id}`)}
                                             >
                                                 <div>
-                                                    <h4 className="text-lg font-normal text-gray-800 dark:text-white">
+                                                    <h4 className="text-lg font-normal text-gray-700 dark:text-gray-200">
                                                         <span className='font-bold'>{disc.manufacturer}</span> {disc.plastic ? `${disc.plastic}` : ''} {disc.name}
                                                     </h4>
-                                                    <p className='text-sm text-gray-600 dark:text-gray-400'>
+                                                    <p className='text-sm text-gray-500 dark:text-gray-400'>
                                                         {disc.color ? `${disc.color}` : ''}
-                                                        {disc.stability !== undefined && disc.stability !== null ? ` | Stability: ${disc.stability}` : ''}
+                                                        {(disc.stability !== undefined && disc.stability !== null) ? ` | Stability: ${disc.stability}` : ''}
                                                     </p>
                                                 </div>
                                                 <div className="relative">
                                                     <button
                                                         onClick={() => handleToggleDiscActions(disc.id)}
-                                                        className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                        className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                                         title="Disc Options"
                                                     >
                                                         <MoreVertical size={20} />
@@ -706,14 +714,8 @@ export default function InTheBagPage() {
                                                             className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg z-10 border border-gray-200 dark:border-gray-600"
                                                         >
                                                             <button
-                                                                onClick={() => openEditDiscModal(disc)}
-                                                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-t-md"
-                                                            >
-                                                                <Pencil size={16} className="mr-2" /> Edit
-                                                            </button>
-                                                            <button
                                                                 onClick={() => handleRestoreDisc(disc.id, disc.name)}
-                                                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+                                                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-t-md"
                                                             >
                                                                 <FolderOpen size={16} className="mr-2" /> Restore to Bag
                                                             </button>
@@ -729,32 +731,45 @@ export default function InTheBagPage() {
                                             </li>
                                         ))}
                                     </ul>
-                                </div>
+                                </Accordion>
                             ))}
                         </div>
                     </Accordion>
                 </div>
             )}
 
+            {/* Floating Action Button */}
             {showFab && (
                 <button
                     onClick={openAddDiscModal}
-                    className={`fab-fix fixed bottom-6 right-6 !bg-blue-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50`}
-                    aria-label="Add Disc"
+                    className="fixed bottom-6 right-6 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-transform transform hover:scale-110"
+                    title="Add New Disc"
                 >
-                    <span className="text-2xl">＋</span>
+                    <FaPlus size={24} />
                 </button>
             )}
 
-            {/* Add Disc Modal (re-used for editing) */}
-            {(isAddDiscModalOpen || isEditDiscModalOpen) && (
-                <DiscFormModal
-                    isOpen={isAddDiscModalOpen || isEditDiscModalOpen}
-                    onClose={isAddDiscModalOpen ? closeAddDiscModal : closeEditDiscModal}
-                    onSubmit={handleSubmitDisc}
-                    initialData={currentDiscToEdit}
-                />
-            )}
+            {/* DiscFormModal (now handles both add and edit modes) */}
+            <DiscFormModal
+                isOpen={isDiscFormModalOpen}
+                onClose={closeDiscFormModal}
+                onSubmit={handleSubmitDisc}
+                initialData={currentDiscToEdit} // Crucial prop to tell the modal if it's editing
+                // These props are still passed to allow the modal to manage its internal state
+                // based on what's given to it, primarily for new disc creation or initial edit load.
+                newDiscName={newDiscName}
+                setPropNewDiscName={setNewDiscName}
+                newDiscManufacturer={newDiscManufacturer}
+                setPropNewDiscManufacturer={setNewDiscManufacturer}
+                newDiscType={newDiscType}
+                setPropNewDiscType={setNewDiscType}
+                newDiscPlastic={newDiscPlastic}
+                setPropNewDiscPlastic={setNewDiscPlastic}
+                newDiscColor={newDiscColor}
+                setPropNewDiscColor={setNewDiscColor}
+                newDiscStability={newDiscStability}
+                setPropNewDiscStability={setNewDiscStability}
+            />
         </div>
     );
 }
