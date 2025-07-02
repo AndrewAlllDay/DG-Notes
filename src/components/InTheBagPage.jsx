@@ -742,10 +742,10 @@ export default function InTheBagPage() {
             {showFab && (
                 <button
                     onClick={openAddDiscModal}
-                    className="fixed bottom-6 right-6 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-transform transform hover:scale-110"
+                    className={`fab-fix fixed bottom-6 right-6 !bg-blue-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50`}
                     title="Add New Disc"
                 >
-                    <FaPlus size={24} />
+                    <span className="text-2xl">＋</span>
                 </button>
             )}
 
