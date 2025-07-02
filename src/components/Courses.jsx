@@ -40,9 +40,10 @@ export default function Courses() {
 
     const [appMessage, setAppMessage] = useState({ type: '', text: '' });
 
+    // FAB state - Initialized to true, and scroll logic removed.
     const [showFab, setShowFab] = useState(true);
+    // lastScrollY and scrollContainerRef are no longer needed for FAB visibility, but kept if used elsewhere.
     const lastScrollY = useRef(0);
-
     const scrollContainerRef = useRef(null);
 
     const swipeRefs = useRef({});
@@ -133,26 +134,29 @@ export default function Courses() {
         };
     }, [selectedCourse]);
 
-    useEffect(() => {
-        const handleScroll = () => {
-            const currentScrollY = window.scrollY;
+    // --- REMOVED FAB SCROLL LOGIC ---
+    // The useEffect hook for `handleScroll` has been removed to keep FABs always visible.
+    // useEffect(() => {
+    //     const handleScroll = () => {
+    //         const currentScrollY = window.scrollY;
 
-            if (Math.abs(currentScrollY - lastScrollY.current) > 10) {
-                if (currentScrollY > lastScrollY.current) {
-                    setShowFab(false); // Scrolling down
-                } else {
-                    setShowFab(true); // Scrolling up
-                }
-            }
-            lastScrollY.current = currentScrollY;
-        };
+    //         if (Math.abs(currentScrollY - lastScrollY.current) > 10) {
+    //             if (currentScrollY > lastScrollY.current) {
+    //                 setShowFab(false); // Scrolling down
+    //             } else {
+    //                 setShowFab(true); // Scrolling up
+    //             }
+    //         }
+    //         lastScrollY.current = currentScrollY;
+    //     };
 
-        window.addEventListener('scroll', handleScroll);
+    //     window.addEventListener('scroll', handleScroll);
 
-        return () => {
-            window.removeEventListener('scroll', handleScroll);
-        };
-    }, []);
+    //     return () => {
+    //         window.removeEventListener('scroll', handleScroll);
+    //     };
+    // }, []);
+    // --- END REMOVED FAB SCROLL LOGIC ---
 
     const closeAllHoleEdits = () => {
         if (!selectedCourse) return;
@@ -404,12 +408,10 @@ export default function Courses() {
                         />
                     </div>
 
-                    {/* FAB for Add Hole */}
+                    {/* FAB for Add Hole - Now always visible */}
                     <button
                         onClick={() => setIsAddHoleModalOpen(true)}
-                        className={`fixed bottom-6 right-6 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
-                            transition-transform duration-500 ease-in-out
-                            ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
+                        className={`fixed bottom-6 right-6 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50`}
                         aria-label="Add Hole"
                     >
                         <span className="text-2xl">＋</span>
@@ -434,12 +436,10 @@ export default function Courses() {
                     <h2 className="text-2xl font-bold mb-4 text-center pt-5">DG Courses</h2>
                     <p className='text-center mb-6'>This is a list of courses that you've taken notes for.</p>
 
-                    {/* FAB for Add Course */}
+                    {/* FAB for Add Course - Now always visible. Removed conditional `showFab` class. */}
                     <button
                         onClick={() => setIsAddCourseModalOpen(true)}
-                        className={`fab-fix fixed bottom-6 right-6 !bg-blue-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
-                            transition-transform duration-1000 ease-in-out
-                            ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
+                        className={`fab-fix fixed bottom-6 right-6 !bg-blue-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50`}
                         aria-label="Add Course"
                     >
                         <span className="text-2xl">＋</span>

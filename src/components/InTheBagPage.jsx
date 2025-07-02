@@ -63,10 +63,8 @@ export default function InTheBagPage() {
     // Ref for detecting clicks outside the dropdown
     const dropdownRef = useRef(null);
 
-    // FAB state and refs
-    const [showFab, setShowFab] = useState(true);
-    const lastScrollY = useRef(0);
-    const scrollContainerRef = useRef(null);
+    // FAB state (now always true as scroll logic is removed)
+    const [showFab, setShowFab] = useState(true); // FAB will now always be shown
 
     // Refs for native drag and drop
     const draggedItem = useRef(null); // Stores the disc being dragged { id, type }
@@ -114,30 +112,6 @@ export default function InTheBagPage() {
             }
         };
     }, [currentUser]);
-
-    // --- FAB Scroll Logic ---
-    useEffect(() => {
-        const handleScroll = () => {
-            const currentScrollY = window.scrollY;
-
-            if (Math.abs(currentScrollY - lastScrollY.current) > 10) {
-                if (currentScrollY > lastScrollY.current) {
-                    setShowFab(false);
-                    console.log("FAB hidden due to scroll down.");
-                } else {
-                    setShowFab(true);
-                    console.log("FAB shown due to scroll up.");
-                }
-            }
-            lastScrollY.current = currentScrollY;
-        };
-
-        window.addEventListener('scroll', handleScroll);
-
-        return () => {
-            window.removeEventListener('scroll', handleScroll);
-        };
-    }, []);
 
     // Click outside to close disc actions dropdown
     useEffect(() => {
@@ -580,7 +554,7 @@ export default function InTheBagPage() {
     }
 
     return (
-        <div ref={scrollContainerRef} className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 p-4 sm:p-6 lg:p-8">
+        <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 p-4 sm:p-6 lg:p-8">
 
             <h2 className="text-2xl font-bold text-center pt-5 mb-2">In Your Bag</h2>
             {activeDiscs.length > 0 && (
@@ -679,8 +653,8 @@ export default function InTheBagPage() {
                         <div className="space-y-8">
                             {sortedArchivedDiscTypes.map(type => (
                                 <div key={`archived-${type}`}>
-                                    <h3 className="text-xl font-normal mb-4 text-gray-700 dark:text-gray-300 border-b-2 border-gray-300 dark:border-gray-600 pb-2">
-                                        {type} ({groupedArchivedDiscs[type].length}) (Archived)
+                                    <h3 className="text-xl font-normal mb-4 text-gray-700 dark:text-gray-300 border-b-2 border-gray-200 dark:border-gray-700 pb-2">
+                                        {type} <span className='text-black text-sm'>({groupedArchivedDiscs[type].length} discs)</span>
                                     </h3>
                                     <ul
                                         className="grid grid-cols-1 md:grid-cols-2 gap-4"
@@ -716,7 +690,6 @@ export default function InTheBagPage() {
                                                     >
                                                         <MoreVertical size={20} />
                                                     </button>
-
                                                     {openDiscActionsId === disc.id && (
                                                         <div
                                                             ref={dropdownRef}
@@ -753,28 +726,28 @@ export default function InTheBagPage() {
                 </div>
             )}
 
-            {/* Floating Action Button (FAB) */}
+            {/* FAB - Floating Action Button */}
             {showFab && (
                 <button
                     onClick={openAddDiscModal}
-                    className={`fixed bottom-6 right-6 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50
-                            transition-transform duration-1000 ease-in-out
-                            ${showFab ? 'translate-y-0' : 'translate-y-24'}`}
-                    title="Add new disc"
+                    className="fab-fix fixed bottom-6 right-6 !bg-blue-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50"
+                    title="Add New Disc"
                 >
                     <span className="text-2xl">＋</span>
                 </button>
-
-
             )}
 
-            {/* Add/Edit Disc Modal */}
-            <DiscFormModal
-                isOpen={isAddDiscModalOpen || isEditDiscModalOpen}
-                onClose={currentDiscToEdit ? closeEditDiscModal : closeAddDiscModal}
-                onSubmit={handleSubmitDisc}
-                initialData={currentDiscToEdit}
-            />
+
+            {/* Disc Form Modal (Add/Edit) */}
+            {(isAddDiscModalOpen || isEditDiscModalOpen) && (
+                <DiscFormModal
+                    isOpen={isAddDiscModalOpen || isEditDiscModalOpen}
+                    onClose={isAddDiscModalOpen ? closeAddDiscModal : closeEditDiscModal}
+                    onSubmit={handleSubmitDisc}
+                    initialData={currentDiscToEdit}
+                    isEditing={!!currentDiscToEdit}
+                />
+            )}
         </div>
     );
 }
