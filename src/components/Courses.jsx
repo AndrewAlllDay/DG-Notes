@@ -27,6 +27,9 @@ export default function Courses() {
     const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
     const [newCourseName, setNewCourseName] = useState('');
     const [newCourseTournamentName, setNewCourseTournamentName] = useState('');
+    // State for course classification, correctly added
+    const [newCourseClassification, setNewCourseClassification] = useState('');
+
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [editingHoleData, setEditingHoleData] = useState({});
     const [swipedCourseId, setSwipedCourseId] = useState(null);
@@ -210,16 +213,19 @@ export default function Courses() {
         swipeRefs.current[id] = null;
     };
 
-    const handleAddCourse = async (courseName, tournamentName) => {
+    // Modified handleAddCourse to accept classification
+    const handleAddCourse = async (courseName, tournamentName, classification) => {
         if (!userId) {
             showAppMessage('error', "User not authenticated. Please wait for authentication to complete or refresh the page.");
             return;
         }
         try {
-            await addCourse(courseName, tournamentName, userId);
+            // Pass the new classification to addCourse
+            await addCourse(courseName, tournamentName, classification, userId);
             setIsAddCourseModalOpen(false);
             setNewCourseName('');
             setNewCourseTournamentName('');
+            setNewCourseClassification(''); // Reset classification state after adding
             showAppMessage('success', `Course "${courseName}" added successfully!`);
         } catch (error) {
             console.error("Failed to add course:", error);
@@ -278,7 +284,6 @@ export default function Courses() {
         setHoleToDeleteId(null);
     };
 
-    // Modified handleAddHole to accept discId
     const handleAddHole = async (holeNumber, holePar, holeNote, discId = null) => {
         if (!holeNumber.trim() || !holePar.trim() || !selectedCourse || !userId) {
             showAppMessage('error', "Hole number and par are required, a course must be selected, and user must be authenticated.");
@@ -301,19 +306,17 @@ export default function Courses() {
         }
     };
 
-    // Modified handleSaveHoleChanges to include discId if necessary (will handle later)
     const handleSaveHoleChanges = async (holeId) => {
         if (!selectedCourse || !userId) {
             showAppMessage('error', "User not authenticated or course not selected.");
             return;
         }
-        // Need to ensure editingHoleData includes discId if selected
         const updatedHole = {
             id: holeId,
             number: editingHoleData.number,
             par: editingHoleData.par,
             note: editingHoleData.note,
-            discId: editingHoleData.discId !== undefined ? editingHoleData.discId : null, // Ensure discId is passed
+            discId: editingHoleData.discId !== undefined ? editingHoleData.discId : null,
         };
         try {
             await updateHoleInCourse(selectedCourse.id, holeId, updatedHole, userId);
@@ -380,6 +383,12 @@ export default function Courses() {
                         {selectedCourse.tournamentName && (
                             <p className="text-lg text-gray-600">{selectedCourse.tournamentName}</p>
                         )}
+                        {/* Display Course Classification if available */}
+                        {selectedCourse.classification && (
+                            <p className="text-md text-gray-500 italic">
+                                Style: {selectedCourse.classification.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                            </p>
+                        )}
                     </div>
                     <div ref={holeListRef}>
                         <HoleList
@@ -444,15 +453,19 @@ export default function Courses() {
                         setNewCourseName={setNewCourseName}
                         newCourseTournamentName={newCourseTournamentName}
                         setNewCourseTournamentName={setNewCourseTournamentName}
+                        // Correctly passing the classification state and its setter
+                        newCourseClassification={newCourseClassification}
+                        setNewCourseClassification={setNewCourseClassification}
                     />
                     <CourseList
                         courses={courses}
-                        setSelectedCourse={setSelectedCourse}
-                        deleteCourse={handleDeleteCourse}
+                        // Corrected prop name to match what CourseList expects for selection
+                        onSelectCourse={setSelectedCourse}
+                        onDeleteCourse={handleDeleteCourse}
                         swipedCourseId={swipedCourseId}
-                        handleTouchStart={handleTouchStart}
-                        handleTouchMove={handleTouchMove}
-                        handleTouchEnd={handleTouchEnd}
+                        onTouchStart={handleTouchStart}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
                     />
                 </>
             )}

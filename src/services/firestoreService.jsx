@@ -321,7 +321,7 @@ export const removeTeamMember = async (teamId, userId) => {
 // --- COURSE MANAGEMENT ---
 
 // --- CREATE COURSE ---
-export const addCourse = async (courseName, tournamentName, userId) => {
+export const addCourse = async (courseName, tournamentName, classification, userId) => { // ADDED 'classification' here
     try {
         if (!userId) {
             throw new Error("Cannot add course: User ID is missing.");
@@ -337,6 +337,7 @@ export const addCourse = async (courseName, tournamentName, userId) => {
         const newCourseData = {
             name: courseName,
             tournamentName: tournamentName,
+            classification: classification, // ADDED this line to save classification
             holes: defaultHoles,
             createdAt: new Date(),
             userId: userId, // Add the userId to the document to match security rules

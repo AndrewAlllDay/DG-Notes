@@ -6,17 +6,19 @@ export default function AddCourseModal({
     onSubmit,
     newCourseName,
     setNewCourseName,
-    // NEW: Accept new props for tournament name
     newCourseTournamentName,
     setNewCourseTournamentName,
+    // NEW: Accept new props for course classification
+    newCourseClassification,
+    setNewCourseClassification,
 }) {
     if (!isOpen) return null;
 
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!newCourseName.trim()) return;
-        // MODIFIED: Pass both courseName and tournamentName to onSubmit
-        onSubmit(newCourseName, newCourseTournamentName);
+        // MODIFIED: Pass courseClassification to onSubmit
+        onSubmit(newCourseName, newCourseTournamentName, newCourseClassification);
     };
 
     return (
@@ -32,7 +34,6 @@ export default function AddCourseModal({
                         className="w-full border rounded px-3 py-2"
                         required
                     />
-                    {/* NEW: Input field for Tournament Name */}
                     <input
                         type="text"
                         placeholder="Tournament Name (Optional)"
@@ -40,6 +41,20 @@ export default function AddCourseModal({
                         onChange={(e) => setNewCourseTournamentName(e.target.value)}
                         className="w-full border rounded px-3 py-2"
                     />
+
+                    {/* NEW: Dropdown for Course Classification */}
+                    <select
+                        value={newCourseClassification}
+                        onChange={(e) => setNewCourseClassification(e.target.value)}
+                        className="w-full border rounded px-3 py-2"
+                        required
+                    >
+                        <option value="">Select Course Style</option>
+                        <option value="wooded">Wooded</option>
+                        <option value="park_style">Park Style</option>
+                        <option value="open_bomber">Open Bomber</option>
+                    </select>
+
                     <div className="flex justify-end space-x-2">
                         <button
                             type="button"

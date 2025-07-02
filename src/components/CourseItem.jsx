@@ -1,7 +1,7 @@
 // src/components/CourseItem.jsx
 
-import React from 'react';
-import { Trash, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Trash, ChevronRight, Trees, TreePine, Wind } from 'lucide-react'; // Corrected imports
 
 export default function CourseItem({
     course,
@@ -11,33 +11,63 @@ export default function CourseItem({
     onTouchStart,
     onTouchMove,
     onTouchEnd,
-    tournamentName,
 }) {
-    const isSwiped = swipedCourseId === course.id;
+    const { id, name, tournamentName, classification } = course;
 
-    // Define the width of the delete button and how far the content slides.
-    // The delete button's width should be GREATER THAN the distance the main content slides.
-    const deleteButtonWidthClass = 'w-28'; // Button is 112px wide
-    const swipeDistance = '-80px';      // Main content slides 80px to the left
+    const isSwiped = swipedCourseId === id;
+
+    const deleteButtonWidthClass = 'w-28';
+    const swipeDistance = '-80px';
+
+    const openDuration = '300ms';
+    const closeDuration = '300ms';
+
+    const [currentTransform, setCurrentTransform] = useState(isSwiped ? `translateX(${swipeDistance})` : 'translateX(0)');
+
+    useEffect(() => {
+        if (isSwiped) {
+            setCurrentTransform(`translateX(${swipeDistance})`);
+        } else {
+            const timeoutId = setTimeout(() => {
+                setCurrentTransform('translateX(0)');
+            }, 10);
+
+            return () => clearTimeout(timeoutId);
+        }
+    }, [isSwiped, swipeDistance]);
+
+    // --- Function to get the appropriate icon ---
+    const getClassificationIcon = (courseClassification) => {
+        switch (courseClassification) {
+            case 'wooded':
+                return <Trees size={20} className="text-green-700 dark:text-green-400 mr-2" />; // Changed from Forest to Trees
+            case 'park_style':
+                return <TreePine size={20} className="text-lime-600 dark:text-lime-300 mr-2" />;
+            case 'open_bomber':
+                return <Wind size={20} className="text-blue-600 dark:text-blue-300 mr-2" />;
+            default:
+                return null;
+        }
+    };
 
     return (
         <li className="relative h-20 select-none touch-pan-y mb-2 overflow-hidden">
 
-            {/* DELETE BUTTON - Ensures the icon is centered */}
+            {/* DELETE BUTTON */}
             <button
                 onClick={(e) => {
                     e.stopPropagation();
-                    onDelete(course.id);
+                    onDelete(id);
                 }}
                 className={`absolute right-0 top-0 bottom-0 ${deleteButtonWidthClass} !bg-red-600 text-white flex items-center justify-center z-10 rounded-r-lg`}
-                aria-label={`Delete ${course.name}`}
+                aria-label={`Delete ${name}`}
             >
                 <Trash className='ml-5' size={24} />
             </button>
 
             {/* MAIN COURSE CONTENT DIV */}
             <div
-                id={`course-${course.id}`}
+                id={`course-${id}`}
                 className={`
                     absolute inset-0
                     bg-white dark:bg-gray-800
@@ -48,29 +78,33 @@ export default function CourseItem({
                     flex items-center justify-between
                     px-4
                     cursor-pointer
-                    transition-all duration-300 ease-in-out
+                    transition-transform ease-in-out
                     hover:bg-gray-50 dark:hover:bg-gray-700
                     hover:shadow-md
                     active:bg-gray-100 dark:active:bg-gray-600
                     transform
                 `}
                 style={{
-                    transform: isSwiped ? `translateX(${swipeDistance})` : 'translateX(0)',
+                    transitionDuration: isSwiped ? openDuration : closeDuration,
+                    transform: currentTransform,
                 }}
                 onClick={() => onClick(course)}
-                onTouchStart={(e) => onTouchStart(e, course.id)}
-                onTouchMove={(e) => onTouchMove(e, course.id)}
-                onTouchEnd={() => onTouchEnd(course.id)}
+                onTouchStart={(e) => onTouchStart(e, id)}
+                onTouchMove={(e) => onTouchMove(e, id)}
+                onTouchEnd={() => onTouchEnd(id)}
             >
-                <div>
-                    <p className="text-lg text-gray-800 dark:text-white">
-                        <span className='font-bold'>{course.name}</span>
-                    </p>
-                    {tournamentName && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">
-                            {tournamentName}
+                <div className="flex items-center">
+                    {getClassificationIcon(classification)}
+                    <div>
+                        <p className="text-lg text-gray-800 dark:text-white">
+                            <span className='font-bold'>{name}</span>
                         </p>
-                    )}
+                        {tournamentName && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 italic">
+                                {tournamentName}
+                            </p>
+                        )}
+                    </div>
                 </div>
                 <div className="ml-auto text-gray-400 dark:text-gray-500">
                     <ChevronRight size={20} />
