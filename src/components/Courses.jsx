@@ -389,7 +389,7 @@ export default function Courses() {
                     {/* FAB for Add Hole - Now always visible */}
                     <button
                         onClick={() => setIsAddHoleModalOpen(true)}
-                        className={`fixed bottom-6 right-6 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50`}
+                        className={`fixed bottom-25 right-6 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50`}
                         aria-label="Add Hole"
                     >
                         <span className="text-2xl">＋</span>
@@ -417,7 +417,7 @@ export default function Courses() {
                     {/* FAB for Add Course - Now always visible. Removed conditional `showFab` class. */}
                     <button
                         onClick={() => setIsAddCourseModalOpen(true)}
-                        className={`fab-fix fixed bottom-6 right-6 !bg-blue-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50`}
+                        className={`fab-fix fixed bottom-25 right-6 !bg-blue-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50`}
                         aria-label="Add Course"
                     >
                         <span className="text-2xl">＋</span>
