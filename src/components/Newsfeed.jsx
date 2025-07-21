@@ -1,11 +1,14 @@
 // src/components/NewsFeed.jsx
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+// --- 1. Import your local image file ---
+import UltiworldDefaultImage from '../assets/Ultiworld_Default.jpg';
+import DGPTDefaultImage from '../assets/DGPT_Default.jpg';
 
 // --- NEW: Default images for each source ---
 const defaultImages = {
-    Ultiworld: '/src/assets/Ultiworld_Default.jpg',
-    DGPT: '/src/assets/DGPT_Default.jpg',
+    Ultiworld: UltiworldDefaultImage,
+    DGPT: DGPTDefaultImage,
     PDGA: 'https://via.placeholder.com/1200x675/004C84/FFFFFF?text=PDGA',
     default: 'https://via.placeholder.com/1200x675.png?text=Disc+Golf+News'
 };
