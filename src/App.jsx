@@ -19,6 +19,7 @@ const LazySettingsPage = lazy(() => import('./components/SettingsPage.jsx'));
 const LazySendEncouragement = lazy(() => import('./components/SendEncouragement.jsx'));
 const LazyWeatherDisplay = lazy(() => import('./components/WeatherDisplay.jsx'));
 const LazyInTheBagPage = lazy(() => import('./components/InTheBagPage.jsx'));
+const LazyNewsFeed = lazy(() => import('./components/Newsfeed.jsx')); // <-- ADDED
 
 const LoadingScreen = ({ isDarkMode }) => {
   const bgColor = isDarkMode ? 'bg-black' : 'bg-gray-100';
@@ -43,14 +44,11 @@ function App() {
     console.log("DEBUG App.jsx: handleLoginSuccess triggered for UID:", uid);
     showAppMessage('success', 'You have been successfully logged in!');
     setIsLoginModalOpen(false); // Close the login modal on success
-    // REMOVED: setShowSplash(false); // <--- REMOVE THIS LINE
   };
 
   const handleLogoutSuccess = () => {
     console.log("DEBUG App.jsx: handleLogoutSuccess triggered.");
     showAppMessage('success', 'You have been signed out.');
-    // When logged out, the 'user' state will become null, which will automatically
-    // trigger the `if (!user)` block, displaying the SplashPage/LoginModal as intended.
   };
 
   const { user, isAuthReady, userId: currentUserId } = useFirebase(handleLoginSuccess, handleLogoutSuccess);
@@ -67,7 +65,6 @@ function App() {
 
   const [hasInitialNonPlayerRedirected, setHasInitialNonPlayerRedirected] = useState(false);
 
-  // STATE FOR SERVICE WORKER UPDATE PROMPT
   const [showReloadPrompt, setShowReloadPrompt] = useState(false);
   const [waitingWorker, setWaitingWorker] = useState(null);
 
@@ -76,7 +73,7 @@ function App() {
     setAppMessage({ type, text });
     setTimeout(() => {
       setAppMessage({ type: '', text: '' });
-    }, 1500); // Changed from 5000 to 3000 milliseconds (3 seconds)
+    }, 1500);
   };
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -86,8 +83,6 @@ function App() {
     }
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
-
-  // REMOVED: const [showSplash, setShowSplash] = useState(true); // <--- REMOVE THIS STATE
 
   useEffect(() => {
     if (isDarkMode) {
@@ -213,8 +208,6 @@ function App() {
       setCurrentPage('send-note');
       setHasInitialNonPlayerRedirected(true);
     }
-    // Removed: if (!user) { setHasInitialNonPlayerRedirected(false); }
-    // This reset is handled by the main conditional render now.
   }, [user, isAuthReady, hasInitialNonPlayerRedirected]);
 
   const handleNavigate = (page) => {
@@ -235,7 +228,6 @@ function App() {
         setCurrentNotification(null);
         setAllPublicUserProfiles([]);
         setHasInitialNonPlayerRedirected(false);
-        // REMOVED: setShowSplash(true); // <--- REMOVE THIS LINE. The `if (!user)` block will handle showing SplashPage.
       } catch (error) {
         console.error("DEBUG App.jsx handleSignOut: Error signing out:", error);
         showAppMessage('error', `Failed to sign out: ${error.message}`);
@@ -275,39 +267,26 @@ function App() {
     }
   };
 
-  // Function to transition from SplashPage to LoginPage (now LoginModal)
   const handleEnterApp = () => {
-    // REMOVED: setShowSplash(false); // This line is no longer needed/relevant
-    setIsLoginModalOpen(true); // Only open the login modal
+    setIsLoginModalOpen(true);
   };
 
-
-  // === CONDITIONAL RENDERING LOGIC ===
-
-  // 1. Show a full loading screen if Firebase Auth is NOT ready yet.
   if (!isAuthReady) {
     return <LoadingScreen isDarkMode={isDarkMode} />;
   }
 
-  // 2. If Firebase Auth IS ready AND user is NOT logged in:
-  //    This is the definitive state for "logged out".
   if (!user) {
     return (
       <>
-        {/* The SplashPage is always shown as the background when not logged in */}
         <SplashPage onEnterApp={handleEnterApp} />
         <LoginModal
           isOpen={isLoginModalOpen}
-          onClose={() => setIsLoginModalOpen(false)} // Allows closing the modal
+          onClose={() => setIsLoginModalOpen(false)}
         />
       </>
     );
   }
 
-  // 3. If Firebase Auth IS ready AND user IS logged in:
-  //    - Render the main application UI.
-  //    - The SplashPage/LoginModal will automatically disappear because this block is rendered.
-  //    - `handleLoginSuccess` would have already closed `isLoginModalOpen` if it was open.
   const showSendNoteBackButton = user.role !== 'non-player';
 
   return (
@@ -325,7 +304,7 @@ function App() {
 
       {appMessage.text && (
         <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-lg shadow-lg text-white
-                                  ${appMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
+                          ${appMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
           {appMessage.text}
         </div>
       )}
@@ -366,6 +345,11 @@ function App() {
         {currentPage === 'in-the-bag' && (
           <Suspense fallback={<div>Loading In The Bag...</div>}>
             <LazyInTheBagPage />
+          </Suspense>
+        )}
+        {currentPage === 'news' && ( // <-- ADDED
+          <Suspense fallback={<div>Loading News...</div>}>
+            <LazyNewsFeed />
           </Suspense>
         )}
       </main>
