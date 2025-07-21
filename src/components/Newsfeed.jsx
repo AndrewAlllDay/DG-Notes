@@ -4,8 +4,8 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 
 // --- NEW: Default images for each source ---
 const defaultImages = {
-    Ultiworld: 'src/assets/Ultiworld_Default.jpg',
-    DGPT: 'src/assets/DGPT_Default.jpg',
+    Ultiworld: '/src/assets/Ultiworld_Default.jpg',
+    DGPT: '/src/assets/DGPT_Default.jpg',
     PDGA: 'https://via.placeholder.com/1200x675/004C84/FFFFFF?text=PDGA',
     default: 'https://via.placeholder.com/1200x675.png?text=Disc+Golf+News'
 };
