@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useFirebase } from "../firebase";
-import DiscFormModal from '../components/AddDiscModal'; // Renamed conceptually to DiscFormModal
+import DiscFormModal from '../components/AddDiscModal';
 import {
     addDiscToBag,
     subscribeToUserDiscs,
@@ -10,7 +10,7 @@ import {
 } from '../services/firestoreService';
 import { toast } from 'react-toastify';
 import { FaPlus, FaTrash } from 'react-icons/fa';
-import { Archive, FolderOpen, ChevronDown, ChevronUp, Pencil, MoreVertical } from 'lucide-react'; // Added MoreVertical icon
+import { Archive, FolderOpen, ChevronDown, ChevronUp, Pencil, MoreVertical } from 'lucide-react';
 
 // Reusable Accordion Component
 const Accordion = ({ title, children, defaultOpen = false }) => {
@@ -43,12 +43,10 @@ export default function InTheBagPage() {
     const { user: currentUser } = useFirebase();
     const [activeDiscs, setActiveDiscs] = useState([]);
     const [archivedDiscs, setArchivedDiscs] = useState([]);
-    const [isDiscFormModalOpen, setIsDiscFormModalOpen] = useState(false); // Unified modal state
+    const [isDiscFormModalOpen, setIsDiscFormModalOpen] = useState(false);
 
-    // State for editing discs
-    const [currentDiscToEdit, setCurrentDiscToEdit] = useState(null); // This is key!
+    const [currentDiscToEdit, setCurrentDiscToEdit] = useState(null);
 
-    // State for new disc input fields (will be passed to the modal for both add and edit)
     const [newDiscName, setNewDiscName] = useState('');
     const [newDiscManufacturer, setNewDiscManufacturer] = useState('');
     const [newDiscType, setNewDiscType] = useState('');
@@ -56,19 +54,14 @@ export default function InTheBagPage() {
     const [newDiscColor, setNewDiscColor] = useState('');
     const [newDiscStability, setNewDiscStability] = useState('');
 
-    // State to track which disc's action menu is open
     const [openDiscActionsId, setOpenDiscActionsId] = useState(null);
-    // Ref for detecting clicks outside the dropdown
     const dropdownRef = useRef(null);
 
-    // FAB state (now always true as scroll logic is removed)
     const [showFab, setShowFab] = useState(true);
 
-    // Refs for native drag and drop
-    const draggedItem = useRef(null); // Stores the disc being dragged { id, type }
-    const dragOverTarget = useRef(null); // Stores the disc ID being dragged over
+    const draggedItem = useRef(null);
+    const dragOverTarget = useRef(null);
 
-    // --- Real-time Subscription for Discs ---
     useEffect(() => {
         let unsubscribeActive;
         let unsubscribeArchived;
@@ -111,7 +104,6 @@ export default function InTheBagPage() {
         };
     }, [currentUser]);
 
-    // Click outside to close disc actions dropdown
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (openDiscActionsId && dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -129,43 +121,35 @@ export default function InTheBagPage() {
         };
     }, [openDiscActionsId]);
 
-    // --- Modal Handlers ---
-
-    // Open modal for adding a new disc
     const openAddDiscModal = () => {
-        setCurrentDiscToEdit(null); // Explicitly set to null for "add" mode
-        // Clear all state values for new disc
+        setCurrentDiscToEdit(null);
         setNewDiscName('');
         setNewDiscManufacturer('');
         setNewDiscType('');
         setNewDiscPlastic('');
         setNewDiscColor('');
         setNewDiscStability('');
-        setIsDiscFormModalOpen(true); // Open the unified modal
-        setOpenDiscActionsId(null); // Close any open action menus
+        setIsDiscFormModalOpen(true);
+        setOpenDiscActionsId(null);
         console.log("Opening Add Disc Modal.");
     };
 
-    // Open modal for editing an existing disc
     const openEditDiscModal = (disc) => {
-        setCurrentDiscToEdit(disc); // Set the disc object for "edit" mode
-        // Pre-fill modal input states with current disc data
+        setCurrentDiscToEdit(disc);
         setNewDiscName(disc.name);
         setNewDiscManufacturer(disc.manufacturer);
         setNewDiscType(disc.type);
         setNewDiscPlastic(disc.plastic);
         setNewDiscColor(disc.color || '');
         setNewDiscStability(disc.stability !== undefined && disc.stability !== null ? String(disc.stability) : '');
-        setIsDiscFormModalOpen(true); // Open the unified modal
-        setOpenDiscActionsId(null); // Close any open action menus
+        setIsDiscFormModalOpen(true);
+        setOpenDiscActionsId(null);
         console.log("Opening Edit Disc Modal for disc:", disc.id);
     };
 
-    // Close the unified disc form modal
     const closeDiscFormModal = () => {
         setIsDiscFormModalOpen(false);
-        setCurrentDiscToEdit(null); // Reset currentDiscToEdit when modal closes
-        // Clear all states after modal closes
+        setCurrentDiscToEdit(null);
         setNewDiscName('');
         setNewDiscManufacturer('');
         setNewDiscType('');
@@ -175,7 +159,6 @@ export default function InTheBagPage() {
         console.log("Closing Disc Form Modal.");
     };
 
-    // Toggle disc actions dropdown visibility
     const handleToggleDiscActions = (discId) => {
         setOpenDiscActionsId(prevId => {
             const newState = (prevId === discId ? null : discId);
@@ -184,7 +167,6 @@ export default function InTheBagPage() {
         });
     };
 
-    // --- Add/Edit Disc Submission Handler (unified) ---
     const handleSubmitDisc = async (name, manufacturer, type, plastic, color, stability) => {
         console.log("Attempting to save disc:", { name, manufacturer, type, plastic, color, stability });
         if (!currentUser || !currentUser.uid) {
@@ -212,18 +194,16 @@ export default function InTheBagPage() {
             };
 
             if (currentDiscToEdit) {
-                // Update existing disc
                 await updateDiscInBag(currentUser.uid, currentDiscToEdit.id, discData);
                 toast.success(`${name} updated successfully!`);
-                closeDiscFormModal(); // Close the unified modal
+                closeDiscFormModal();
                 console.log("Disc updated successfully:", discData);
             } else {
-                // Add new disc
                 const allDiscs = [...activeDiscs, ...archivedDiscs];
                 const maxOrder = allDiscs.length > 0 ? Math.max(...allDiscs.map(d => d.displayOrder || 0)) : -1;
                 await addDiscToBag(currentUser.uid, { ...discData, isArchived: false, displayOrder: maxOrder + 1 });
                 toast.success(`${name} added to your bag!`);
-                closeDiscFormModal(); // Close the unified modal
+                closeDiscFormModal();
                 console.log("Disc added successfully:", discData);
             }
         } catch (error) {
@@ -232,15 +212,6 @@ export default function InTheBagPage() {
         }
     };
 
-    // --- Native Drag and Drop Handlers ---
-
-    /**
-     * Helper function to reorder an array.
-     * @param {Array} list - The array to reorder.
-     * @param {number} startIndex - The starting index of the dragged item.
-     * @param {number} endIndex - The target index for the dragged item.
-     * @returns {Array} The reordered array.
-     */
     const reorderArray = (list, startIndex, endIndex) => {
         console.log(`Reordering array: startIndex=${startIndex}, endIndex=${endIndex}`);
         const result = Array.from(list);
@@ -249,11 +220,6 @@ export default function InTheBagPage() {
         return result;
     };
 
-    /**
-     * Updates the displayOrder of discs in Firestore for a given list.
-     * @param {Array} discsToUpdate - The array of discs with their new desired order.
-     * @param {string} listType - 'active' or 'archived' for logging purposes.
-     */
     const updateDiscOrdersInFirestore = async (discsToUpdate, listType) => {
         console.log(`Updating disc orders in Firestore for ${listType} list.`);
         if (!currentUser || !currentUser.uid) {
@@ -284,9 +250,7 @@ export default function InTheBagPage() {
         draggedItem.current = { id: discId, type: discType };
         e.dataTransfer.setData("text/plain", discId);
         e.dataTransfer.effectAllowed = "move";
-
         e.dataTransfer.setDragImage(e.currentTarget, e.nativeEvent.offsetX, e.nativeEvent.offsetY);
-
         e.currentTarget.classList.add('opacity-50', 'border-blue-500', 'border-2');
         console.log(`Drag image set for disc ${discId}.`);
     };
@@ -380,9 +344,7 @@ export default function InTheBagPage() {
         } else {
             console.log("DEBUG: Moving between lists.");
             currentSourceList.splice(draggedDiscIndex, 1);
-
             movedDisc.isArchived = (targetListType === 'archived');
-
             if (targetIndex === -1) {
                 currentTargetList.push(movedDisc);
             } else {
@@ -403,10 +365,8 @@ export default function InTheBagPage() {
                 await updateDiscInBag(currentUser.uid, movedDisc.id, { isArchived: movedDisc.isArchived });
                 toast.success(`${movedDisc.name} ${movedDisc.isArchived ? 'moved to Shelf' : 'restored to Bag'}!`);
                 console.log(`Firestore updated for disc ${movedDisc.id} isArchived status to ${movedDisc.isArchived}.`);
-
                 await updateDiscOrdersInFirestore(currentSourceList, sourceListType);
                 await updateDiscOrdersInFirestore(currentTargetList, targetListType);
-
             } catch (error) {
                 console.error("Failed to move disc between lists:", error);
                 toast.error("Failed to move disc. Please try again.");
@@ -414,8 +374,6 @@ export default function InTheBagPage() {
         }
     };
 
-
-    // --- Archive Disc Handler (removed confirmation) ---
     const handleArchiveDisc = async (discId, discName) => {
         console.log(`Attempting to archive disc: ${discName} (${discId})`);
         if (!currentUser || !currentUser.uid) {
@@ -434,7 +392,6 @@ export default function InTheBagPage() {
         }
     };
 
-    // --- Restore Disc Handler (kept for dropdown menu) ---
     const handleRestoreDisc = async (discId, discName) => {
         console.log(`Attempting to restore disc: ${discName} (${discId})`);
         if (!currentUser || !currentUser.uid) {
@@ -453,7 +410,6 @@ export default function InTheBagPage() {
         }
     };
 
-    // --- Delete Disc Handler ---
     const handleDeleteDisc = async (discId, discName) => {
         console.log(`Attempting to delete disc: ${discName} (${discId})`);
         if (!currentUser || !currentUser.uid) {
@@ -475,7 +431,6 @@ export default function InTheBagPage() {
         }
     };
 
-    // --- Group active discs by type and then sort by stability (Lowest to Highest) ---
     const groupedActiveDiscs = activeDiscs.reduce((acc, disc) => {
         const type = (disc.type && disc.type.trim() !== '') ? disc.type : 'Other';
         if (!acc[type]) {
@@ -485,19 +440,14 @@ export default function InTheBagPage() {
         return acc;
     }, {});
 
-    // Sort discs within each type by stability (lowest to highest, no stability at bottom)
     for (const type in groupedActiveDiscs) {
         groupedActiveDiscs[type].sort((a, b) => {
-            // Assign a very large number to discs with no defined stability, so they go to the bottom
             const stabilityA = a.stability !== undefined && a.stability !== null ? a.stability : Infinity;
             const stabilityB = b.stability !== undefined && b.stability !== null ? b.stability : Infinity;
-
-            // Sort from lowest stability to highest.
-            return stabilityA - stabilityB; // Changed to A - B for ascending order
+            return stabilityA - stabilityB;
         });
     }
 
-    // --- Group archived discs by type and then sort by stability (Lowest to Highest) ---
     const groupedArchivedDiscs = archivedDiscs.reduce((acc, disc) => {
         const type = (disc.type && disc.type.trim() !== '') ? disc.type : 'Other';
         if (!acc[type]) {
@@ -507,19 +457,14 @@ export default function InTheBagPage() {
         return acc;
     }, {});
 
-    // Sort discs within each type by stability (lowest to highest, no stability at bottom)
     for (const type in groupedArchivedDiscs) {
         groupedArchivedDiscs[type].sort((a, b) => {
-            // Assign a very large number to discs with no defined stability, so they go to the bottom
             const stabilityA = a.stability !== undefined && a.stability !== null ? a.stability : Infinity;
             const stabilityB = b.stability !== undefined && b.stability !== null ? b.stability : Infinity;
-
-            // For ascending order, subtract b from a: a - b
-            return stabilityB - stabilityA; // Changed to A - B for ascending order
+            return stabilityB - stabilityA;
         });
     }
 
-    // Define the desired order of disc types for display
     const discTypeOrder = [
         'Distance Driver',
         'Fairway Driver',
@@ -529,7 +474,6 @@ export default function InTheBagPage() {
         'Other'
     ];
 
-    // Create a sorted list of types that actually exist in the grouped active discs
     const sortedActiveDiscTypes = discTypeOrder.filter(type => groupedActiveDiscs[type]);
     Object.keys(groupedActiveDiscs).forEach(type => {
         if (!sortedActiveDiscTypes.includes(type)) {
@@ -537,7 +481,6 @@ export default function InTheBagPage() {
         }
     });
 
-    // Create a sorted list of types that actually exist in the grouped archived discs
     const sortedArchivedDiscTypes = discTypeOrder.filter(type => groupedArchivedDiscs[type]);
     Object.keys(groupedArchivedDiscs).forEach(type => {
         if (!sortedArchivedDiscTypes.includes(type)) {
@@ -554,7 +497,8 @@ export default function InTheBagPage() {
     }
 
     return (
-        <div className="max-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 p-4 sm:p-6 lg:p-8">
+        // --- UPDATED THIS LINE ---
+        <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 p-4 sm:p-6 lg:p-8 pb-28">
 
             <h2 className="text-2xl font-bold text-center pt-5 mb-2">In Your Bag</h2>
             {activeDiscs.length > 0 && (
@@ -602,7 +546,6 @@ export default function InTheBagPage() {
                                             </h4>
                                             <p className='text-sm text-gray-600 dark:text-gray-400'>
                                                 {disc.color ? `${disc.color}` : ''}
-                                                {/* Display stability only if it's a number (including 0) */}
                                                 {(disc.stability !== undefined && disc.stability !== null) ? ` | Stability: ${disc.stability}` : ''}
                                             </p>
                                         </div>
@@ -652,12 +595,10 @@ export default function InTheBagPage() {
                 </div>
             )}
 
-            {/* Conditional Horizontal Rule */}
             {archivedDiscs.length > 0 && (
                 <hr className="my-8 border-t border-gray-200 dark:border-gray-700" />
             )}
 
-            {/* On the Shelf (Archived Discs) Accordion */}
             {archivedDiscs.length > 0 && (
                 <div className="mt-8">
                     <Accordion title={`On the Shelf (${archivedDiscs.length} discs)`} defaultOpen={false}>
@@ -738,7 +679,6 @@ export default function InTheBagPage() {
                 </div>
             )}
 
-            {/* Floating Action Button */}
             {showFab && (
                 <button
                     onClick={openAddDiscModal}
@@ -749,14 +689,11 @@ export default function InTheBagPage() {
                 </button>
             )}
 
-            {/* DiscFormModal (now handles both add and edit modes) */}
             <DiscFormModal
                 isOpen={isDiscFormModalOpen}
                 onClose={closeDiscFormModal}
                 onSubmit={handleSubmitDisc}
-                initialData={currentDiscToEdit} // Crucial prop to tell the modal if it's editing
-                // These props are still passed to allow the modal to manage its internal state
-                // based on what's given to it, primarily for new disc creation or initial edit load.
+                initialData={currentDiscToEdit}
                 newDiscName={newDiscName}
                 setPropNewDiscName={setNewDiscName}
                 newDiscManufacturer={newDiscManufacturer}

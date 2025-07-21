@@ -50,7 +50,7 @@ export default function EncouragementModal({ isOpen, onClose }) {
         <div className="modal-overlay fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[1000] backdrop-blur-sm opacity-100 transition-opacity duration-300">
             <div
                 ref={modalRef}
-                className="relative bg-white p-6 rounded-xl shadow-xl max-w-sm w-full text-center flex flex-col items-center justify-center min-h-[250px] encourage-modal-content-animate" // <-- UPDATED CLASS
+                className="relative bg-white p-6 rounded-xl shadow-xl max-w-sm w-full text-center flex flex-col items-center justify-center min-h-[250px] encourage-modal-content-animate"
             >
                 <button
                     onClick={onClose}
@@ -72,7 +72,8 @@ export default function EncouragementModal({ isOpen, onClose }) {
 
                 <div
                     id="breathingCircle"
-                    className="w-24 h-24 bg-green-500 rounded-full mx-auto my-7 shadow-md opacity-70 encourage-breathing-circle" // <-- UPDATED CLASS
+                    // Changed bg-green-500 to bg-blue-500
+                    className="w-24 h-24 bg-blue-500 rounded-full mx-auto my-7 shadow-md opacity-70 encourage-breathing-circle"
                 ></div>
             </div>
         </div>
