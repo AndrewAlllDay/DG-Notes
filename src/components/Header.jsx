@@ -1,12 +1,10 @@
 // src/components/Header.jsx
 
 import React from "react";
-// Remove LogOut from imports
-import { ThumbsUp, Send, Settings, Flag, Backpack } from "lucide-react"; // Import Backpack icon, removed LogOut
+import { ThumbsUp, Send, Settings, Flag, Backpack } from "lucide-react";
 import LogoImage from '../assets/DG Logo.svg';
 
-// Remove onSignOut from destructured props
-const Header = ({ onNavigate, onOpenEncouragement, user, onOpenSendEncouragement, canSendEncouragement, currentPage }) => {
+const Header = ({ onNavigate, onOpenEncouragement, user, canSendEncouragement, currentPage }) => {
 
     const isNonPlayer = user && user.role === 'non-player';
 
@@ -27,32 +25,33 @@ const Header = ({ onNavigate, onOpenEncouragement, user, onOpenSendEncouragement
     const inactiveTextColor = 'text-gray-700'; // Default inactive text color
 
     return (
-        <header className="w-full bg-white shadow-md sticky top-0 z-50">
-            {/* Top row: Logo only */}
-            <div className="flex items-center justify-center px-4 py-4">
-                <div
-                    className="flex-grow flex justify-center cursor-pointer"
-                    // Adjust logo navigation based on role, and make it active if it corresponds to the current page
-                    onClick={(e) => handleNavigate(isNonPlayer ? 'send-note' : 'courses', e)}
-                >
-                    <img
-                        src={LogoImage}
-                        alt="DG Caddy Notes Logo"
-                        className="h-12 w-auto"
-                    />
+        <>
+            {/* Part 1: The top header with the logo */}
+            <header className="w-full bg-white shadow-md sticky top-0 z-40">
+                <div className="flex items-center justify-center px-4 py-4">
+                    <div
+                        className="flex-grow flex justify-center cursor-pointer"
+                        onClick={(e) => handleNavigate(isNonPlayer ? 'send-note' : 'courses', e)}
+                    >
+                        <img
+                            src={LogoImage}
+                            alt="DG Caddy Notes Logo"
+                            className="h-12 w-auto"
+                        />
+                    </div>
                 </div>
-            </div>
+            </header>
 
-            {/* Mobile navigation - ALWAYS VISIBLE, horizontal layout, stacked icons and titles */}
-            <nav className="flex md:hidden w-full justify-around items-center py-2 border-t border-gray-200">
+            {/* Part 2: The fixed bottom navigation bar */}
+            <nav className="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-2px_5px_rgba(0,0,0,0.1)] z-50 flex w-full justify-around items-center py-2 border-t border-gray-200">
                 {/* Courses link (only for non-non-players) */}
                 {!isNonPlayer && (
                     <div
                         className={`flex flex-col items-center hover:text-blue-600 transition-colors cursor-pointer p-2
-                            ${isActive('courses') ? activeTextColor : inactiveTextColor}`} // Apply text color
+                            ${isActive('courses') ? activeTextColor : inactiveTextColor}`}
                         onClick={(e) => handleNavigate('courses', e)}
                     >
-                        <Flag size={20} className={isActive('courses') ? activeIconColor : inactiveIconColor} /> {/* Apply icon color */}
+                        <Flag size={20} className={isActive('courses') ? activeIconColor : inactiveIconColor} />
                         <span className="text-xs mt-1">Courses</span>
                     </div>
                 )}
@@ -78,7 +77,7 @@ const Header = ({ onNavigate, onOpenEncouragement, user, onOpenSendEncouragement
                         <span className="text-xs mt-1">Send Note</span>
                     </div>
                 )}
-                {/* Encourage Me! link (no direct page, so this one is special) */}
+                {/* Encourage Me! link */}
                 {!isNonPlayer && (
                     <div
                         className="flex flex-col items-center text-black hover:text-purple-800 transition-colors cursor-pointer p-2"
@@ -88,9 +87,8 @@ const Header = ({ onNavigate, onOpenEncouragement, user, onOpenSendEncouragement
                         <span className="text-xs mt-1">Encourage Me!</span>
                     </div>
                 )}
-
-                {/* Settings link - REMOVED !isNonPlayer CONDITION */}
-                {user && ( // Ensure user is logged in to see settings
+                {/* Settings link */}
+                {user && (
                     <div
                         className={`flex flex-col items-center hover:text-blue-600 transition-colors cursor-pointer p-2
                             ${isActive('settings') ? activeTextColor : inactiveTextColor}`}
@@ -100,87 +98,8 @@ const Header = ({ onNavigate, onOpenEncouragement, user, onOpenSendEncouragement
                         <span className="text-xs mt-1">Settings</span>
                     </div>
                 )}
-
-                {/* Logout link removed from here */}
             </nav>
-
-            {/* Desktop nav links */}
-            <nav className="hidden md:flex justify-center gap-8 py-2 text-gray-700">
-                {/* Courses link (only for non-non-players) */}
-                {!isNonPlayer && (
-                    <li>
-                        <a
-                            href="#"
-                            onClick={(e) => handleNavigate('courses', e)}
-                            className={`hover:text-blue-600 transition-colors duration-150
-                                ${isActive('courses') ? activeTextColor : inactiveTextColor}`}
-                        >
-                            Courses
-                        </a>
-                    </li>
-                )}
-                {/* In The Bag link (only for non-non-players) */}
-                {!isNonPlayer && (
-                    <li>
-                        <a
-                            href="#"
-                            onClick={(e) => handleNavigate('in-the-bag', e)}
-                            className={`hover:text-blue-600 transition-colors duration-150
-                                ${isActive('in-the-bag') ? activeTextColor : inactiveTextColor}`}
-                        >
-                            In The Bag
-                        </a>
-                    </li>
-                )}
-                {/* Send Note link (for any logged-in user who can send) */}
-                {user && canSendEncouragement && (
-                    <li>
-                        <a
-                            href="#"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                onOpenSendEncouragement();
-                            }}
-                            className={`flex items-center gap-1 hover:text-blue-600 transition-colors duration-150
-                                ${isActive('send-note') ? activeTextColor : inactiveTextColor}`}
-                        >
-                            <Send size={20} className={isActive('send-note') ? activeIconColor : inactiveIconColor} /> Send Note
-                        </a>
-                    </li>
-                )}
-                {/* Encourage Me! link (no active state for this one) */}
-                {!isNonPlayer && (
-                    <li>
-                        <a
-                            href="#"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                onOpenEncouragement();
-                            }}
-                            className="hover:text-purple-600 transition-colors duration-150"
-                        >
-                            Encourage Me!
-                        </a>
-                    </li>
-                )}
-
-                {/* Settings link - REMOVED !isNonPlayer CONDITION */}
-                {user && ( // Ensure user is logged in to see settings
-                    <li>
-                        <a
-                            href="#"
-                            onClick={(e) => handleNavigate('settings', e)}
-                            className={`hover:text-blue-600 transition-colors duration-150
-                                ${isActive('settings') ? activeTextColor : inactiveTextColor}`}
-                        >
-                            Settings
-                        </a>
-                    </li>
-                )}
-
-                {/* Logout link removed from here */}
-            </nav>
-        </header>
+        </>
     );
 };
 

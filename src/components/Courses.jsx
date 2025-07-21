@@ -411,8 +411,8 @@ export default function Courses() {
                 </div>
             ) : (
                 <>
-                    <h2 className="text-2xl font-bold mb-4 text-center pt-5">DG Courses</h2>
-                    <p className='text-center mb-6'>This is a list of courses that you've taken notes for.</p>
+                    <h2 className="text-2xl font-bold mb-6 text-center pt-5">DG Courses</h2>
+
 
                     {/* FAB for Add Course - Now always visible. Removed conditional `showFab` class. */}
                     <button
