@@ -4,8 +4,8 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 
 // --- NEW: Default images for each source ---
 const defaultImages = {
-    Ultiworld: 'https://via.placeholder.com/1200x675/0B2C4A/FFFFFF?text=Ultiworld',
-    DGPT: 'https://via.placeholder.com/1200x675/D91E2A/FFFFFF?text=Disc+Golf+Pro+Tour',
+    Ultiworld: 'src/assets/Ultiworld_Default.jpg',
+    DGPT: 'src/assets/DGPT_Default.jpg',
     PDGA: 'https://via.placeholder.com/1200x675/004C84/FFFFFF?text=PDGA',
     default: 'https://via.placeholder.com/1200x675.png?text=Disc+Golf+News'
 };
@@ -132,7 +132,7 @@ const NewsFeed = () => {
 
     return (
         <div className="p-4">
-            <h1 className="text-3xl font-bold text-center pt-5 mb-2">{feedInfo.title}</h1>
+            <h2 className="text-3xl font-bold text-center pt-5 mb-2">{feedInfo.title}</h2>
             <p className="text-gray-600 dark:text-gray-400 text-center mb-6">{feedInfo.description}</p>
 
             {isLoading && displayedItems.length === 0 && <div className="text-center p-4">Loading news...</div>}
@@ -152,11 +152,11 @@ const NewsFeed = () => {
                             loading="lazy"
                         />
                         <div className="p-4 flex flex-col flex-grow">
-                            <h2 className="text-lg font-semibold mb-2 flex-grow">
+                            <h3 className="text-xl font-semibold mb-2 flex-grow">
                                 <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
                                     {item.title}
                                 </a>
-                            </h2>
+                            </h3>
                             <div className="text-sm text-gray-700 dark:text-gray-300 mb-4 [&_a]:text-blue-500 [&_a]:underline"
                                 dangerouslySetInnerHTML={{ __html: item.description }}
                             />
