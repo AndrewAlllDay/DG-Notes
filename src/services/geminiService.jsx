@@ -2,7 +2,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Access your API key (replace with your actual key or environment variable)
-const API_KEY = "AIzaSyCupL7REnwwuSZJO3WRMw6XOGv-_lqDkoo"; // <-- Replace this with your actual key
+const API_KEY = "AIzaSyBkDCCnNrpLp4dqx_j4xMAb9u2-p3lH8Sc"; // <-- Replace this with your actual key
 
 // For better security, especially in a production environment, you should
 // consider using server-side calls or environment variables that are
