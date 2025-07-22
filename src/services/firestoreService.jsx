@@ -588,6 +588,27 @@ export const deleteDiscFromBag = async (userId, discId) => {
     }
 };
 
+export const subscribeToRounds = (userId, callback) => {
+    if (!userId) {
+        console.warn("Attempted to subscribe to rounds without a userId.");
+        callback([]);
+        return () => { };
+    }
+    const q = query(getUserRoundsCollection(userId), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const rounds = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        callback(rounds);
+    }, (error) => {
+        console.error("Error subscribing to rounds: ", error);
+    });
+    return unsubscribe;
+};
+
+
+
 // --- ROUND / SCORECARD MANAGEMENT ---
 
 // Function to get the user-specific rounds collection path

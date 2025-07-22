@@ -5,12 +5,9 @@ import EncouragementModal from './components/EncouragementModal.jsx';
 import LoginModal from './components/LoginModal.jsx';
 import NotificationToast from './components/NotificationToast.jsx';
 import SplashPage from './components/SplashPage.jsx';
-
 import './styles/EncouragementModal.css';
-
 import { useFirebase, auth } from './firebase.js';
 import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService.jsx';
-
 import * as Dialog from '@radix-ui/react-dialog';
 
 const LazySettingsPage = lazy(() => import('./components/SettingsPage.jsx'));
@@ -18,6 +15,7 @@ const LazySendEncouragement = lazy(() => import('./components/SendEncouragement.
 const LazyWeatherDisplay = lazy(() => import('./components/WeatherDisplay.jsx'));
 const LazyInTheBagPage = lazy(() => import('./components/InTheBagPage.jsx'));
 const LazyNewsFeed = lazy(() => import('./components/Newsfeed.jsx'));
+const LazyScoresPage = lazy(() => import('./components/ScoresPage.jsx')); // <-- ADDED
 
 const LoadingScreen = ({ isDarkMode }) => {
   const bgColor = isDarkMode ? 'bg-black' : 'bg-gray-100';
@@ -91,15 +89,12 @@ function App() {
     setIsDarkMode(prevMode => !prevMode);
   };
 
-  // --- NEW useEffect TO HANDLE REDIRECT FROM SHARE TARGET ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.has('share-target')) {
-      // If the user lands here from a share action,
-      // automatically navigate them to the settings page.
       setCurrentPage('settings');
     }
-  }, []); // Runs once when the app loads
+  }, []);
 
   /* // Temporarily disable Service Worker for development
    useEffect(() => {
@@ -264,7 +259,12 @@ function App() {
         )}
         {currentPage === 'settings' && (
           <Suspense fallback={<div>Loading Settings...</div>}>
-            <LazySettingsPage onSignOut={handleSignOut} />
+            <LazySettingsPage onSignOut={handleSignOut} onNavigate={handleNavigate} />
+          </Suspense>
+        )}
+        {currentPage === 'scores' && (
+          <Suspense fallback={<div>Loading Scores...</div>}>
+            <LazyScoresPage />
           </Suspense>
         )}
         {currentPage === 'send-note' && (

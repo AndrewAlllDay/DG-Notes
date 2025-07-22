@@ -21,7 +21,7 @@ import ConfirmationModal from './ConfirmationModal';
 import SelectCourseTypeModal from './SelectCourseTypeModal';
 import SelectPlayerModal from './SelectPlayerModal';
 
-// --- HELPER FUNCTIONS FOR INDEXEDDB (Client-side) ---
+// HELPER FUNCTIONS FOR INDEXEDDB (Client-side)
 function getDb() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open('dgnotes-shared-files', 1);
@@ -64,7 +64,6 @@ async function clearFiles() {
         request.onerror = reject;
     });
 }
-// --- END OF HELPER FUNCTIONS ---
 
 
 // Reusable Accordion Component
@@ -94,7 +93,7 @@ const Accordion = ({ title, children, defaultOpen = false }) => {
     );
 };
 
-export default function SettingsPage({ onSignOut }) {
+export default function SettingsPage({ onSignOut, onNavigate }) {
     const { user, userId, isAuthReady } = useFirebase();
     const [copyMessage, setCopyMessage] = useState('');
     const [displayNameInput, setDisplayNameInput] = useState('');
@@ -118,7 +117,7 @@ export default function SettingsPage({ onSignOut }) {
     const [selectPlayerState, setSelectPlayerState] = useState({ isOpen: false, players: [], onSelect: () => { } });
     const [pendingCourse, setPendingCourse] = useState(null);
 
-    const APP_VERSION = 'v.1.1';
+    const APP_VERSION = 'v1.11';
 
     useEffect(() => {
         const processSharedFile = async () => {
@@ -434,9 +433,17 @@ export default function SettingsPage({ onSignOut }) {
                 <p className="text-sm text-gray-600 mb-2">Import a new course and your scorecard from a formatted CSV file.</p>
                 <button
                     onClick={() => setIsImportModalOpen(true)}
-                    className="w-full !bg-blue-600 text-white p-2 rounded-md font-semibold hover:bg-blue-700 transition-colors"
+                    className="w-full !bg-blue-600 text-white p-2 rounded-md font-semibold hover:bg-blue-700 transition-colors mb-4"
                 >
                     Import from CSV
+                </button>
+                <h3 className="text-lg font-semibold text-gray-800 border-t pt-4 mt-4">View Scores</h3>
+                <p className="text-sm text-gray-600 mb-2">View all of your imported scorecards.</p>
+                <button
+                    onClick={() => onNavigate('scores')}
+                    className="w-full !bg-gray-600 text-white p-2 rounded-md font-semibold hover:bg-gray-700 transition-colors"
+                >
+                    View Imported Scores
                 </button>
                 {importMessage.text && (
                     <p className={`mt-2 text-sm ${importMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
