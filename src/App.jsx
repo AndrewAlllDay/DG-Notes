@@ -97,6 +97,8 @@ function App() {
     setIsDarkMode(prevMode => !prevMode);
   };
 
+  //***THIS NEEDS TO BE COMMENTED OUT DURING DEVELOPMENT
+
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       let registration;
@@ -136,6 +138,7 @@ function App() {
     }
   }, []);
 
+  // ^^^THIS NEEDS TO BE COMMENTED OUT DURING DEVELOPMENT
 
   useEffect(() => {
     let unsubscribePublicProfiles;

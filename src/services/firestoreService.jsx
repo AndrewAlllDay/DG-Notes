@@ -1,4 +1,3 @@
-// src/services/firestoreService.jsx
 import { db } from '../firebase';
 import {
     collection,
@@ -13,7 +12,8 @@ import {
     arrayRemove,
     getDoc,
     setDoc,
-    where
+    where,
+    getDocs
 } from 'firebase/firestore';
 
 import { appId } from '../firebase';
@@ -53,22 +53,13 @@ const getUserDiscsCollection = (userId) => {
 
 // --- USER PROFILE MANAGEMENT ---
 
-/**
- * Sets or updates a user's profile data in Firestore.
- * This is used for both initial profile creation (e.g., after registration)
- * and subsequent updates (e.g., changing display name, setting role by admin).
- * Can also add/remove team IDs.
- * @param {string} userId - The UID of the user.
- * @param {Object} profileData - The data to set/update in the user's profile document.
- * @returns {Promise<void>}
- */
 export const setUserProfile = async (userId, profileData) => {
     try {
         if (!userId) {
             throw new Error("Cannot set user profile: User ID is missing.");
         }
         const profileDocRef = doc(getUserProfilesCollection(), userId);
-        await setDoc(profileDocRef, profileData, { merge: true }); // Use merge: true to avoid overwriting existing fields
+        await setDoc(profileDocRef, profileData, { merge: true });
         console.log(`User profile for ${userId} updated/created successfully.`);
     } catch (e) {
         console.error("Error setting user profile: ", e);
@@ -76,11 +67,6 @@ export const setUserProfile = async (userId, profileData) => {
     }
 };
 
-/**
- * Gets a single user's profile data.
- * @param {string} userId - The UID of the user.
- * @returns {Promise<Object|null>} The user's profile data, or null if not found.
- */
 export const getUserProfile = async (userId) => {
     try {
         if (!userId) {
@@ -101,12 +87,6 @@ export const getUserProfile = async (userId) => {
     }
 };
 
-/**
- * Subscribes to real-time updates for a specific user's profile.
- * @param {string} userId - The UID of the user.
- * @param {function} callback - Callback function to receive the profile data.
- * @returns {function} An unsubscribe function.
- */
 export const subscribeToUserProfile = (userId, callback) => {
     if (!userId) {
         console.warn("Attempted to subscribe to user profile without a userId.");
@@ -126,14 +106,8 @@ export const subscribeToUserProfile = (userId, callback) => {
     return unsubscribe;
 };
 
-/**
- * Subscribes to real-time updates for ALL user profiles (primarily for admin view).
- * This function typically requires more permissive security rules.
- * @param {function} callback - Callback function to receive an array of all user profile data.
- * @returns {function} An unsubscribe function.
- */
 export const subscribeToAllUserProfiles = (callback) => {
-    const q = query(getUserProfilesCollection(), orderBy('displayName', 'asc')); // Order by display name
+    const q = query(getUserProfilesCollection(), orderBy('displayName', 'asc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const profiles = querySnapshot.docs.map(doc => ({
             id: doc.id,
@@ -147,25 +121,16 @@ export const subscribeToAllUserProfiles = (callback) => {
     return unsubscribe;
 };
 
-
-/**
- * Subscribes to real-time updates for a PUBLIC list of all user display names and UIDs.
- * This function should have more relaxed security rules to allow any authenticated user to read it.
- * It fetches only the necessary fields to display a list of recipients, now including teamIds.
- * @param {function} callback - Callback function to receive an array of simplified user profile data ({id, displayName, email, teamIds}).
- * @returns {function} An unsubscribe function.
- */
 export const subscribeToAllUserDisplayNames = (callback) => {
     const q = query(getUserProfilesCollection(), orderBy('displayName', 'asc'));
-
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const profiles = querySnapshot.docs.map(doc => {
             const data = doc.data();
             return {
                 id: doc.id,
-                displayName: data.displayName || 'Unnamed User', // Provide a fallback
-                email: data.email || 'Email not available', // Include email as well
-                teamIds: data.teamIds || [] // NEW: Include teamIds for filtering
+                displayName: data.displayName || 'Unnamed User',
+                email: data.email || 'Email not available',
+                teamIds: data.teamIds || []
             };
         });
         console.log("DEBUG firestoreService: Fetched all user display names (count):", profiles.length, "Profiles:", profiles);
@@ -178,11 +143,6 @@ export const subscribeToAllUserDisplayNames = (callback) => {
 
 // --- TEAM MANAGEMENT FUNCTIONS ---
 
-/**
- * Adds a new team to Firestore.
- * @param {string} name - The name of the team.
- * @returns {Promise<Object>} A promise that resolves with the new team's ID and data.
- */
 export const addTeam = async (name) => {
     try {
         if (!name || name.trim() === '') {
@@ -190,11 +150,10 @@ export const addTeam = async (name) => {
         }
         const newTeamData = {
             name: name.trim(),
-            memberIds: [], // Initialize with an empty array of member UIDs
+            memberIds: [],
             createdAt: new Date(),
         };
         const docRef = await addDoc(getTeamsCollection(), newTeamData);
-        console.log("Team added with ID: ", docRef.id);
         return { id: docRef.id, ...newTeamData };
     } catch (e) {
         console.error("Error adding team: ", e);
@@ -202,11 +161,6 @@ export const addTeam = async (name) => {
     }
 };
 
-/**
- * Subscribes to real-time updates for all teams.
- * @param {function} callback - Callback function to receive an array of team objects.
- * @returns {function} An unsubscribe function.
- */
 export const subscribeToAllTeams = (callback) => {
     const q = query(getTeamsCollection(), orderBy('name', 'asc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -214,7 +168,6 @@ export const subscribeToAllTeams = (callback) => {
             id: doc.id,
             ...doc.data()
         }));
-        console.log("DEBUG firestoreService: Fetched all teams:", teams);
         callback(teams);
     }, (error) => {
         console.error("Error subscribing to all teams: ", error);
@@ -222,12 +175,6 @@ export const subscribeToAllTeams = (callback) => {
     return unsubscribe;
 };
 
-/**
- * Updates an existing team document.
- * @param {string} teamId - The ID of the team to update.
- * @param {Object} newData - The data to update in the team document.
- * @returns {Promise<void>}
- */
 export const updateTeam = async (teamId, newData) => {
     try {
         if (!teamId) {
@@ -235,18 +182,12 @@ export const updateTeam = async (teamId, newData) => {
         }
         const teamDocRef = doc(getTeamsCollection(), teamId);
         await updateDoc(teamDocRef, newData);
-        console.log("Team updated successfully!");
     } catch (e) {
         console.error("Error updating team: ", e);
         throw e;
     }
 };
 
-/**
- * Deletes a team document.
- * @param {string} teamId - The ID of the team to delete.
- * @returns {Promise<void>}
- */
 export const deleteTeam = async (teamId) => {
     try {
         if (!teamId) {
@@ -254,19 +195,12 @@ export const deleteTeam = async (teamId) => {
         }
         const teamDocRef = doc(getTeamsCollection(), teamId);
         await deleteDoc(teamDocRef);
-        console.log("Team deleted successfully!");
     } catch (e) {
         console.error("Error deleting team: ", e);
         throw e;
     }
 };
 
-/**
- * Adds a user as a member to a specific team and updates the user's profile.
- * @param {string} teamId - The ID of the team.
- * @param {string} userId - The UID of the user to add.
- * @returns {Promise<void>}
- */
 export const addTeamMember = async (teamId, userId) => {
     try {
         if (!teamId || !userId) {
@@ -275,26 +209,14 @@ export const addTeamMember = async (teamId, userId) => {
         const teamDocRef = doc(getTeamsCollection(), teamId);
         const userProfileDocRef = doc(getUserProfilesCollection(), userId);
 
-        // Atomically update both team and user profile
-        await updateDoc(teamDocRef, {
-            memberIds: arrayUnion(userId)
-        });
-        await updateDoc(userProfileDocRef, {
-            teamIds: arrayUnion(teamId)
-        });
-        console.log(`User ${userId} added to team ${teamId} successfully.`);
+        await updateDoc(teamDocRef, { memberIds: arrayUnion(userId) });
+        await updateDoc(userProfileDocRef, { teamIds: arrayUnion(teamId) });
     } catch (e) {
         console.error("Error adding team member: ", e);
         throw e;
     }
 };
 
-/**
- * Removes a user from a specific team and updates the user's profile.
- * @param {string} teamId - The ID of the team.
- * @param {string} userId - The UID of the user to remove.
- * @returns {Promise<void>}
- */
 export const removeTeamMember = async (teamId, userId) => {
     try {
         if (!teamId || !userId) {
@@ -303,25 +225,17 @@ export const removeTeamMember = async (teamId, userId) => {
         const teamDocRef = doc(getTeamsCollection(), teamId);
         const userProfileDocRef = doc(getUserProfilesCollection(), userId);
 
-        // Atomically update both team and user profile
-        await updateDoc(teamDocRef, {
-            memberIds: arrayRemove(userId)
-        });
-        await updateDoc(userProfileDocRef, {
-            teamIds: arrayRemove(teamId)
-        });
-        console.log(`User ${userId} removed from team ${teamId} successfully.`);
+        await updateDoc(teamDocRef, { memberIds: arrayRemove(userId) });
+        await updateDoc(userProfileDocRef, { teamIds: arrayRemove(teamId) });
     } catch (e) {
         console.error("Error removing team member: ", e);
         throw e;
     }
 };
 
-
 // --- COURSE MANAGEMENT ---
 
-// --- CREATE COURSE ---
-export const addCourse = async (courseName, tournamentName, classification, userId) => { // ADDED 'classification' here
+export const addCourse = async (courseName, tournamentName, classification, userId) => {
     try {
         if (!userId) {
             throw new Error("Cannot add course: User ID is missing.");
@@ -337,14 +251,13 @@ export const addCourse = async (courseName, tournamentName, classification, user
         const newCourseData = {
             name: courseName,
             tournamentName: tournamentName,
-            classification: classification, // ADDED this line to save classification
+            classification: classification,
             holes: defaultHoles,
             createdAt: new Date(),
-            userId: userId, // Add the userId to the document to match security rules
+            userId: userId,
         };
 
         const docRef = await addDoc(getUserCoursesCollection(userId), newCourseData);
-        console.log("Course added with ID: ", docRef.id);
         return { id: docRef.id, ...newCourseData };
     } catch (e) {
         console.error("Error adding course: ", e);
@@ -352,16 +265,41 @@ export const addCourse = async (courseName, tournamentName, classification, user
     }
 };
 
-// --- READ COURSES (Real-time listener) ---
+export const addCourseWithHoles = async (courseData, holesArray, userId) => {
+    try {
+        if (!userId) {
+            throw new Error("Cannot add course: User ID is missing.");
+        }
+        if (!courseData.name || !holesArray) {
+            throw new Error("Course name and a holes array are required.");
+        }
+
+        const newCourse = {
+            name: courseData.name,
+            tournamentName: courseData.tournamentName || '',
+            classification: courseData.classification || 'park_style',
+            holes: holesArray,
+            createdAt: new Date(),
+            userId: userId,
+        };
+
+        const docRef = await addDoc(getUserCoursesCollection(userId), newCourse);
+        console.log("Course with custom holes added with ID: ", docRef.id);
+        return { id: docRef.id, ...newCourse };
+
+    } catch (e) {
+        console.error("Error adding course with holes: ", e);
+        throw e;
+    }
+};
+
 export const subscribeToCourses = (userId, callback) => {
     if (!userId) {
-        console.warn("Attempted to subscribe to courses without a userId. Returning no courses.");
+        console.warn("Attempted to subscribe to courses without a userId.");
         callback([]);
         return () => { };
     }
-
     const q = query(getUserCoursesCollection(userId), orderBy('createdAt', 'desc'));
-
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const courses = querySnapshot.docs.map(doc => ({
             id: doc.id,
@@ -371,11 +309,28 @@ export const subscribeToCourses = (userId, callback) => {
     }, (error) => {
         console.error("Error subscribing to courses: ", error);
     });
-
     return unsubscribe;
 };
 
-// --- UPDATE COURSE ---
+export const getUserCourses = async (userId) => {
+    if (!userId) {
+        console.warn("Attempted to get courses without a userId.");
+        return [];
+    }
+    try {
+        const q = query(getUserCoursesCollection(userId));
+        const querySnapshot = await getDocs(q);
+        const courses = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        return courses;
+    } catch (error) {
+        console.error("Error getting user courses: ", error);
+        throw error;
+    }
+};
+
 export const updateCourse = async (courseId, newData, userId) => {
     try {
         if (!userId) {
@@ -383,14 +338,12 @@ export const updateCourse = async (courseId, newData, userId) => {
         }
         const courseDocRef = doc(getUserCoursesCollection(userId), courseId);
         await updateDoc(courseDocRef, newData);
-        console.log("Course updated successfully!");
     } catch (e) {
         console.error("Error updating course: ", e);
         throw e;
     }
 };
 
-// --- DELETE COURSE ---
 export const deleteCourse = async (courseId, userId) => {
     try {
         if (!userId) {
@@ -398,7 +351,6 @@ export const deleteCourse = async (courseId, userId) => {
         }
         const courseDocRef = doc(getUserCoursesCollection(userId), courseId);
         await deleteDoc(courseDocRef);
-        console.log("Course deleted successfully!");
     } catch (e) {
         console.error("Error deleting course: ", e);
         throw e;
@@ -406,6 +358,7 @@ export const deleteCourse = async (courseId, userId) => {
 };
 
 // --- HOLE-SPECIFIC OPERATIONS ---
+
 export const addHoleToCourse = async (courseId, holeData, userId) => {
     try {
         if (!userId) {
@@ -415,7 +368,6 @@ export const addHoleToCourse = async (courseId, holeData, userId) => {
         await updateDoc(courseDocRef, {
             holes: arrayUnion(holeData)
         });
-        console.log("Hole added to course successfully!");
     } catch (e) {
         console.error("Error adding hole to course: ", e);
         throw e;
@@ -436,7 +388,6 @@ export const updateHoleInCourse = async (courseId, holeId, updatedHoleData, user
                 hole.id === holeId ? { ...hole, ...updatedHoleData } : hole
             );
             await updateDoc(courseDocRef, { holes: updatedHoles });
-            console.log("Hole updated in course successfully!");
         } else {
             console.warn("Course or holes array not found for update:", courseId);
         }
@@ -461,12 +412,7 @@ export const deleteHoleFromCourse = async (courseId, holeId, userId) => {
                 await updateDoc(courseDocRef, {
                     holes: arrayRemove(holeToRemove)
                 });
-                console.log("Hole deleted from course successfully!");
-            } else {
-                console.warn("Hole not found in course for deletion:", holeId);
             }
-        } else {
-            console.warn("Course or holes array not found for hole deletion:", courseId);
         }
     } catch (e) {
         console.error("Error deleting hole from course: ", e);
@@ -481,43 +427,29 @@ export const reorderHolesInCourse = async (courseId, reorderedHolesArray, userId
         }
         const courseDocRef = doc(getUserCoursesCollection(userId), courseId);
         await updateDoc(courseDocRef, { holes: reorderedHolesArray });
-        console.log("Holes reordered in course successfully!");
     } catch (e) {
         console.error("Error reordering holes:", e);
         throw e;
     }
 };
 
-
 // --- ENCOURAGEMENT NOTE FUNCTIONS ---
 
-/**
- * Adds an encouragement note to Firestore.
- * @param {string} senderId - The UID of the user sending the note.
- * @param {string} receiverId - The UID of the user receiving the note.
- * @param {string} senderDisplayName - The display name of the user sending the note.
- * @param {string} receiverDisplayName - The display name of the user receiving the note (can be empty if not provided).
- * @param {string} noteText - The encouragement message.
- * @returns {Promise<Object>} A promise that resolves with the new note's ID and data.
- */
 export const addEncouragementNote = async (senderId, receiverId, senderDisplayName, receiverDisplayName, noteText) => {
     try {
         if (!senderId || !receiverId || !noteText) {
             throw new Error("Sender ID, Receiver ID, and Note Text are required.");
         }
-
         const newNoteData = {
             senderId: senderId,
             receiverId: receiverId,
-            senderDisplayName: senderDisplayName || 'Anonymous', // Default to 'Anonymous' if no display name
-            receiverDisplayName: receiverDisplayName || '', // Store receiver's display name if provided
-            noteText: noteText, // This now correctly receives the noteText
-            timestamp: new Date(), // Use Firestore timestamp
-            read: false, // Mark as unread by default
+            senderDisplayName: senderDisplayName || 'Anonymous',
+            receiverDisplayName: receiverDisplayName || '',
+            noteText: noteText,
+            timestamp: new Date(),
+            read: false,
         };
-
         const docRef = await addDoc(getEncouragementNotesCollection(), newNoteData);
-        console.log("Encouragement note added with ID: ", docRef.id, "to receiver:", receiverId);
         return { id: docRef.id, ...newNoteData };
     } catch (e) {
         console.error("Error adding encouragement note: ", e);
@@ -525,57 +457,36 @@ export const addEncouragementNote = async (senderId, receiverId, senderDisplayNa
     }
 };
 
-/**
- * Subscribes to real-time updates for unread encouragement notes for a specific user.
- * @param {string} receiverId - The UID of the user who should receive notes.
- * @param {function} callback - Callback function to receive notes (array of note objects).
- * @returns {function} An unsubscribe function to detach the listener.
- */
 export const subscribeToEncouragementNotes = (receiverId, callback) => {
     if (!receiverId) {
-        console.warn("Attempted to subscribe to encouragement notes without a receiverId.");
         callback([]);
         return () => { };
     }
-
-    // Query for notes where the current user is the receiver AND the note is unread
     const q = query(
         getEncouragementNotesCollection(),
         where('receiverId', '==', receiverId),
-        where('read', '==', false), // Only listen for unread notes
-        orderBy('timestamp', 'asc') // Order by oldest unread note first
+        where('read', '==', false),
+        orderBy('timestamp', 'asc')
     );
-
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const notes = querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
-        console.log("DEBUG: Fetched unread encouragement notes:", notes);
         callback(notes);
     }, (error) => {
         console.error("Error subscribing to encouragement notes: ", error);
-        // You might want to handle this error in the callback or component
     });
-
     return unsubscribe;
 };
 
-/**
- * Marks a specific encouragement note as read.
- * @param {string} noteId - The ID of the note to mark as read.
- * @param {string} userId - The UID of the user marking it as read (must be the receiver).
- * @returns {Promise<void>} A promise that resolves when the note is updated.
- */
 export const markEncouragementNoteAsRead = async (noteId, userId) => {
     try {
         if (!noteId || !userId) {
-            throw new Error("Note ID and User ID are required to mark a note as read.");
+            throw new Error("Note ID and User ID are required.");
         }
-        // This relies on Firestore security rules to ensure only the receiver can update 'read'
         const noteDocRef = doc(getEncouragementNotesCollection(), noteId);
         await updateDoc(noteDocRef, { read: true });
-        console.log(`Encouragement note ${noteId} marked as read by ${userId}.`);
     } catch (e) {
         console.error("Error marking encouragement note as read: ", e);
         throw e;
@@ -584,43 +495,22 @@ export const markEncouragementNoteAsRead = async (noteId, userId) => {
 
 // --- DISC MANAGEMENT FUNCTIONS ---
 
-// NOTE: getUserDiscsCollection is already defined at the top of this file.
-// Removing duplicate declaration here to avoid "Cannot redeclare block-scoped variable" error.
-/*
-const getUserDiscsCollection = (userId) => {
-    if (!userId) {
-        console.error("Attempted to access user discs collection without a userId.");
-        throw new Error("User not authenticated or userId is missing.");
-    }
-    return collection(db, `artifacts/${appId}/users/${userId}/discs`);
-};
-*/
-
-/**
- * Adds a new disc to a user's bag in Firestore.
- * @param {string} userId - The UID of the user who owns the disc.
- * @param {Object} discData - An object containing the disc's name, manufacturer, type, plastic, and displayOrder.
- * @returns {Promise<Object>} A promise that resolves with the new disc's ID and data.
- */
 export const addDiscToBag = async (userId, discData) => {
     try {
         if (!userId) {
             throw new Error("Cannot add disc: User ID is missing.");
         }
         if (!discData || !discData.name || !discData.manufacturer) {
-            throw new Error("Disc name and manufacturer are required to add a disc.");
+            throw new Error("Disc name and manufacturer are required.");
         }
-
         const newDiscData = {
             ...discData,
-            isArchived: discData.isArchived !== undefined ? discData.isArchived : false, // Ensure isArchived is set
-            displayOrder: discData.displayOrder !== undefined ? discData.displayOrder : 0, // Ensure displayOrder is set
+            isArchived: discData.isArchived !== undefined ? discData.isArchived : false,
+            displayOrder: discData.displayOrder !== undefined ? discData.displayOrder : 0,
             createdAt: new Date(),
             userId: userId,
         };
-
         const docRef = await addDoc(getUserDiscsCollection(userId), newDiscData);
-        console.log("Disc added to bag with ID: ", docRef.id);
         return { id: docRef.id, ...newDiscData };
     } catch (e) {
         console.error("Error adding disc to bag: ", e);
@@ -628,103 +518,63 @@ export const addDiscToBag = async (userId, discData) => {
     }
 };
 
-/**
- * Updates an existing disc document in a user's bag.
- * Used for archiving/unarchiving or other disc property changes, including displayOrder.
- * @param {string} userId - The UID of the user who owns the disc.
- * @param {string} discId - The ID of the disc to update.
- * @param {Object} newData - The data to update in the disc document (e.g., { isArchived: true, displayOrder: 5 }).
- * @returns {Promise<void>}
- */
 export const updateDiscInBag = async (userId, discId, newData) => {
     try {
         if (!userId || !discId) {
-            throw new Error("User ID and Disc ID are required to update a disc.");
+            throw new Error("User ID and Disc ID are required.");
         }
         const discDocRef = doc(getUserDiscsCollection(userId), discId);
         await updateDoc(discDocRef, newData);
-        console.log(`Disc ${discId} updated in bag for user ${userId}.`);
     } catch (e) {
         console.error("Error updating disc in bag: ", e);
         throw e;
     }
 };
 
-/**
- * Subscribes to real-time updates for ACTIVE (non-archived) discs in a user's bag.
- * @param {string} userId - The UID of the user whose discs to subscribe to.
- * @param {function} callback - Callback function to receive an array of active disc objects.
- * @returns {function} An unsubscribe function.
- */
 export const subscribeToUserDiscs = (userId, callback) => {
     if (!userId) {
-        console.warn("Attempted to subscribe to user discs without a userId. Returning no discs.");
         callback([]);
         return () => { };
     }
-
-    // Query for discs where isArchived is explicitly false or not present, ordered by displayOrder
     const q = query(
         getUserDiscsCollection(userId),
-        where('isArchived', '==', false), // Filter for active discs
-        orderBy('displayOrder', 'asc') // NEW: Order by displayOrder for drag and drop
+        where('isArchived', '==', false),
+        orderBy('displayOrder', 'asc')
     );
-
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const discs = querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
-        console.log(`DEBUG firestoreService: Fetched ${discs.length} active discs for user ${userId}`);
         callback(discs);
     }, (error) => {
         console.error("Error subscribing to active user discs: ", error);
     });
-
     return unsubscribe;
 };
 
-/**
- * Subscribes to real-time updates for ARCHIVED discs in a user's bag.
- * @param {string} userId - The UID of the user whose archived discs to subscribe to.
- * @param {function} callback - Callback function to receive an array of archived disc objects.
- * @returns {function} An unsubscribe function.
- */
 export const subscribeToArchivedUserDiscs = (userId, callback) => {
     if (!userId) {
-        console.warn("Attempted to subscribe to archived user discs without a userId. Returning no discs.");
         callback([]);
         return () => { };
     }
-
-    // Query for discs where isArchived is explicitly true, ordered by displayOrder
     const q = query(
         getUserDiscsCollection(userId),
-        where('isArchived', '==', true), // Filter for archived discs
-        orderBy('displayOrder', 'asc') // NEW: Order by displayOrder for drag and drop
+        where('isArchived', '==', true),
+        orderBy('displayOrder', 'asc')
     );
-
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const discs = querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
-        console.log(`DEBUG firestoreService: Fetched ${discs.length} archived discs for user ${userId}`);
         callback(discs);
     }, (error) => {
         console.error("Error subscribing to archived user discs: ", error);
     });
-
     return unsubscribe;
 };
 
-
-/**
- * Deletes a disc from a user's bag.
- * @param {string} userId - The UID of the user who owns the disc.
- * @param {string} discId - The ID of the disc to delete.
- * @returns {Promise<void>}
- */
 export const deleteDiscFromBag = async (userId, discId) => {
     try {
         if (!userId || !discId) {
@@ -732,9 +582,49 @@ export const deleteDiscFromBag = async (userId, discId) => {
         }
         const discDocRef = doc(getUserDiscsCollection(userId), discId);
         await deleteDoc(discDocRef);
-        console.log(`Disc ${discId} deleted from user ${userId}'s bag.`);
     } catch (e) {
         console.error("Error deleting disc from bag: ", e);
+        throw e;
+    }
+};
+
+// --- ROUND / SCORECARD MANAGEMENT ---
+
+// Function to get the user-specific rounds collection path
+const getUserRoundsCollection = (userId) => {
+    if (!userId) {
+        console.error("Attempted to access rounds collection without a userId.");
+        throw new Error("User not authenticated or userId is missing.");
+    }
+    return collection(db, `artifacts/${appId}/users/${userId}/rounds`);
+};
+
+/**
+ * Adds a new round/scorecard to a user's collection in Firestore.
+ * @param {string} userId - The UID of the user who owns the round.
+ * @param {Object} roundData - An object containing the round's details.
+ * @returns {Promise<Object>} A promise that resolves with the new round's ID and data.
+ */
+export const addRound = async (userId, roundData) => {
+    try {
+        if (!userId) {
+            throw new Error("Cannot add round: User ID is missing.");
+        }
+        if (!roundData || !roundData.courseId || !roundData.scores) {
+            throw new Error("Round data must include a courseId and scores.");
+        }
+
+        const newRoundData = {
+            ...roundData,
+            userId: userId, // Ensure the userId is part of the document
+            createdAt: new Date(),
+        };
+
+        const docRef = await addDoc(getUserRoundsCollection(userId), newRoundData);
+        console.log("Round added with ID: ", docRef.id);
+        return { id: docRef.id, ...newRoundData };
+    } catch (e) {
+        console.error("Error adding round: ", e);
         throw e;
     }
 };
