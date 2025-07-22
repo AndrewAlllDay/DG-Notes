@@ -1,5 +1,3 @@
-// src/App.jsx
-
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import Header from './components/Header.jsx';
 import Courses from './components/Courses.jsx';
@@ -19,7 +17,7 @@ const LazySettingsPage = lazy(() => import('./components/SettingsPage.jsx'));
 const LazySendEncouragement = lazy(() => import('./components/SendEncouragement.jsx'));
 const LazyWeatherDisplay = lazy(() => import('./components/WeatherDisplay.jsx'));
 const LazyInTheBagPage = lazy(() => import('./components/InTheBagPage.jsx'));
-const LazyNewsFeed = lazy(() => import('./components/Newsfeed.jsx')); // <-- ADDED
+const LazyNewsFeed = lazy(() => import('./components/Newsfeed.jsx'));
 
 const LoadingScreen = ({ isDarkMode }) => {
   const bgColor = isDarkMode ? 'bg-black' : 'bg-gray-100';
@@ -41,19 +39,15 @@ function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   const handleLoginSuccess = (uid) => {
-    console.log("DEBUG App.jsx: handleLoginSuccess triggered for UID:", uid);
     showAppMessage('success', 'You have been successfully logged in!');
-    setIsLoginModalOpen(false); // Close the login modal on success
+    setIsLoginModalOpen(false);
   };
 
   const handleLogoutSuccess = () => {
-    console.log("DEBUG App.jsx: handleLogoutSuccess triggered.");
     showAppMessage('success', 'You have been signed out.');
   };
 
   const { user, isAuthReady, userId: currentUserId } = useFirebase(handleLoginSuccess, handleLogoutSuccess);
-
-  console.log(`DEBUG App.jsx Render: user=${user?.uid || 'null'}, isAuthReady=${isAuthReady}`);
 
   const [isEncouragementModalOpen, setIsEncouragementModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState('courses');
@@ -97,62 +91,33 @@ function App() {
     setIsDarkMode(prevMode => !prevMode);
   };
 
-  //***THIS NEEDS TO BE COMMENTED OUT DURING DEVELOPMENT
-
+  // --- NEW useEffect TO HANDLE REDIRECT FROM SHARE TARGET ---
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      let registration;
-
-      const registerServiceWorker = async () => {
-        try {
-          registration = await navigator.serviceWorker.register('/service-worker.js');
-          console.log('Service Worker: Registration successful with scope:', registration.scope);
-
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing;
-            if (newWorker) {
-              console.log('Service Worker: New service worker found and installing.');
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  console.log('Service Worker: New worker installed and waiting. Showing reload prompt.');
-                  setWaitingWorker(newWorker);
-                  setShowReloadPrompt(true);
-                } else if (newWorker.state === 'activated') {
-                  console.log('Service Worker: New worker activated.');
-                }
-              });
-            }
-          });
-
-          navigator.serviceWorker.addEventListener('controllerchange', () => {
-            console.log('Service Worker: Controller changed to new service worker. Reloading page...');
-            window.location.reload();
-          });
-
-        } catch (error) {
-          console.error('Service Worker: Registration failed:', error);
-        }
-      };
-
-      registerServiceWorker();
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('share-target')) {
+      // If the user lands here from a share action,
+      // automatically navigate them to the settings page.
+      setCurrentPage('settings');
     }
-  }, []);
+  }, []); // Runs once when the app loads
 
-  // ^^^THIS NEEDS TO BE COMMENTED OUT DURING DEVELOPMENT
+  /* // Temporarily disable Service Worker for development
+   useEffect(() => {
+     if ('serviceWorker' in navigator) {
+       // ... service worker code ...
+     }
+   }, []);
+  */
 
   useEffect(() => {
     let unsubscribePublicProfiles;
     if (isAuthReady) {
-      console.log("DEBUG App.jsx useEffect [isAuthReady]: Subscribing to all public user display names.");
       unsubscribePublicProfiles = subscribeToAllUserDisplayNames((profiles) => {
-        console.log("DEBUG App.jsx: Fetched public user profiles:", profiles);
         setAllPublicUserProfiles(profiles);
       });
     }
-
     return () => {
       if (unsubscribePublicProfiles) {
-        console.log("DEBUG App.jsx useEffect [isAuthReady]: Unsubscribing from all public user display names.");
         unsubscribePublicProfiles();
       }
     };
@@ -160,46 +125,28 @@ function App() {
 
   useEffect(() => {
     let unsubscribeNotes;
-    console.log("DEBUG App.jsx useEffect [user, isAuthReady]: Checking user and authReady status for raw note subscription.");
     if (user?.uid && isAuthReady) {
-      console.log(`DEBUG App.jsx useEffect [user, isAuthReady]: Subscribing to raw unread notes for receiverId: ${user.uid}`);
       unsubscribeNotes = subscribeToEncouragementNotes(user.uid, (notes) => {
-        console.log("DEBUG App.jsx useEffect [user, isAuthReady]: Received raw notes from subscribeToEncouragementNotes callback:", notes);
         setUnreadNotesFromFirestore(notes);
       });
     } else {
-      console.log("DEBUG App.jsx useEffect [user, isAuthReady]: Conditions not met for raw note subscription (user.uid or isAuthReady false).");
       setUnreadNotesFromFirestore([]);
     }
-
     return () => {
       if (unsubscribeNotes) {
-        console.log("DEBUG App.jsx useEffect [user, isAuthReady]: Unsubscribing from raw notes listener.");
         unsubscribeNotes();
       }
     };
   }, [user?.uid, isAuthReady]);
 
   useEffect(() => {
-    console.log("DEBUG App.jsx useEffect [unreadNotesFromFirestore, allPublicUserProfiles]: Processing notes for notification.");
-    console.log(`DEBUG App.jsx: unreadNotesFromFirestore.length=${unreadNotesFromFirestore.length}, allPublicUserProfiles.length=${allPublicUserProfiles.length}`);
-
     if (unreadNotesFromFirestore.length > 0 && allPublicUserProfiles.length > 0) {
       const firstUnreadNote = unreadNotesFromFirestore[0];
       const senderProfile = allPublicUserProfiles.find(profile => profile.id === firstUnreadNote.senderId);
       const senderDisplayName = senderProfile?.displayName || 'Unknown Sender';
-
-      const noteWithSenderName = {
-        ...firstUnreadNote,
-        senderDisplayName: senderDisplayName,
-      };
-      console.log("DEBUG App.jsx useEffect [unreadNotesFromFirestore, allPublicUserProfiles]: Setting currentNotification to:", noteWithSenderName);
+      const noteWithSenderName = { ...firstUnreadNote, senderDisplayName };
       setCurrentNotification(noteWithSenderName);
-    } else if (unreadNotesFromFirestore.length > 0 && allPublicUserProfiles.length === 0) {
-      console.log("DEBUG App.jsx useEffect [unreadNotesFromFirestore, allPublicUserProfiles]: Notes available but public profiles not yet loaded. Waiting for profiles to populate before setting notification.");
-      setCurrentNotification(null);
     } else {
-      console.log("DEBUG App.jsx useEffect [unreadNotesFromFirestore, allPublicUserProfiles]: No unread notes or profiles not loaded, clearing currentNotification.");
       setCurrentNotification(null);
     }
   }, [unreadNotesFromFirestore, allPublicUserProfiles]);
@@ -207,7 +154,6 @@ function App() {
 
   useEffect(() => {
     if (isAuthReady && user && user.role === 'non-player' && !hasInitialNonPlayerRedirected) {
-      console.log("DEBUG App.jsx: Detected non-player user. Redirecting to Send Note page.");
       setCurrentPage('send-note');
       setHasInitialNonPlayerRedirected(true);
     }
@@ -221,18 +167,15 @@ function App() {
   };
 
   const handleSignOut = async () => {
-    console.log("DEBUG App.jsx handleSignOut: Function called.");
     if (auth) {
       try {
         await auth.signOut();
-        console.log("DEBUG App.jsx handleSignOut: User signed out successfully (Firebase event triggered).");
         setCurrentPage('courses');
         setUnreadNotesFromFirestore([]);
         setCurrentNotification(null);
         setAllPublicUserProfiles([]);
         setHasInitialNonPlayerRedirected(false);
       } catch (error) {
-        console.error("DEBUG App.jsx handleSignOut: Error signing out:", error);
         showAppMessage('error', `Failed to sign out: ${error.message}`);
       }
     }
@@ -246,14 +189,10 @@ function App() {
   const handleNotificationRead = async (noteId) => {
     if (user?.uid && noteId) {
       try {
-        console.log(`DEBUG App.jsx: Marking note ${noteId} as read for user ${user.uid}`);
         await markEncouragementNoteAsRead(noteId, user.uid);
       } catch (error) {
-        console.error("DEBUG App.jsx: Error marking note as read:", error);
         showAppMessage('error', 'Failed to mark note as read.');
       }
-    } else {
-      console.warn("DEBUG App.jsx: Cannot mark note as read: user.uid or noteId missing.");
     }
   };
 
@@ -261,11 +200,9 @@ function App() {
 
   const updateApp = () => {
     if (waitingWorker) {
-      console.log('App.jsx: Sending SKIP_WAITING message to new Service Worker.');
       waitingWorker.postMessage({ type: 'SKIP_WAITING' });
       setShowReloadPrompt(false);
     } else {
-      console.warn('App.jsx: No waiting worker found to update.');
       window.location.reload();
     }
   };
@@ -306,8 +243,7 @@ function App() {
       />
 
       {appMessage.text && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-lg shadow-lg text-white
-                          ${appMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-lg shadow-lg text-white ${appMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
           {appMessage.text}
         </div>
       )}
@@ -350,7 +286,7 @@ function App() {
             <LazyInTheBagPage />
           </Suspense>
         )}
-        {currentPage === 'news' && ( // <-- ADDED
+        {currentPage === 'news' && (
           <Suspense fallback={<div>Loading News...</div>}>
             <LazyNewsFeed />
           </Suspense>
