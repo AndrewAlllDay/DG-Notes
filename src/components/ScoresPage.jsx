@@ -75,8 +75,7 @@ export default function ScoresPage() {
     }
 
     return (
-        <div className="max-h-screen bg-gray-100 dark:bg-black p-4 pb-28">
-            <h2 className="text-2xl font-bold mb-6 text-center pt-5 text-gray-800 dark:text-gray-100">My Scores</h2>
+        <div className="max-h-screen bg-gray-100 dark:bg-black p-4 pb-36 overflow-y-auto">            <h2 className="text-2xl font-bold mb-6 text-center pt-5 text-gray-800 dark:text-gray-100">My Scores</h2>
 
             {rounds.length === 0 ? (
                 <p className="text-center text-gray-600 dark:text-gray-400">You haven't imported any scores yet.</p>
