@@ -421,16 +421,11 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
                 <p className="text-gray-600 text-sm">Your Role: <span className="font-semibold capitalize">{user.role || 'player'}</span></p>
             </Accordion>
 
-            <Accordion title="Account Actions">
-                <button onClick={onSignOut} className="w-full flex items-center justify-center gap-2 !bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700">
-                    <LogOut size={20} />
-                    Logout
-                </button>
-            </Accordion>
+
 
             <Accordion title="Data Management">
-                <h3 className="text-lg font-semibold text-gray-800">Import Courses & Scores</h3>
-                <p className="text-sm text-gray-600 mb-2">Import a new course and your scorecard from a formatted CSV file.</p>
+                <h3 className="text-lg font-semibold text-gray-800">Import Scorecard</h3>
+                <p className="text-sm text-gray-600 mb-2">Upload a scorecard exported from Udisc.</p>
                 <button
                     onClick={() => setIsImportModalOpen(true)}
                     className="w-full !bg-blue-600 text-white p-2 rounded-md font-semibold hover:bg-blue-700 transition-colors mb-4"
@@ -519,6 +514,13 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
                     ) : <p className="text-gray-600">No teams created yet.</p>}
                 </Accordion>
             )}
+
+            <Accordion title="Account Actions">
+                <button onClick={onSignOut} className="w-full flex items-center justify-center gap-2 !bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700">
+                    <LogOut size={20} />
+                    Logout
+                </button>
+            </Accordion>
 
             <div className="mt-8 text-center text-sm text-gray-500">
                 DG Notes: {APP_VERSION}

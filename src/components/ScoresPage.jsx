@@ -1,9 +1,9 @@
 // src/components/ScoresPage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'; // CORRECTED LINE
 import { useFirebase } from '../firebase.js';
 import { subscribeToRounds } from '../services/firestoreService.jsx';
 import { format, isSameDay } from 'date-fns';
-import { GoogleGenerativeAI } from '@google/generative-ai'; // Import Gemini SDK
+// REMOVED: import { GoogleGenerativeAI } from '@google/generative-ai'; // No longer needed directly in frontend
 
 export default function ScoresPage() {
     const { userId, isAuthReady } = useFirebase();
@@ -16,6 +16,11 @@ export default function ScoresPage() {
     const [isGeminiLoading, setIsGeminiLoading] = useState(false);
     const [geminiError, setGeminiError] = useState(null);
     // --- End Gemini Integration State ---
+
+    // Define your backend function URL
+    // For local testing, point to your local backend server.
+    // For deployment, this will be your Google Cloud Function URL.
+    const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-score-analyzer'; // <-- UPDATED FOR LOCAL TESTING
 
     useEffect(() => {
         if (!isAuthReady) return;
@@ -39,7 +44,7 @@ export default function ScoresPage() {
 
                         // If this key hasn't been seen before, add the round to the map
                         if (!uniqueRoundsMap.has(uniqueKey)) {
-                            uniqueRoundsMap.set(uniqueKey, round); // Corrected: uniqueRoundsMap
+                            uniqueRoundsMap.set(uniqueKey, round);
                         }
                         // Optional: If you want to keep the "latest" score for a given day/course/layout,
                         // you could add logic here to compare totalScore or timestamp and replace
@@ -78,46 +83,51 @@ export default function ScoresPage() {
         return score;
     };
 
-    // --- Gemini Integration Logic ---
+    // --- Gemini Integration Logic (Now calling your Backend) ---
     const runGeminiAnalysis = async () => {
-        // Access your API key (ensure you have .env set up and restarted your server)
-        // Use import.meta.env for Vite, or process.env.REACT_APP_... for Create React App
-        const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || process.env.REACT_APP_GEMINI_API_KEY;
-
-        if (!API_KEY) {
-            setGeminiError("Gemini API key is not configured. Please check your .env file and ensure it's named VITE_GEMINI_API_KEY or REACT_APP_GEMINI_API_KEY.");
+        if (!BACKEND_API_URL || BACKEND_API_URL.includes('your-function-name')) {
+            setGeminiError("Backend API URL is not configured. Please set BACKEND_API_URL in ScoresPage.jsx.");
             return;
         }
 
-        const genAI = new GoogleGenerativeAI(API_KEY);
-        // Use 'gemini-1.5-flash' as it's a generally available and efficient model
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        if (!geminiPrompt.trim() && rounds.length === 0) {
+            setGeminiError("Please enter a prompt or ensure you have scores to analyze.");
+            return;
+        }
 
         setIsGeminiLoading(true);
         setGeminiError(null);
         setGeminiResponse('');
 
         try {
-            // Construct a prompt based on the user's rounds
-            let promptText = "Analyze the following disc golf scores and provide insights. If there are no scores, say so. Otherwise, summarize trends, highlight best/worst performances, or suggest areas for improvement.\n\n";
+            const response = await fetch(BACKEND_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    prompt: geminiPrompt,
+                    rounds: rounds.map(round => ({ // Send necessary data to backend
+                        courseName: round.courseName,
+                        layoutName: round.layoutName,
+                        date: round.date, // Send Firestore Timestamp as is, backend will convert
+                        totalScore: round.totalScore,
+                        scoreToPar: round.scoreToPar
+                    }))
+                }),
+            });
 
-            if (rounds.length === 0) {
-                promptText += "No scores available to analyze.";
-            } else {
-                promptText += "Here are the scores:\n";
-                rounds.forEach((round, index) => {
-                    const roundDate = round.date?.toDate ? format(round.date.toDate(), 'MMMM d, yyyy') : 'N/A Date';
-                    promptText += `Round ${index + 1}: Course: ${round.courseName}, Layout: ${round.layoutName}, Date: ${roundDate}, Total Score: ${round.totalScore}, Score to Par: ${formatScoreToPar(round.scoreToPar)}\n`;
-                });
-                promptText += `\nAdditional context from user: ${geminiPrompt || 'No additional prompt.'}`;
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
             }
 
-            const result = await model.generateContent(promptText);
-            const text = await result.response.text();
-            setGeminiResponse(text);
+            const data = await response.json();
+            setGeminiResponse(data.response);
+
         } catch (err) {
-            console.error("Error communicating with Gemini API:", err);
-            setGeminiError(`Failed to get a response from Gemini: ${err.message}. Ensure your API key is correct and valid for the 'gemini-1.5-flash' model.`);
+            console.error("Error communicating with backend:", err);
+            setGeminiError(`Failed to get insights from Gemini: ${err.message}. Ensure your backend server is running.`);
         } finally {
             setIsGeminiLoading(false);
         }
@@ -132,34 +142,8 @@ export default function ScoresPage() {
         <div className="max-h-screen bg-gray-100 dark:bg-black p-4 pb-36 overflow-y-auto">
             <h2 className="text-2xl font-bold mb-6 text-center pt-5 text-gray-800 dark:text-gray-100">My Scores</h2>
 
-            {rounds.length === 0 ? (
-                <p className="text-center text-gray-600 dark:text-gray-400">You haven't imported any scores yet.</p>
-            ) : (
-                <div className="max-w-2xl mx-auto space-y-4">
-                    {rounds.map(round => (
-                        <div key={round.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400">{round.courseName}</h3>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">{round.layoutName}</p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                        {round.date?.toDate ? format(round.date.toDate(), 'MMMM d, yyyy') : 'N/A Date'}
-                                    </p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{round.totalScore}</p>
-                                    <p className={`text-lg font-semibold ${round.scoreToPar === 0 ? 'text-gray-500' : round.scoreToPar > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                        {formatScoreToPar(round.scoreToPar)}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* --- Gemini Integration UI --- */}
-            <div className="max-w-2xl mx-auto mt-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+            {/* --- Gemini Integration UI (Moved to Top) --- */}
+            <div className="max-w-2xl mx-auto mb-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md">
                 <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Ask Gemini about your scores</h3>
                 <textarea
                     value={geminiPrompt}
@@ -189,6 +173,34 @@ export default function ScoresPage() {
                 )}
             </div>
             {/* --- End Gemini Integration UI --- */}
+
+            {/* Existing Scores Display remains below */}
+            {rounds.length === 0 ? (
+                <p className="text-center text-gray-600 dark:text-gray-400">You haven't imported any scores yet.</p>
+            ) : (
+                <div className="max-w-2xl mx-auto space-y-4">
+                    {rounds.map(round => (
+                        <div key={round.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400">{round.courseName}</h3>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">{round.layoutName}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                        {round.date?.toDate ? format(round.date.toDate(), 'MMMM d, yyyy') : 'N/A Date'}
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{round.totalScore}</p>
+                                    <p className={`text-lg font-semibold ${round.scoreToPar === 0 ? 'text-gray-500' : round.scoreToPar > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                        {formatScoreToPar(round.scoreToPar)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
         </div>
     );
 }
