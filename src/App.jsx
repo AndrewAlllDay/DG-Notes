@@ -97,11 +97,11 @@ function App() {
   }, []);
 
   /* // Temporarily disable Service Worker for development
-   useEffect(() => {
-     if ('serviceWorker' in navigator) {
-       // ... service worker code ...
-     }
-   }, []);
+    useEffect(() => {
+      if ('serviceWorker' in navigator) {
+        // ... service worker code ...
+      }
+    }, []);
   */
 
   useEffect(() => {
@@ -258,17 +258,17 @@ function App() {
           />
         )}
         {currentPage === 'settings' && (
-          <Suspense fallback={<div>Loading Settings...</div>}>
+          <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Settings...</div>}>
             <LazySettingsPage onSignOut={handleSignOut} onNavigate={handleNavigate} />
           </Suspense>
         )}
         {currentPage === 'scores' && (
-          <Suspense fallback={<div>Loading Scores...</div>}>
+          <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Scores...</div>}>
             <LazyScoresPage />
           </Suspense>
         )}
         {currentPage === 'send-note' && (
-          <Suspense fallback={<div>Loading Send Note page...</div>}>
+          <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Send Note page...</div>}>
             <LazySendEncouragement
               onSendSuccess={handleSendNoteSuccess}
               onClose={() => handleNavigate('courses')}
@@ -277,17 +277,17 @@ function App() {
           </Suspense>
         )}
         {currentPage === 'weather' && (
-          <Suspense fallback={<div>Loading Weather...</div>}>
+          <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Weather...</div>}>
             <LazyWeatherDisplay />
           </Suspense>
         )}
         {currentPage === 'in-the-bag' && (
-          <Suspense fallback={<div>Loading In The Bag...</div>}>
+          <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading In The Bag...</div>}>
             <LazyInTheBagPage />
           </Suspense>
         )}
         {currentPage === 'news' && (
-          <Suspense fallback={<div>Loading News...</div>}>
+          <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading News...</div>}>
             <LazyNewsFeed />
           </Suspense>
         )}
