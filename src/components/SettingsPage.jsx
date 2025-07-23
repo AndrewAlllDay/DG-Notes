@@ -535,7 +535,7 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
             </Accordion>
 
             <div className="mt-8 text-center text-sm text-gray-500">
-                DG Notes: {APP_VERSION}
+                FlightLog: {APP_VERSION}
             </div>
 
             <ImportCSVModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={handleCourseImport} />
