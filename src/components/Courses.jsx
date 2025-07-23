@@ -411,8 +411,9 @@ export default function Courses() {
                 </div>
             ) : (
                 <>
-                    <h2 className="text-2xl font-bold mb-6 text-center pt-5">DG Courses</h2>
-
+                    <h2 className="text-2xl font-bold mb-3 text-center pt-5">Your Courses</h2>
+                    <p className='text-center text-gray-600'>This is your caddy dream. </p>
+                    <p className='text-center text-gray-600 mb-6'>Create a course, add your recommended disc, and any personal notes about the hole.</p>
 
                     {/* FAB for Add Course - Now always visible. Removed conditional `showFab` class. */}
                     <button
