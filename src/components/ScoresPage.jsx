@@ -1,5 +1,5 @@
 // src/components/ScoresPage.jsx
-import React, { useState, useEffect } from 'react'; // CORRECTED LINE
+import React, { useState, useEffect } from 'react';
 import { useFirebase } from '../firebase.js';
 import { subscribeToRounds } from '../services/firestoreService.jsx';
 import { format, isSameDay } from 'date-fns';
@@ -18,9 +18,8 @@ export default function ScoresPage() {
     // --- End Gemini Integration State ---
 
     // Define your backend function URL
-    // For local testing, point to your local backend server.
-    // For deployment, this will be your Google Cloud Function URL.
-    const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-score-analyzer/api/gemini-insight'; // <-- UPDATED FOR LOCAL TESTING
+    // THIS IS YOUR LIVE DEPLOYED GOOGLE CLOUD FUNCTION URL + THE EXPRESS ROUTE
+    const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-score-analyzer/api/gemini-insight'; // <-- PASTE YOUR EXACT LIVE URL HERE!
 
     useEffect(() => {
         if (!isAuthReady) return;
@@ -32,7 +31,7 @@ export default function ScoresPage() {
                 const uniqueRoundsMap = new Map(); // Key: `${courseName}-${layoutName}-${dateFormatted}`
                 // Value: the round object
 
-                fetchedRounds.forEach(round => {
+                fetchedRrounds.forEach(round => {
                     // Ensure round.date is a Date object for isSameDay comparison
                     const roundDate = round.date?.toDate ? round.date.toDate() : null;
 
@@ -112,7 +111,8 @@ export default function ScoresPage() {
                         layoutName: round.layoutName,
                         date: round.date, // Send Firestore Timestamp as is, backend will convert
                         totalScore: round.totalScore,
-                        scoreToPar: round.scoreToPar
+                        scoreToPar: round.scoreToPar,
+                        scores: round.scores // <--- THIS LINE INCLUDES THE HOLE SCORES
                     }))
                 }),
             });
