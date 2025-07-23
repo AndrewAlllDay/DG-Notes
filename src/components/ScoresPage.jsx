@@ -20,7 +20,7 @@ export default function ScoresPage() {
     // Define your backend function URL
     // For local testing, point to your local backend server.
     // For deployment, this will be your Google Cloud Function URL.
-    const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-score-analyzer'; // <-- UPDATED FOR LOCAL TESTING
+    const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-score-analyzer/api/gemini-insight'; // <-- UPDATED FOR LOCAL TESTING
 
     useEffect(() => {
         if (!isAuthReady) return;
