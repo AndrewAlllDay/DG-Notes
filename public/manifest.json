@@ -1,6 +1,6 @@
 {
-    "short_name": "DGNotes",
-    "name": "Disc Golf Notes",
+    "short_name": "FlightLog",
+    "name": "FlightLog - Disc Golf Companion",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#ffffff",
