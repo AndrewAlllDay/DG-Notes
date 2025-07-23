@@ -412,8 +412,8 @@ export default function Courses() {
             ) : (
                 <>
                     <h2 className="text-2xl font-bold mb-3 text-center pt-5">Your Courses</h2>
-                    <p className='text-center text-gray-600'>This is your caddy dream. </p>
-                    <p className='text-center text-gray-600 mb-6'>Create a course, add your recommended disc, and any personal notes about the hole.</p>
+                    <p className='text-center text-gray-600'>Beyond the scorecard, this is your tactical journal. </p>
+                    <p className='text-center text-gray-600 mb-6'>Break down every hole, assign the perfect plastic, and craft the strategy to shave strokes off your game.</p>
 
                     {/* FAB for Add Course - Now always visible. Removed conditional `showFab` class. */}
                     <button

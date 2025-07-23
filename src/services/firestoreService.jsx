@@ -4,7 +4,7 @@ import {
     addDoc,
     doc,
     updateDoc,
-    deleteDoc,
+    deleteDoc, // <-- This is imported for deleteDoc
     query,
     orderBy,
     onSnapshot,
@@ -251,6 +251,7 @@ export const addCourse = async (courseName, tournamentName, classification, user
         const newCourseData = {
             name: courseName,
             tournamentName: tournamentName,
+            averageScore: null, // Add default for new course
             classification: classification,
             holes: defaultHoles,
             createdAt: new Date(),
@@ -646,6 +647,26 @@ export const addRound = async (userId, roundData) => {
         return { id: docRef.id, ...newRoundData };
     } catch (e) {
         console.error("Error adding round: ", e);
+        throw e;
+    }
+};
+
+/**
+ * Deletes a specific round/scorecard from a user's collection in Firestore.
+ * @param {string} userId - The UID of the user who owns the round.
+ * @param {string} roundId - The ID of the round document to delete.
+ * @returns {Promise<void>} A promise that resolves when the document is deleted.
+ */
+export const deleteRound = async (userId, roundId) => {
+    try {
+        if (!userId || !roundId) {
+            throw new Error("Cannot delete round: User ID and Round ID are required.");
+        }
+        const roundDocRef = doc(getUserRoundsCollection(userId), roundId);
+        await deleteDoc(roundDocRef);
+        console.log(`Round ${roundId} deleted successfully for user ${userId}.`);
+    } catch (e) {
+        console.error("Error deleting round: ", e);
         throw e;
     }
 };

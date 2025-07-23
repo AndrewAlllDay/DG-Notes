@@ -1,9 +1,10 @@
-// src/components/ScoresPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useFirebase } from '../firebase.js';
-import { subscribeToRounds } from '../services/firestoreService.jsx';
+import { subscribeToRounds, deleteRound } from '../services/firestoreService.jsx';
 import { format, isSameDay } from 'date-fns';
-// REMOVED: import { GoogleGenerativeAI } from '@google/generative-ai'; // No longer needed directly in frontend
+import { FaTrash } from 'react-icons/fa';
+import { toast } from 'react-toastify';
+import DeleteConfirmationModal from './DeleteConfirmationModal';
 
 export default function ScoresPage() {
     const { userId, isAuthReady } = useFirebase();
@@ -17,56 +18,48 @@ export default function ScoresPage() {
     const [geminiError, setGeminiError] = useState(null);
     // --- End Gemini Integration State ---
 
+    // --- Delete Confirmation Modal State ---
+    const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+    const [roundToDelete, setRoundToDelete] = useState(null); // Stores the round data to be deleted
+    // --- END NEW STATE ---
+
+    // --- NEW: Watch state changes for debugging (can be removed after confirmed working) ---
+    useEffect(() => {
+        console.log("Modal State Changed: showDeleteConfirmModal:", showDeleteConfirmModal, "roundToDelete:", roundToDelete ? roundToDelete.id : 'null');
+    }, [showDeleteConfirmModal, roundToDelete]);
+    // --- END NEW ---
+
     // Define your backend function URL
     // THIS IS YOUR LIVE DEPLOYED GOOGLE CLOUD FUNCTION URL + THE EXPRESS ROUTE
-    const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-score-analyzer/api/gemini-insight'; // <-- YOUR LIVE URL HERE!
+    const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-score-analyzer/api/gemini-insight'; // Your live URL here
 
     useEffect(() => {
         if (!isAuthReady) return;
 
         if (userId) {
             setIsLoading(true);
-            const unsubscribe = subscribeToRounds(userId, (fetchedRounds) => { // <-- CORRECTED: fetchedRounds
+            const unsubscribe = subscribeToRounds(userId, (fetchedRounds) => {
                 // --- Start of Deduplication Logic ---
-                const uniqueRoundsMap = new Map(); // Key: `${courseName}-${layoutName}-${dateFormatted}`
-                // Value: the round object
-
-                fetchedRounds.forEach(round => { // <-- CORRECTED: fetchedRounds
-                    // Ensure round.date is a Date object for isSameDay comparison
+                const uniqueRoundsMap = new Map();
+                fetchedRounds.forEach(round => { // Corrected parameter usage here
                     const roundDate = round.date?.toDate ? round.date.toDate() : null;
-
                     if (roundDate) {
-                        // Create a unique key for each round based on course, layout, and date
-                        // Use format(date, 'yyyy-MM-dd') to only consider the day, month, and year
                         const dateKey = format(roundDate, 'yyyy-MM-dd');
                         const uniqueKey = `${round.courseName || ''}-${round.layoutName || ''}-${dateKey}`;
-
-                        // If this key hasn't been seen before, add the round to the map
                         if (!uniqueRoundsMap.has(uniqueKey)) {
                             uniqueRoundsMap.set(uniqueKey, round);
                         }
-                        // Optional: If you want to keep the "latest" score for a given day/course/layout,
-                        // you could add logic here to compare totalScore or timestamp and replace
-                        // if the new round is "better" or more recent. For now, it keeps the first one it encounters.
                     } else {
-                        // If date is missing/invalid, you might still want to add it
-                        // or handle it differently. For simplicity, we'll just add unique by ID.
-                        uniqueRoundsMap.set(round.id, round); // Fallback to ID uniqueness
+                        uniqueRoundsMap.set(round.id, round);
                     }
                 });
-
-                // Convert the Map values back to an array
                 const deduplicatedRounds = Array.from(uniqueRoundsMap.values());
-
-                // Sort the deduplicated rounds (e.g., by date descending)
                 deduplicatedRounds.sort((a, b) => {
-                    const dateA = a.date?.toDate ? a.date.toDate() : new Date(0); // Handle potentially missing dates
+                    const dateA = a.date?.toDate ? a.date.toDate() : new Date(0);
                     const dateB = b.date?.toDate ? b.date.toDate() : new Date(0);
                     return dateB.getTime() - dateA.getTime();
                 });
-
                 setRounds(deduplicatedRounds);
-                // --- End of Deduplication Logic ---
                 setIsLoading(false);
             });
             return () => unsubscribe();
@@ -82,7 +75,57 @@ export default function ScoresPage() {
         return score;
     };
 
-    // --- Gemini Integration Logic (Now calling your Backend) ---
+    // --- UPDATED: Function to handle round deletion (opens custom modal) ---
+    const handleDeleteRound = async (roundId, courseName, layoutName) => {
+        if (!userId) {
+            toast.error("You must be logged in to delete scores.");
+            return;
+        }
+        // Store the round data and show the modal
+        setRoundToDelete({ id: roundId, courseName, layoutName });
+        setShowDeleteConfirmModal(true);
+        // Debugging logs (you can remove these after it's working)
+        console.log("handleDeleteRound called for:", roundId);
+        console.log("handleDeleteRound: Setting roundToDelete to", { id: roundId, courseName, layoutName });
+        console.log("handleDeleteRound: Setting showDeleteConfirmModal to true");
+    };
+    // --- END UPDATED FUNCTION ---
+
+    // --- Functions to confirm/cancel deletion from modal ---
+    const confirmDelete = async () => {
+        // Debugging logs (can be removed after confirmed working)
+        console.log("confirmDelete: Attempting to delete round:", roundToDelete ? roundToDelete.id : 'null');
+        if (!roundToDelete || !userId) {
+            console.error("confirmDelete: Missing roundToDelete or userId. Aborting.");
+            setShowDeleteConfirmModal(false);
+            setRoundToDelete(null);
+            return;
+        }
+
+        setShowDeleteConfirmModal(false); // Close the modal immediately
+        try {
+            await deleteRound(userId, roundToDelete.id);
+            toast.success(`Scorecard for ${roundToDelete.courseName} deleted successfully!`);
+            setRoundToDelete(null); // Clear the pending round data
+            // Debugging logs (can be removed after confirmed working)
+            console.log("confirmDelete: Deletion successful, state reset.");
+        } catch (error) {
+            console.error("Error deleting round:", error);
+            toast.error(`Failed to delete scorecard: ${error.message}`);
+            // Debugging logs (can be removed after confirmed working)
+            console.log("confirmDelete: Deletion failed, state reset (modal closed).");
+            setRoundToDelete(null); // Clear roundToDelete even on error
+        }
+    };
+
+    const cancelDelete = () => {
+        setShowDeleteConfirmModal(false);
+        setRoundToDelete(null);
+        // Debugging logs (can be removed after confirmed working)
+        console.log("cancelDelete: Modal closed, deletion cancelled. State reset.");
+    };
+    // --- END FUNCTIONS ---
+
     const runGeminiAnalysis = async () => {
         if (!BACKEND_API_URL || BACKEND_API_URL.includes('your-function-name')) {
             setGeminiError("Backend API URL is not configured. Please set BACKEND_API_URL in ScoresPage.jsx.");
@@ -106,13 +149,13 @@ export default function ScoresPage() {
                 },
                 body: JSON.stringify({
                     prompt: geminiPrompt,
-                    rounds: rounds.map(round => ({ // Send necessary data to backend
+                    rounds: rounds.map(round => ({
                         courseName: round.courseName,
                         layoutName: round.layoutName,
-                        date: round.date, // Send Firestore Timestamp as is, backend will convert
+                        date: round.date,
                         totalScore: round.totalScore,
                         scoreToPar: round.scoreToPar,
-                        scores: round.scores // THIS LINE INCLUDES THE HOLE SCORES
+                        scores: round.scores
                     }))
                 }),
             });
@@ -132,7 +175,6 @@ export default function ScoresPage() {
             setIsGeminiLoading(false);
         }
     };
-    // --- End Gemini Integration Logic ---
 
     if (isLoading) {
         return <div className="text-center p-8">Loading scores...</div>;
@@ -142,8 +184,44 @@ export default function ScoresPage() {
         <div className="max-h-screen bg-gray-100 dark:bg-black p-4 pb-36 overflow-y-auto">
             <h2 className="text-2xl font-bold mb-6 text-center pt-5 text-gray-800 dark:text-gray-100">My Scores</h2>
 
-            {/* --- Gemini Integration UI (Moved to Top) --- */}
-            <div className="max-w-2xl mx-auto mb-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+            {/* Existing Scores Display (remains at the top, below title) */}
+            {rounds.length === 0 ? (
+                <p className="text-center text-gray-600 dark:text-gray-400">You haven't imported any scores yet.</p>
+            ) : (
+                <div className="max-w-2xl mx-auto space-y-4">
+                    {rounds.map(round => (
+                        <div key={round.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+                            <div className="flex justify-between items-start gap-4">
+                                <div>
+                                    <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400">{round.courseName}</h3>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">{round.layoutName}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                        {round.date?.toDate ? format(round.date.toDate(), 'MMMM d, yyyy') : 'N/A Date'}
+                                    </p>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <div className="flex flex-col items-end">
+                                        <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{round.totalScore}</p>
+                                        <p className={`text-lg font-semibold ${round.scoreToPar === 0 ? 'text-gray-500' : round.scoreToPar > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                            {formatScoreToPar(round.scoreToPar)}
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => handleDeleteRound(round.id, round.courseName, round.layoutName)}
+                                        className="p-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                        title={`Delete scorecard for ${round.courseName}`}
+                                    >
+                                        <FaTrash size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* --- Gemini Integration UI (MOVED TO BOTTOM) --- */}
+            <div className="max-w-2xl mx-auto mt-8 mb-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md">
                 <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Ask Gemini about your scores</h3>
                 <textarea
                     value={geminiPrompt}
@@ -155,7 +233,7 @@ export default function ScoresPage() {
                 />
                 <button
                     onClick={runGeminiAnalysis}
-                    className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50"
+                    className="mt-3 w-full !bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50"
                     disabled={isGeminiLoading}
                 >
                     {isGeminiLoading ? 'Analyzing...' : 'Get Score Insights from Gemini'}
@@ -174,33 +252,16 @@ export default function ScoresPage() {
             </div>
             {/* --- End Gemini Integration UI --- */}
 
-            {/* Existing Scores Display remains below */}
-            {rounds.length === 0 ? (
-                <p className="text-center text-gray-600 dark:text-gray-400">You haven't imported any scores yet.</p>
-            ) : (
-                <div className="max-w-2xl mx-auto space-y-4">
-                    {rounds.map(round => (
-                        <div key={round.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400">{round.courseName}</h3>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">{round.layoutName}</p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                        {round.date?.toDate ? format(round.date.toDate(), 'MMMM d, yyyy') : 'N/A Date'}
-                                    </p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{round.totalScore}</p>
-                                    <p className={`text-lg font-semibold ${round.scoreToPar === 0 ? 'text-gray-500' : round.scoreToPar > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                        {formatScoreToPar(round.scoreToPar)}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+            {/* Render the Delete Confirmation Modal */}
+            {roundToDelete && ( // Only render if there's a round pending deletion
+                <DeleteConfirmationModal
+                    key={roundToDelete.id} // Added key to force remount of modal
+                    isOpen={showDeleteConfirmModal}
+                    onClose={cancelDelete}
+                    onConfirm={confirmDelete}
+                    message={`Are you sure you want to delete the scorecard for ${roundToDelete.courseName} (${roundToDelete.layoutName})? This cannot be undone.`}
+                />
             )}
-
         </div>
     );
 }
