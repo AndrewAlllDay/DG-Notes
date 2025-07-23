@@ -282,12 +282,24 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
             const parRow = csvData.find(row => row.PlayerName === 'Par');
             if (!parRow) throw new Error("Could not find 'Par' row in CSV.");
 
-            const courseName = parRow.CourseName;
-            const layoutName = parRow.LayoutName || '';
-            if (!courseName) throw new Error("CSV is missing 'CourseName'.");
+            // --- Start of Fix for Course Duplication ---
+            // Ensure strings are trimmed and handle potential undefined/null layoutName gracefully
+            const rawCourseName = parRow.CourseName ? String(parRow.CourseName).trim() : '';
+            const rawLayoutName = parRow.LayoutName ? String(parRow.LayoutName).trim() : '';
+
+            if (!rawCourseName) throw new Error("CSV is missing 'CourseName'.");
+
+            const courseName = rawCourseName; // Use the trimmed version
+            const layoutName = rawLayoutName; // Use the trimmed version
 
             const existingCourses = await getUserCourses(userId);
-            const existingCourse = existingCourses.find(c => c.name.toLowerCase() === courseName.toLowerCase() && c.tournamentName.toLowerCase() === layoutName.toLowerCase());
+
+            // Find existing course using trimmed, lowercased names
+            const existingCourse = existingCourses.find(c =>
+                c.name?.toLowerCase() === courseName.toLowerCase() &&
+                (c.tournamentName?.toLowerCase() || '') === layoutName.toLowerCase() // Robust comparison for layoutName
+            );
+            // --- End of Fix for Course Duplication ---
 
             if (existingCourse) {
                 await proceedToScoreImport(existingCourse, csvResults);
@@ -307,7 +319,7 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
 
                 if (holesArray.length === 0) throw new Error("No 'HoleX' columns found.");
 
-                const courseData = { name: courseName, tournamentName: layoutName };
+                const courseData = { name: courseName, tournamentName: layoutName }; // Use the trimmed names for new course creation
                 setConfirmationState({
                     isOpen: true,
                     title: 'Create New Course?',
