@@ -19,19 +19,19 @@ export default function ScoresPage() {
 
     // Define your backend function URL
     // THIS IS YOUR LIVE DEPLOYED GOOGLE CLOUD FUNCTION URL + THE EXPRESS ROUTE
-    const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-score-analyzer/api/gemini-insight'; // <-- PASTE YOUR EXACT LIVE URL HERE!
+    const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-score-analyzer/api/gemini-insight'; // <-- YOUR LIVE URL HERE!
 
     useEffect(() => {
         if (!isAuthReady) return;
 
         if (userId) {
             setIsLoading(true);
-            const unsubscribe = subscribeToRounds(userId, (fetchedRounds) => {
+            const unsubscribe = subscribeToRounds(userId, (fetchedRounds) => { // <-- CORRECTED: fetchedRounds
                 // --- Start of Deduplication Logic ---
                 const uniqueRoundsMap = new Map(); // Key: `${courseName}-${layoutName}-${dateFormatted}`
                 // Value: the round object
 
-                fetchedRrounds.forEach(round => {
+                fetchedRounds.forEach(round => { // <-- CORRECTED: fetchedRounds
                     // Ensure round.date is a Date object for isSameDay comparison
                     const roundDate = round.date?.toDate ? round.date.toDate() : null;
 
@@ -112,7 +112,7 @@ export default function ScoresPage() {
                         date: round.date, // Send Firestore Timestamp as is, backend will convert
                         totalScore: round.totalScore,
                         scoreToPar: round.scoreToPar,
-                        scores: round.scores // <--- THIS LINE INCLUDES THE HOLE SCORES
+                        scores: round.scores // THIS LINE INCLUDES THE HOLE SCORES
                     }))
                 }),
             });
