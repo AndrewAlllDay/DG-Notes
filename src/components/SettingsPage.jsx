@@ -135,7 +135,7 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
     const [selectPlayerState, setSelectPlayerState] = useState({ isOpen: false, players: [], onSelect: () => { } });
     const [pendingCourse, setPendingCourse] = useState(null);
 
-    const APP_VERSION = 'v1.11';
+    const APP_VERSION = 'v1.12';
 
     useEffect(() => {
         const processSharedFile = async () => {
