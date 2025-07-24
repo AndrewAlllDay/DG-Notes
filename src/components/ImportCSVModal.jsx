@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'; // Import useRef
+import React, { useState, useRef } from 'react';
 import Papa from 'papaparse';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Upload, X } from 'lucide-react';
@@ -7,14 +7,11 @@ export default function ImportCSVModal({ isOpen, onClose, onImport }) {
     const [csvResults, setCsvResults] = useState(null);
     const [fileName, setFileName] = useState('');
     const [error, setError] = useState('');
-
-    // Create a ref for the file input
     const fileInputRef = useRef(null);
 
     const handleFileChange = (event) => {
         const file = event.target.files[0];
         if (!file) {
-            // If no file is selected (e.g., user cancels), clear states
             setFileName('');
             setCsvResults(null);
             setError('');
@@ -32,39 +29,29 @@ export default function ImportCSVModal({ isOpen, onClose, onImport }) {
                 if (!results.data.length || !headers.includes('PlayerName') || !headers.includes('CourseName') || !headers.some(h => h.startsWith('Hole'))) {
                     setError('Invalid CSV format. Please use a scorecard export with "PlayerName", "CourseName", and "Hole1..." columns.');
                     setCsvResults(null);
-                    // Clear file input if there's an error in parsing
                     if (fileInputRef.current) {
                         fileInputRef.current.value = '';
                     }
-                    setFileName(''); // Also clear the displayed file name
+                    setFileName('');
                     return;
                 }
-                setCsvResults(results); // Store the full results object
+                setCsvResults(results);
             },
             error: (err) => {
                 setError(`CSV parsing error: ${err.message}`);
                 setCsvResults(null);
-                // Clear file input if there's an error
                 if (fileInputRef.current) {
                     fileInputRef.current.value = '';
                 }
-                setFileName(''); // Also clear the displayed file name
+                setFileName('');
             }
         });
     };
 
+    // MODIFIED: This now passes the csvResults object directly
     const handleSubmit = () => {
         if (csvResults) {
-            onImport(csvResults); // Pass the full results object
-            // Clear the file input field
-            if (fileInputRef.current) {
-                fileInputRef.current.value = '';
-            }
-            // Reset state related to the uploaded file
-            setCsvResults(null);
-            setFileName('');
-            setError(''); // Clear any previous error
-            onClose(); // Close the modal after successful import
+            onImport(csvResults);
         }
     };
 
@@ -72,7 +59,6 @@ export default function ImportCSVModal({ isOpen, onClose, onImport }) {
         setCsvResults(null);
         setFileName('');
         setError('');
-        // Also clear the file input when the modal is closed
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -99,48 +85,25 @@ export default function ImportCSVModal({ isOpen, onClose, onImport }) {
                     </div>
 
                     <div className="mb-4">
-                        <label
-                            htmlFor="csv-upload"
-                            className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
-                        >
+                        <label htmlFor="csv-upload" className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
                             <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                 <Upload size={32} className="text-gray-500 mb-2" />
-                                <p className="mb-2 text-sm text-gray-500">
-                                    <span className="font-semibold">Click to upload</span>
-                                </p>
-                                {fileName ? (
-                                    <p className="text-xs text-blue-600">{fileName}</p>
-                                ) : (
-                                    <p className="text-xs text-gray-500">CSV file</p>
-                                )}
+                                <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Click to upload</span></p>
+                                {fileName ? (<p className="text-xs text-blue-600">{fileName}</p>) : (<p className="text-xs text-gray-500">CSV file</p>)}
                             </div>
-                            <input
-                                id="csv-upload"
-                                type="file"
-                                className="hidden"
-                                accept=".csv, text/csv"
-                                onChange={handleFileChange}
-                                ref={fileInputRef} // Attach the ref here
-                            />
+                            <input id="csv-upload" type="file" className="hidden" accept=".csv, text/csv" onChange={handleFileChange} ref={fileInputRef} />
                         </label>
                     </div>
 
-                    {error && <div className="text-red-600 text-sm mb-4 p-2 bg-red-50 rounded-md">{error}</div>}
+                    {/* The notes text area has been removed from this modal */}
+
+                    {error && <div className="text-red-600 text-sm mt-4 p-2 bg-red-50 rounded-md">{error}</div>}
 
                     <div className="flex justify-end space-x-3 mt-6">
-                        <button
-                            type="button"
-                            onClick={handleClose}
-                            className="bg-gray-200 px-4 py-2 rounded-md text-gray-800 hover:bg-gray-300"
-                        >
+                        <button type="button" onClick={handleClose} className="bg-gray-200 px-4 py-2 rounded-md text-gray-800 hover:bg-gray-300">
                             Cancel
                         </button>
-                        <button
-                            type="button"
-                            onClick={handleSubmit}
-                            className="!bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={!csvResults || !!error}
-                        >
+                        <button type="button" onClick={handleSubmit} className="!bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled={!csvResults || !!error}>
                             Process Import
                         </button>
                     </div>

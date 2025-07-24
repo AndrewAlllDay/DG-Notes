@@ -4,7 +4,7 @@ import {
     addDoc,
     doc,
     updateDoc,
-    deleteDoc, // <-- This is imported for deleteDoc
+    deleteDoc,
     query,
     orderBy,
     onSnapshot,
@@ -13,7 +13,8 @@ import {
     getDoc,
     setDoc,
     where,
-    getDocs
+    getDocs,
+    writeBatch // NEW: Added for batch deletion
 } from 'firebase/firestore';
 
 import { appId } from '../firebase';
@@ -589,6 +590,17 @@ export const deleteDiscFromBag = async (userId, discId) => {
     }
 };
 
+// --- ROUND / SCORECARD MANAGEMENT ---
+
+// Function to get the user-specific rounds collection path
+const getUserRoundsCollection = (userId) => {
+    if (!userId) {
+        console.error("Attempted to access rounds collection without a userId.");
+        throw new Error("User not authenticated or userId is missing.");
+    }
+    return collection(db, `artifacts/${appId}/users/${userId}/rounds`);
+};
+
 export const subscribeToRounds = (userId, callback) => {
     if (!userId) {
         console.warn("Attempted to subscribe to rounds without a userId.");
@@ -608,26 +620,14 @@ export const subscribeToRounds = (userId, callback) => {
     return unsubscribe;
 };
 
-
-
-// --- ROUND / SCORECARD MANAGEMENT ---
-
-// Function to get the user-specific rounds collection path
-const getUserRoundsCollection = (userId) => {
-    if (!userId) {
-        console.error("Attempted to access rounds collection without a userId.");
-        throw new Error("User not authenticated or userId is missing.");
-    }
-    return collection(db, `artifacts/${appId}/users/${userId}/rounds`);
-};
-
 /**
  * Adds a new round/scorecard to a user's collection in Firestore.
  * @param {string} userId - The UID of the user who owns the round.
  * @param {Object} roundData - An object containing the round's details.
+ * @param {string} notes - Optional notes about the round.
  * @returns {Promise<Object>} A promise that resolves with the new round's ID and data.
  */
-export const addRound = async (userId, roundData) => {
+export const addRound = async (userId, roundData, notes) => {
     try {
         if (!userId) {
             throw new Error("Cannot add round: User ID is missing.");
@@ -638,7 +638,8 @@ export const addRound = async (userId, roundData) => {
 
         const newRoundData = {
             ...roundData,
-            userId: userId, // Ensure the userId is part of the document
+            userId: userId,
+            notes: notes || null, // Add the notes field, defaulting to null
             createdAt: new Date(),
         };
 

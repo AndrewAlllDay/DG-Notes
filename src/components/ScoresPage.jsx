@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useFirebase } from '../firebase.js';
+// MODIFIED: Reverted to the original deleteRound to prevent crashing
 import { subscribeToRounds, deleteRound } from '../services/firestoreService.jsx';
-import { format, isSameDay } from 'date-fns';
+import { format } from 'date-fns';
 import { FaTrash } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
@@ -23,14 +24,7 @@ export default function ScoresPage() {
     const [roundToDelete, setRoundToDelete] = useState(null); // Stores the round data to be deleted
     // --- END NEW STATE ---
 
-    // --- NEW: Watch state changes for debugging (can be removed after confirmed working) ---
-    useEffect(() => {
-        console.log("Modal State Changed: showDeleteConfirmModal:", showDeleteConfirmModal, "roundToDelete:", roundToDelete ? roundToDelete.id : 'null');
-    }, [showDeleteConfirmModal, roundToDelete]);
-    // --- END NEW ---
-
     // Define your backend function URL
-    // THIS IS YOUR LIVE DEPLOYED GOOGLE CLOUD FUNCTION URL + THE EXPRESS ROUTE
     const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-score-analyzer/api/gemini-insight'; // Your live URL here
 
     useEffect(() => {
@@ -39,9 +33,8 @@ export default function ScoresPage() {
         if (userId) {
             setIsLoading(true);
             const unsubscribe = subscribeToRounds(userId, (fetchedRounds) => {
-                // --- Start of Deduplication Logic ---
                 const uniqueRoundsMap = new Map();
-                fetchedRounds.forEach(round => { // Corrected parameter usage here
+                fetchedRounds.forEach(round => {
                     const roundDate = round.date?.toDate ? round.date.toDate() : null;
                     if (roundDate) {
                         const dateKey = format(roundDate, 'yyyy-MM-dd');
@@ -75,56 +68,41 @@ export default function ScoresPage() {
         return score;
     };
 
-    // --- UPDATED: Function to handle round deletion (opens custom modal) ---
     const handleDeleteRound = async (roundId, courseName, layoutName) => {
         if (!userId) {
             toast.error("You must be logged in to delete scores.");
             return;
         }
-        // Store the round data and show the modal
         setRoundToDelete({ id: roundId, courseName, layoutName });
         setShowDeleteConfirmModal(true);
-        // Debugging logs (you can remove these after it's working)
-        console.log("handleDeleteRound called for:", roundId);
-        console.log("handleDeleteRound: Setting roundToDelete to", { id: roundId, courseName, layoutName });
-        console.log("handleDeleteRound: Setting showDeleteConfirmModal to true");
     };
-    // --- END UPDATED FUNCTION ---
 
-    // --- Functions to confirm/cancel deletion from modal ---
+    // MODIFIED: Reverted this function to use the original deleteRound
     const confirmDelete = async () => {
-        // Debugging logs (can be removed after confirmed working)
-        console.log("confirmDelete: Attempting to delete round:", roundToDelete ? roundToDelete.id : 'null');
         if (!roundToDelete || !userId) {
-            console.error("confirmDelete: Missing roundToDelete or userId. Aborting.");
             setShowDeleteConfirmModal(false);
             setRoundToDelete(null);
             return;
         }
 
-        setShowDeleteConfirmModal(false); // Close the modal immediately
+        setShowDeleteConfirmModal(false);
         try {
+            // Using the original delete function again
             await deleteRound(userId, roundToDelete.id);
+
             toast.success(`Scorecard for ${roundToDelete.courseName} deleted successfully!`);
-            setRoundToDelete(null); // Clear the pending round data
-            // Debugging logs (can be removed after confirmed working)
-            console.log("confirmDelete: Deletion successful, state reset.");
+            setRoundToDelete(null);
         } catch (error) {
             console.error("Error deleting round:", error);
             toast.error(`Failed to delete scorecard: ${error.message}`);
-            // Debugging logs (can be removed after confirmed working)
-            console.log("confirmDelete: Deletion failed, state reset (modal closed).");
-            setRoundToDelete(null); // Clear roundToDelete even on error
+            setRoundToDelete(null);
         }
     };
 
     const cancelDelete = () => {
         setShowDeleteConfirmModal(false);
         setRoundToDelete(null);
-        // Debugging logs (can be removed after confirmed working)
-        console.log("cancelDelete: Modal closed, deletion cancelled. State reset.");
     };
-    // --- END FUNCTIONS ---
 
     const runGeminiAnalysis = async () => {
         if (!BACKEND_API_URL || BACKEND_API_URL.includes('your-function-name')) {
@@ -215,6 +193,15 @@ export default function ScoresPage() {
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Displays the notes if they exist */}
+                            {round.notes && (
+                                <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                        {round.notes}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -253,9 +240,9 @@ export default function ScoresPage() {
             {/* --- End Gemini Integration UI --- */}
 
             {/* Render the Delete Confirmation Modal */}
-            {roundToDelete && ( // Only render if there's a round pending deletion
+            {roundToDelete && (
                 <DeleteConfirmationModal
-                    key={roundToDelete.id} // Added key to force remount of modal
+                    key={roundToDelete.id}
                     isOpen={showDeleteConfirmModal}
                     onClose={cancelDelete}
                     onConfirm={confirmDelete}

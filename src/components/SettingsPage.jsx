@@ -20,6 +20,7 @@ import ImportCSVModal from './ImportCSVModal';
 import ConfirmationModal from './ConfirmationModal';
 import SelectCourseTypeModal from './SelectCourseTypeModal';
 import SelectPlayerModal from './SelectPlayerModal';
+import AddRoundNotesModal from './AddRoundNotesModal'; // NEW: Import the notes modal
 
 // HELPER FUNCTIONS FOR INDEXEDDB (Client-side)
 function getDb() {
@@ -110,7 +111,6 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
     const [copyMessage, setCopyMessage] = useState('');
     const [displayNameInput, setDisplayNameInput] = useState('');
     const [saveMessage, setSaveMessage] = useState({ type: '', text: '' });
-    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importMessage, setImportMessage] = useState({ type: '', text: '' });
 
     // State for Admin Role Management
@@ -123,15 +123,18 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
     const [newTeamName, setNewTeamName] = useState('');
     const [teamMessage, setTeamMessage] = useState({ type: '', text: '' });
 
-    // State for Modal Flow
+    // MODIFIED: State for the entire modal flow, including notes
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [isNotesModalOpen, setIsNotesModalOpen] = useState(false); // NEW
     const [confirmationState, setConfirmationState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => { } });
     const [selectTypeState, setSelectTypeState] = useState({ isOpen: false });
     const [selectPlayerState, setSelectPlayerState] = useState({ isOpen: false, players: [], onSelect: () => { } });
     const [pendingCourse, setPendingCourse] = useState(null);
+    const [pendingRoundData, setPendingRoundData] = useState(null); // NEW: To hold data before saving round
 
     const APP_VERSION = 'v1.13';
 
-    // --- CRITICAL FIX: Delay shared file processing until user is authenticated ---
+    // CRITICAL FIX: Delay shared file processing until user is authenticated
     useEffect(() => {
         const processSharedFile = async () => {
             const params = new URLSearchParams(window.location.search);
@@ -187,7 +190,6 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
         // This ensures it retries once auth is ready.
         processSharedFile();
     }, [userId, isAuthReady]); // DEPENDENCY ARRAY NOW INCLUDES userId and isAuthReady
-    // --- END CRITICAL FIX ---
 
     useEffect(() => {
         if (user && user.uid && isAuthReady) {
@@ -240,43 +242,70 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
         }
     };
 
-    const saveUserRound = async (courseId, courseName, layoutName, userRow, headers) => {
+    // NEW: This function will be called AFTER the user adds notes.
+    const handleFinalizeRoundImport = async (notes) => {
+        if (!pendingRoundData) {
+            setImportMessage({ type: 'error', text: 'An error occurred. Missing round data.' });
+            return;
+        }
+
+        const { course, userRow, headers } = pendingRoundData;
+
+        // Construct the final round data object
         const scores = [];
         for (const header of headers) {
-            const match = header.match(/^Hole(\w+)$/);
-            if (match) {
-                scores.push(parseInt(userRow[header]));
+            if (header.match(/^Hole(\w+)$/)) {
+                scores.push(parseInt(userRow[header], 10));
             }
         }
 
         const roundData = {
-            courseId,
-            courseName,
-            layoutName,
+            courseId: course.id,
+            courseName: course.name,
+            layoutName: course.tournamentName,
             date: parse(userRow.StartDate, 'yyyy-MM-dd HHmm', new Date()),
             totalScore: parseInt(userRow.Total),
             scoreToPar: parseInt(userRow['+/-']),
             scores: scores
         };
 
-        await addRound(userId, roundData);
-        setImportMessage({ type: 'success', text: `Your scorecard for ${courseName} has been imported!` });
+        try {
+            // Call the service with the notes
+            await addRound(userId, roundData, notes);
+            setImportMessage({ type: 'success', text: `Your scorecard for ${course.name} has been imported!` });
+        } catch (error) {
+            setImportMessage({ type: 'error', text: `Failed to save round: ${error.message}` });
+        }
+
+        // Reset state and close the notes modal
+        setIsNotesModalOpen(false);
+        setPendingRoundData(null);
     };
 
+    // MODIFIED: This function now gathers data and opens the notes modal.
     const proceedToScoreImport = async (course, csvResults) => {
         const playerRows = csvResults.data.filter(row => row.PlayerName !== 'Par');
-        const userRow = playerRows.find(row => row.PlayerName.toLowerCase() === user.displayName.toLowerCase());
+        const userRow = playerRows.find(row => cleanStringForComparison(row.PlayerName) === cleanStringForComparison(user.displayName));
+
+        const openNotesModalWithData = (selectedRow) => {
+            setPendingRoundData({
+                course: course,
+                userRow: selectedRow,
+                headers: csvResults.meta.fields,
+            });
+            setIsNotesModalOpen(true);
+        };
 
         if (userRow) {
-            await saveUserRound(course.id, course.name, course.tournamentName, userRow, csvResults.meta.fields);
+            openNotesModalWithData(userRow);
         } else {
             setSelectPlayerState({
                 isOpen: true,
                 players: playerRows.map(row => row.PlayerName),
                 onSelect: (selectedPlayer) => {
                     const selectedRow = playerRows.find(row => row.PlayerName === selectedPlayer);
-                    saveUserRound(course.id, course.name, course.tournamentName, selectedRow, csvResults.meta.fields);
                     setSelectPlayerState({ isOpen: false, players: [], onSelect: () => { } });
+                    openNotesModalWithData(selectedRow);
                 }
             });
         }
@@ -317,17 +346,8 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
             const parRow = csvData.find(row => row.PlayerName === 'Par');
             if (!parRow) throw new Error("Could not find 'Par' row in CSV.");
 
-            // Ensure strings are robustly cleaned before comparison
             const rawCourseName = cleanStringForComparison(parRow.CourseName);
             const rawLayoutName = cleanStringForComparison(parRow.LayoutName);
-
-            // Debugging Logs for Course Duplication
-            console.log("DEBUG: handleCourseImport started.");
-            console.log("DEBUG: Raw CSV CourseName:", `'${parRow.CourseName}'`);
-            console.log("DEBUG: Raw CSV LayoutName:", `'${parRow.LayoutName}'`);
-            console.log("DEBUG: Cleaned CSV CourseName:", `'${rawCourseName}'`);
-            console.log("DEBUG: Cleaned CSV LayoutName:", `'${rawLayoutName}'`);
-            console.log("DEBUG: Current userId (inside handleCourseImport):", userId); // Added log for userId context
 
             if (!rawCourseName) throw new Error("CSV is missing 'CourseName'.");
 
@@ -336,27 +356,10 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
 
             const existingCourses = await getUserCourses(userId);
 
-            // Debugging Logs for Existing Courses
-            console.log("DEBUG: Fetched existingCourses (count):", existingCourses.length);
-            existingCourses.forEach((c, index) => {
-                console.log(`  Existing Course ${index + 1} (from DB):`);
-                console.log(`    ID: ${c.id}`);
-                console.log(`    DB Name: '${c.name}' (type: ${typeof c.name})`);
-                console.log(`    DB Layout: '${c.tournamentName}' (type: ${typeof c.tournamentName})`);
-                console.log(`    Comparison Name: '${c.name?.toLowerCase()}' vs CSV '${courseName.toLowerCase()}'`);
-                console.log(`    Comparison Layout: '${(c.tournamentName?.toLowerCase() || '')}' vs CSV '${layoutName.toLowerCase()}'`);
-                console.log(`    Name Match (boolean): ${c.name?.toLowerCase() === courseName.toLowerCase()}`);
-                console.log(`    Layout Match (boolean): ${(c.tournamentName?.toLowerCase() || '') === layoutName.toLowerCase()}`);
-                console.log(`    Full Match (AND boolean): ${c.name?.toLowerCase() === courseName.toLowerCase() && (c.tournamentName?.toLowerCase() || '') === layoutName.toLowerCase()}`);
-            });
-
             const existingCourse = existingCourses.find(c =>
-                c.name?.toLowerCase() === courseName.toLowerCase() &&
-                (c.tournamentName?.toLowerCase() || '') === layoutName.toLowerCase()
+                cleanStringForComparison(c.name) === courseName &&
+                cleanStringForComparison(c.tournamentName) === layoutName
             );
-
-            console.log("DEBUG: Match result - existingCourse found:", existingCourse ? existingCourse.id : 'None found');
-
 
             if (existingCourse) {
                 await proceedToScoreImport(existingCourse, csvResults);
@@ -491,8 +494,6 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
                 <p className="text-gray-600 text-sm">Your Role: <span className="font-semibold capitalize">{user.role || 'player'}</span></p>
             </Accordion>
 
-
-
             <Accordion title="Data Management">
                 <h3 className="text-lg font-semibold text-gray-800">Import Scorecard</h3>
                 <p className="text-sm text-gray-600 mb-2">Upload a scorecard exported from Udisc.</p>
@@ -596,10 +597,18 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
                 FlightLog: {APP_VERSION}
             </div>
 
+            {/* MODIFIED: Add the new Notes Modal here alongside the others */}
             <ImportCSVModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={handleCourseImport} />
             <ConfirmationModal isOpen={confirmationState.isOpen} onClose={() => setConfirmationState({ ...confirmationState, isOpen: false })} onConfirm={confirmationState.onConfirm} title={confirmationState.title} message={confirmationState.message} />
             <SelectCourseTypeModal isOpen={selectTypeState.isOpen} onClose={() => setSelectTypeState({ isOpen: false })} onSubmit={handleCreateFinal} />
             <SelectPlayerModal isOpen={selectPlayerState.isOpen} onClose={() => setSelectPlayerState({ isOpen: false, players: [], onSelect: () => { } })} onSelect={selectPlayerState.onSelect} players={selectPlayerState.players} />
+
+            {/* NEW: Render the notes modal */}
+            <AddRoundNotesModal
+                isOpen={isNotesModalOpen}
+                onClose={() => handleFinalizeRoundImport('')} // Allow skipping by finalizing with empty notes
+                onSubmit={handleFinalizeRoundImport}
+            />
         </div>
     );
 }
