@@ -65,6 +65,18 @@ async function clearFiles() {
     });
 }
 
+// NEW: Helper function for robust string cleaning
+const cleanStringForComparison = (str) => {
+    if (typeof str !== 'string') return ''; // Ensure it's a string, return empty for non-strings
+    // Remove common invisible characters (zero-width spaces, BOM, etc.)
+    // and replace non-breaking spaces with regular spaces before trimming.
+    return str
+        .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width characters, BOM
+        .replace(/\u00A0/g, ' ') // Replace non-breaking space with regular space
+        .trim(); // Trim leading/trailing whitespace
+};
+// END NEW Helper Function
+
 
 // Reusable Accordion Component
 const Accordion = ({ title, children, defaultOpen = false }) => {
@@ -284,15 +296,40 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
 
             // --- Start of Fix for Course Duplication ---
             // Ensure strings are trimmed and handle potential undefined/null layoutName gracefully
-            const rawCourseName = parRow.CourseName ? String(parRow.CourseName).trim() : '';
-            const rawLayoutName = parRow.LayoutName ? String(parRow.LayoutName).trim() : '';
+            // NOW USING THE cleanStringForComparison HELPER FUNCTION
+            const rawCourseName = cleanStringForComparison(parRow.CourseName);
+            const rawLayoutName = cleanStringForComparison(parRow.LayoutName);
+
+            // --- Debugging Logs for Course Duplication ---
+            console.log("DEBUG: handleCourseImport started.");
+            console.log("DEBUG: Raw CSV CourseName:", `'${parRow.CourseName}'`);
+            console.log("DEBUG: Raw CSV LayoutName:", `'${parRow.LayoutName}'`);
+            console.log("DEBUG: Cleaned CSV CourseName:", `'${rawCourseName}'`); // Log cleaned
+            console.log("DEBUG: Cleaned CSV LayoutName:", `'${rawLayoutName}'`); // Log cleaned
+            console.log("DEBUG: Current userId:", userId);
+            // --- END Debugging Logs ---
 
             if (!rawCourseName) throw new Error("CSV is missing 'CourseName'.");
 
-            const courseName = rawCourseName; // Use the trimmed version
-            const layoutName = rawLayoutName; // Use the trimmed version
+            const courseName = rawCourseName; // Use the cleaned version
+            const layoutName = rawLayoutName; // Use the cleaned version
 
             const existingCourses = await getUserCourses(userId);
+
+            // --- Debugging Logs for Existing Courses ---
+            console.log("DEBUG: Fetched existingCourses (count):", existingCourses.length);
+            existingCourses.forEach((c, index) => {
+                console.log(`  Existing Course ${index + 1} (from DB):`);
+                console.log(`    ID: ${c.id}`);
+                console.log(`    DB Name: '${c.name}' (type: ${typeof c.name})`);
+                console.log(`    DB Layout: '${c.tournamentName}' (type: ${typeof c.tournamentName})`);
+                console.log(`    Comparison Name: '${c.name?.toLowerCase()}' vs CSV '${courseName.toLowerCase()}'`);
+                console.log(`    Comparison Layout: '${(c.tournamentName?.toLowerCase() || '')}' vs CSV '${layoutName.toLowerCase()}'`);
+                console.log(`    Name Match (boolean): ${c.name?.toLowerCase() === courseName.toLowerCase()}`);
+                console.log(`    Layout Match (boolean): ${(c.tournamentName?.toLowerCase() || '') === layoutName.toLowerCase()}`);
+                console.log(`    Full Match (AND boolean): ${c.name?.toLowerCase() === courseName.toLowerCase() && (c.tournamentName?.toLowerCase() || '') === layoutName.toLowerCase()}`);
+            });
+            // --- END Debugging Logs ---
 
             // Find existing course using trimmed, lowercased names
             const existingCourse = existingCourses.find(c =>
@@ -300,6 +337,11 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
                 (c.tournamentName?.toLowerCase() || '') === layoutName.toLowerCase() // Robust comparison for layoutName
             );
             // --- End of Fix for Course Duplication ---
+
+            // --- Debugging Log for Match Result ---
+            console.log("DEBUG: Match result - existingCourse found:", existingCourse ? existingCourse.id : 'None found');
+            // --- END Debugging Log ---
+
 
             if (existingCourse) {
                 await proceedToScoreImport(existingCourse, csvResults);
@@ -330,6 +372,7 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
 
         } catch (error) {
             setImportMessage({ type: 'error', text: `Import failed: ${error.message}` });
+            console.error("DEBUG: handleCourseImport error:", error); // Log the actual error
         }
     };
 
