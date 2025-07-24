@@ -65,23 +65,17 @@ async function clearFiles() {
     });
 }
 
-// NEW: Helper function for "Bulletproof" string cleaning (more aggressive)
+// Helper function for "Bulletproof" string cleaning
 const cleanStringForComparison = (str) => {
-    if (typeof str !== 'string') return ''; // Ensure it's a string, return empty for non-strings
-    // Normalize Unicode to handle different representations of the same characters (e.g., accents)
-    str = str.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove combining diacritics
-
-    // Remove ALL non-printable ASCII characters (except basic whitespace like space, tab, newline)
-    // Remove common invisible Unicode characters (e.g., zero-width spaces, soft hyphens, BOM)
-    // Replace various Unicode spaces with standard spaces, then collapse multiple spaces.
+    if (typeof str !== 'string') return '';
+    str = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     return str
-        .replace(/[\x00-\x1F\x7F]/g, '') // Remove ASCII control characters (0-31, 127)
-        .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, ' ') // Replace various Unicode spaces (e.g., non-breaking space) with regular space
-        .replace(/[\u200B-\u200D\uFEFF\u2060\u2061\u2062\u2063\u2064\u206A-\u206F\uFFF9-\uFFFB]/g, '') // Remove zero-width characters, BOM, etc.
-        .replace(/\s+/g, ' ') // Replace sequences of any whitespace characters (including newlines, tabs) with a single space
-        .trim(); // Finally, trim leading/trailing whitespace
+        .replace(/[\x00-\x1F\x7F]/g, '')
+        .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, ' ')
+        .replace(/[\u200B-\u200D\uFEFF\u2060\u2061\u2062\u2063\u2064\u206A-\u206F\uFFF9-\uFFFB]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
 };
-// END NEW Helper Function
 
 
 // Reusable Accordion Component
@@ -135,33 +129,52 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
     const [selectPlayerState, setSelectPlayerState] = useState({ isOpen: false, players: [], onSelect: () => { } });
     const [pendingCourse, setPendingCourse] = useState(null);
 
-    const APP_VERSION = 'v1.12';
+    const APP_VERSION = 'v1.13';
 
+    // --- CRITICAL FIX: Delay shared file processing until user is authenticated ---
     useEffect(() => {
         const processSharedFile = async () => {
             const params = new URLSearchParams(window.location.search);
+            // Check for 'share-target' parameter
             if (params.has('share-target')) {
+                // Log the auth state immediately when share-target is detected
+                console.log("DEBUG Share: Share target detected. User Auth state at start:", { userId, isAuthReady });
+
+                // If authentication is NOT ready OR userId is NOT available, wait and show message
+                if (!isAuthReady || !userId) {
+                    setImportMessage({ type: 'info', text: 'Waiting for user authentication to process shared file...' });
+                    return; // Exit and wait for useEffect to re-run when auth is ready
+                }
+
+                // If we reach here, userId and isAuthReady ARE available
+                console.log("DEBUG Share: Authentication is ready, processing shared file with userId:", userId);
                 setImportMessage({ type: 'info', text: 'Processing shared file...' });
                 try {
-                    const file = await getFile();
+                    const file = await getFile(); // Get file from IndexedDB
                     if (file) {
                         Papa.parse(file, {
                             header: true,
                             skipEmptyLines: true,
                             complete: (results) => {
-                                handleCourseImport(results);
+                                console.log("DEBUG Share: PapaParse completed for shared file.");
+                                console.log("DEBUG Share: Raw CSV Data (first row):", results.data[0]);
+                                console.log("DEBUG Share: Parsed parRow for CourseName:", `'${results.data.find(row => row.PlayerName === 'Par')?.CourseName}'`);
+                                console.log("DEBUG Share: Parsed parRow for LayoutName:", `'${results.data.find(row => row.PlayerName === 'Par')?.LayoutName}'`);
+                                handleCourseImport(results); // Call the main import logic
                             },
                             error: () => {
                                 setImportMessage({ type: 'error', text: 'Failed to parse the shared CSV file.' });
                             }
                         });
-                        await clearFiles();
+                        await clearFiles(); // Clear file from IndexedDB after processing
                     } else {
                         setImportMessage({ type: 'info', text: 'No shared file found to process.' });
                     }
                 } catch (error) {
                     setImportMessage({ type: 'error', text: `Could not process shared file: ${error.message}` });
+                    console.error("DEBUG Share: Error processing shared file:", error);
                 } finally {
+                    // Clean up URL parameters only after processing is attempted
                     const url = new URL(window.location);
                     url.searchParams.delete('share-target');
                     window.history.replaceState({}, '', url);
@@ -169,8 +182,12 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
             }
         };
 
+        // Call the processing function whenever userId or isAuthReady changes,
+        // and if a share-target is present.
+        // This ensures it retries once auth is ready.
         processSharedFile();
-    }, []);
+    }, [userId, isAuthReady]); // DEPENDENCY ARRAY NOW INCLUDES userId and isAuthReady
+    // --- END CRITICAL FIX ---
 
     useEffect(() => {
         if (user && user.uid && isAuthReady) {
@@ -300,28 +317,26 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
             const parRow = csvData.find(row => row.PlayerName === 'Par');
             if (!parRow) throw new Error("Could not find 'Par' row in CSV.");
 
-            // --- Start of Fix for Course Duplication (using robust cleaning) ---
             // Ensure strings are robustly cleaned before comparison
             const rawCourseName = cleanStringForComparison(parRow.CourseName);
             const rawLayoutName = cleanStringForComparison(parRow.LayoutName);
 
-            // --- Debugging Logs for Course Duplication ---
+            // Debugging Logs for Course Duplication
             console.log("DEBUG: handleCourseImport started.");
             console.log("DEBUG: Raw CSV CourseName:", `'${parRow.CourseName}'`);
             console.log("DEBUG: Raw CSV LayoutName:", `'${parRow.LayoutName}'`);
             console.log("DEBUG: Cleaned CSV CourseName:", `'${rawCourseName}'`);
             console.log("DEBUG: Cleaned CSV LayoutName:", `'${rawLayoutName}'`);
-            console.log("DEBUG: Current userId:", userId);
-            // --- END Debugging Logs ---
+            console.log("DEBUG: Current userId (inside handleCourseImport):", userId); // Added log for userId context
 
             if (!rawCourseName) throw new Error("CSV is missing 'CourseName'.");
 
-            const courseName = rawCourseName; // Use the cleaned version
-            const layoutName = rawLayoutName; // Use the cleaned version
+            const courseName = rawCourseName;
+            const layoutName = rawLayoutName;
 
             const existingCourses = await getUserCourses(userId);
 
-            // --- Debugging Logs for Existing Courses ---
+            // Debugging Logs for Existing Courses
             console.log("DEBUG: Fetched existingCourses (count):", existingCourses.length);
             existingCourses.forEach((c, index) => {
                 console.log(`  Existing Course ${index + 1} (from DB):`);
@@ -334,18 +349,13 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
                 console.log(`    Layout Match (boolean): ${(c.tournamentName?.toLowerCase() || '') === layoutName.toLowerCase()}`);
                 console.log(`    Full Match (AND boolean): ${c.name?.toLowerCase() === courseName.toLowerCase() && (c.tournamentName?.toLowerCase() || '') === layoutName.toLowerCase()}`);
             });
-            // --- END Debugging Logs ---
 
-            // Find existing course using trimmed, lowercased names
             const existingCourse = existingCourses.find(c =>
                 c.name?.toLowerCase() === courseName.toLowerCase() &&
-                (c.tournamentName?.toLowerCase() || '') === layoutName.toLowerCase() // Robust comparison for layoutName
+                (c.tournamentName?.toLowerCase() || '') === layoutName.toLowerCase()
             );
-            // --- End of Fix for Course Duplication ---
 
-            // --- Debugging Log for Match Result ---
             console.log("DEBUG: Match result - existingCourse found:", existingCourse ? existingCourse.id : 'None found');
-            // --- END Debugging Log ---
 
 
             if (existingCourse) {
@@ -366,7 +376,7 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
 
                 if (holesArray.length === 0) throw new Error("No 'HoleX' columns found.");
 
-                const courseData = { name: courseName, tournamentName: layoutName }; // Use the trimmed names for new course creation
+                const courseData = { name: courseName, tournamentName: layoutName };
                 setConfirmationState({
                     isOpen: true,
                     title: 'Create New Course?',
@@ -377,7 +387,7 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
 
         } catch (error) {
             setImportMessage({ type: 'error', text: `Import failed: ${error.message}` });
-            console.error("DEBUG: handleCourseImport error:", error); // Log the actual error
+            console.error("DEBUG: handleCourseImport error:", error);
         }
     };
 
