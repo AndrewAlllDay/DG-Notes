@@ -65,15 +65,21 @@ async function clearFiles() {
     });
 }
 
-// NEW: Helper function for robust string cleaning
+// NEW: Helper function for "Bulletproof" string cleaning (more aggressive)
 const cleanStringForComparison = (str) => {
     if (typeof str !== 'string') return ''; // Ensure it's a string, return empty for non-strings
-    // Remove common invisible characters (zero-width spaces, BOM, etc.)
-    // and replace non-breaking spaces with regular spaces before trimming.
+    // Normalize Unicode to handle different representations of the same characters (e.g., accents)
+    str = str.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove combining diacritics
+
+    // Remove ALL non-printable ASCII characters (except basic whitespace like space, tab, newline)
+    // Remove common invisible Unicode characters (e.g., zero-width spaces, soft hyphens, BOM)
+    // Replace various Unicode spaces with standard spaces, then collapse multiple spaces.
     return str
-        .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width characters, BOM
-        .replace(/\u00A0/g, ' ') // Replace non-breaking space with regular space
-        .trim(); // Trim leading/trailing whitespace
+        .replace(/[\x00-\x1F\x7F]/g, '') // Remove ASCII control characters (0-31, 127)
+        .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, ' ') // Replace various Unicode spaces (e.g., non-breaking space) with regular space
+        .replace(/[\u200B-\u200D\uFEFF\u2060\u2061\u2062\u2063\u2064\u206A-\u206F\uFFF9-\uFFFB]/g, '') // Remove zero-width characters, BOM, etc.
+        .replace(/\s+/g, ' ') // Replace sequences of any whitespace characters (including newlines, tabs) with a single space
+        .trim(); // Finally, trim leading/trailing whitespace
 };
 // END NEW Helper Function
 
@@ -129,7 +135,7 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
     const [selectPlayerState, setSelectPlayerState] = useState({ isOpen: false, players: [], onSelect: () => { } });
     const [pendingCourse, setPendingCourse] = useState(null);
 
-    const APP_VERSION = 'v1.12';
+    const APP_VERSION = 'v1.11';
 
     useEffect(() => {
         const processSharedFile = async () => {
@@ -294,9 +300,8 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
             const parRow = csvData.find(row => row.PlayerName === 'Par');
             if (!parRow) throw new Error("Could not find 'Par' row in CSV.");
 
-            // --- Start of Fix for Course Duplication ---
-            // Ensure strings are trimmed and handle potential undefined/null layoutName gracefully
-            // NOW USING THE cleanStringForComparison HELPER FUNCTION
+            // --- Start of Fix for Course Duplication (using robust cleaning) ---
+            // Ensure strings are robustly cleaned before comparison
             const rawCourseName = cleanStringForComparison(parRow.CourseName);
             const rawLayoutName = cleanStringForComparison(parRow.LayoutName);
 
@@ -304,8 +309,8 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
             console.log("DEBUG: handleCourseImport started.");
             console.log("DEBUG: Raw CSV CourseName:", `'${parRow.CourseName}'`);
             console.log("DEBUG: Raw CSV LayoutName:", `'${parRow.LayoutName}'`);
-            console.log("DEBUG: Cleaned CSV CourseName:", `'${rawCourseName}'`); // Log cleaned
-            console.log("DEBUG: Cleaned CSV LayoutName:", `'${rawLayoutName}'`); // Log cleaned
+            console.log("DEBUG: Cleaned CSV CourseName:", `'${rawCourseName}'`);
+            console.log("DEBUG: Cleaned CSV LayoutName:", `'${rawLayoutName}'`);
             console.log("DEBUG: Current userId:", userId);
             // --- END Debugging Logs ---
 
