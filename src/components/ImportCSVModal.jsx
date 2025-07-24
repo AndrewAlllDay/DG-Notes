@@ -1,16 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react'; // Import useRef
 import Papa from 'papaparse';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Upload, X } from 'lucide-react';
 
 export default function ImportCSVModal({ isOpen, onClose, onImport }) {
-    const [csvResults, setCsvResults] = useState(null); // Changed from csvData
+    const [csvResults, setCsvResults] = useState(null);
     const [fileName, setFileName] = useState('');
     const [error, setError] = useState('');
+
+    // Create a ref for the file input
+    const fileInputRef = useRef(null);
 
     const handleFileChange = (event) => {
         const file = event.target.files[0];
         if (!file) {
+            // If no file is selected (e.g., user cancels), clear states
+            setFileName('');
+            setCsvResults(null);
+            setError('');
             return;
         }
 
@@ -25,6 +32,11 @@ export default function ImportCSVModal({ isOpen, onClose, onImport }) {
                 if (!results.data.length || !headers.includes('PlayerName') || !headers.includes('CourseName') || !headers.some(h => h.startsWith('Hole'))) {
                     setError('Invalid CSV format. Please use a scorecard export with "PlayerName", "CourseName", and "Hole1..." columns.');
                     setCsvResults(null);
+                    // Clear file input if there's an error in parsing
+                    if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                    }
+                    setFileName(''); // Also clear the displayed file name
                     return;
                 }
                 setCsvResults(results); // Store the full results object
@@ -32,6 +44,11 @@ export default function ImportCSVModal({ isOpen, onClose, onImport }) {
             error: (err) => {
                 setError(`CSV parsing error: ${err.message}`);
                 setCsvResults(null);
+                // Clear file input if there's an error
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+                setFileName(''); // Also clear the displayed file name
             }
         });
     };
@@ -39,6 +56,15 @@ export default function ImportCSVModal({ isOpen, onClose, onImport }) {
     const handleSubmit = () => {
         if (csvResults) {
             onImport(csvResults); // Pass the full results object
+            // Clear the file input field
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+            // Reset state related to the uploaded file
+            setCsvResults(null);
+            setFileName('');
+            setError(''); // Clear any previous error
+            onClose(); // Close the modal after successful import
         }
     };
 
@@ -46,6 +72,10 @@ export default function ImportCSVModal({ isOpen, onClose, onImport }) {
         setCsvResults(null);
         setFileName('');
         setError('');
+        // Also clear the file input when the modal is closed
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
         onClose();
     };
 
@@ -55,7 +85,7 @@ export default function ImportCSVModal({ isOpen, onClose, onImport }) {
                 <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
                 <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
                     <div className="flex justify-between items-center mb-4">
-                        <Dialog.Title className="text-xl font-bold text-gray-800">Import Course from CSV</Dialog.Title>
+                        <Dialog.Title className="text-xl font-bold text-gray-800">Import Scorecard</Dialog.Title>
                         <Dialog.Close asChild>
                             <button className="p-1 rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-800" aria-label="Close">
                                 <X size={20} />
@@ -84,7 +114,14 @@ export default function ImportCSVModal({ isOpen, onClose, onImport }) {
                                     <p className="text-xs text-gray-500">CSV file</p>
                                 )}
                             </div>
-                            <input id="csv-upload" type="file" className="hidden" accept=".csv, text/csv" onChange={handleFileChange} />
+                            <input
+                                id="csv-upload"
+                                type="file"
+                                className="hidden"
+                                accept=".csv, text/csv"
+                                onChange={handleFileChange}
+                                ref={fileInputRef} // Attach the ref here
+                            />
                         </label>
                     </div>
 

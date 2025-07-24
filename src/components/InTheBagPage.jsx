@@ -31,6 +31,7 @@ const Accordion = ({ title, children, defaultOpen = false }) => {
                 {isOpen ? <ChevronUp size={24} className="text-gray-800 dark:text-white" /> : <ChevronDown size={24} className="text-gray-800 dark:text-white" />}
             </button>
             {isOpen && (
+                // This div holds the children, it might need z-index too if all else fails
                 <div className="px-6 pb-6 pt-2 border-t border-gray-200 dark:border-gray-700">
                     {children}
                 </div>
@@ -317,7 +318,8 @@ export default function InTheBagPage() {
             onDragLeave={handleDragLeave}
             onDragEnd={handleDragEnd}
             onDrop={(e) => handleDrop(e, disc.id, type)}
-            className={`disc-item border rounded-lg shadow-sm p-4 flex justify-between items-center hover:shadow-md transition-shadow duration-200 ease-in-out relative cursor-grab ${type === 'active' ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 opacity-75'}`}
+            // Add conditional z-index when dropdown is open
+            className={`disc-item border rounded-lg shadow-sm p-4 flex justify-between items-center hover:shadow-md transition-shadow duration-200 ease-in-out relative cursor-grab ${type === 'active' ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'} ${openDiscActionsId === disc.id ? 'z-30' : ''}`}
             style={{ userSelect: 'none' }}
         >
             <div>
@@ -334,7 +336,8 @@ export default function InTheBagPage() {
                     <MoreVertical size={20} />
                 </button>
                 {openDiscActionsId === disc.id && (
-                    <div ref={dropdownRef} className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg z-10 border border-gray-200 dark:border-gray-600">
+                    // This z-index should already be sufficient for elements within the same stacking context
+                    <div ref={dropdownRef} className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg z-20 border border-gray-200 dark:border-gray-600">
                         {type === 'active' ? (
                             <>
                                 <button onClick={() => openEditDiscModal(disc)} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-t-md">
@@ -402,8 +405,9 @@ export default function InTheBagPage() {
                         title={`On the Shelf (${archivedDiscs.length} discs)`}
                         defaultOpen={false}
                     >
+                        {/* We are applying z-index to the ul inside the Accordion's children div */}
                         <ul
-                            className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2"
+                            className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 relative z-10"
                             onDragOver={handleDragOver}
                             onDrop={(e) => handleDrop(e, null, 'archived')}
                         >

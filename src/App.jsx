@@ -26,7 +26,7 @@ const LoadingScreen = ({ isDarkMode }) => {
     <div className={`fixed inset-0 flex items-center justify-center z-[2000] ${bgColor}`}>
       <div className="text-center">
         <div className={`animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 mx-auto mb-4 ${spinnerColor}`}></div>
-        <p className={`text-xl font-semibold ${textColor}`}>Loading DG Notes...</p>
+        <p className={`text-xl font-semibold ${textColor}`}>Loading FlightLog...</p>
       </div>
     </div>
   );
