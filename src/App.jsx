@@ -49,6 +49,8 @@ function App() {
 
   const [isEncouragementModalOpen, setIsEncouragementModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState('courses');
+  const [previousPage, setPreviousPage] = useState('courses'); // NEW STATE: to store the page before settings
+
   const [coursesKey, setCoursesKey] = useState(0);
 
   const [unreadNotesFromFirestore, setUnreadNotesFromFirestore] = useState([]);
@@ -89,20 +91,19 @@ function App() {
     setIsDarkMode(prevMode => !prevMode);
   };
 
+  // This useEffect handles initial navigation from share-target
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.has('share-target')) {
+      // If we are coming from a share target, immediately go to settings
+      // But importantly, the 'previousPage' should not be updated to 'settings' here
+      // as settings is the *destination*, not the page we were on *before* going to settings.
       setCurrentPage('settings');
+      // No setPreviousPage here, as the initial load doesn't have a 'previous' app page.
+      // The default 'courses' for previousPage is fine.
     }
   }, []);
 
-  /* // Temporarily disable Service Worker for development
-    useEffect(() => {
-      if ('serviceWorker' in navigator) {
-        // ... service worker code ...
-      }
-    }, []);
-  */
 
   useEffect(() => {
     let unsubscribePublicProfiles;
@@ -154,8 +155,24 @@ function App() {
     }
   }, [user, isAuthReady, hasInitialNonPlayerRedirected]);
 
+  // MODIFIED handleNavigate function
   const handleNavigate = (page) => {
-    setCurrentPage(page);
+    // If navigating to 'settings'
+    if (page === 'settings') {
+      if (currentPage === 'settings') {
+        // If currently on settings, go back to previous page
+        setCurrentPage(previousPage);
+      } else {
+        // If not on settings, store current page as previous, then go to settings
+        setPreviousPage(currentPage);
+        setCurrentPage('settings');
+      }
+    } else {
+      // For all other pages, simply set the current page
+      setCurrentPage(page);
+    }
+
+    // If navigating to 'courses', reset the Courses component to re-fetch/re-render
     if (page === 'courses') {
       setCoursesKey(prevKey => prevKey + 1);
     }
@@ -165,7 +182,8 @@ function App() {
     if (auth) {
       try {
         await auth.signOut();
-        setCurrentPage('courses');
+        setCurrentPage('courses'); // Default page after sign out
+        setPreviousPage('courses'); // Reset previous page on sign out
         setUnreadNotesFromFirestore([]);
         setCurrentNotification(null);
         setAllPublicUserProfiles([]);
@@ -178,7 +196,7 @@ function App() {
 
   const handleSendNoteSuccess = (message) => {
     showAppMessage('success', message);
-    setCurrentPage('courses');
+    handleNavigate('courses'); // Use handleNavigate to return to courses
   };
 
   const handleNotificationRead = async (noteId) => {
