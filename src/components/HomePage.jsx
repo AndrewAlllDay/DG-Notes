@@ -21,7 +21,7 @@ const SummaryCard = ({ icon, title, value, unit }) => (
     </div>
 );
 
-export default function HomePage() {
+export default function HomePage({ onNavigate }) {
     const { userId } = useFirebase();
     const [discCount, setDiscCount] = useState(0);
     const [courseCount, setCourseCount] = useState(0);
@@ -65,15 +65,92 @@ export default function HomePage() {
         return score;
     };
 
+    const handleRoundClick = (roundId) => {
+        if (onNavigate) {
+            onNavigate('scores', { roundId: roundId });
+        } else {
+            console.warn("onNavigate prop not provided to HomePage. Cannot navigate to scores.");
+        }
+    };
+
     if (isLoading) {
-        return <div className="text-center p-8">Loading dashboard...</div>;
+        return <div className="text-center p-8 text-gray-700 dark:text-gray-300">Loading dashboard...</div>;
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 dark:bg-black p-4 sm:p-6 lg:p-8">
-            <h2 className="text-2xl font-bold text-center pt-5 mb-6 text-gray-800 dark:text-white">Dashboard</h2>
+        <div className="min-h-screen bg-gray-100 dark:bg-black">
+            {/* NEW: Hero Section with Flight Path Lines */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-green-50 dark:from-gray-900 dark:to-black py-10 sm:py-12 lg:py-16">
+                {/* NEW: Style block for animation */}
+                <style>
+                    {`
+                    @keyframes drawPath1 {
+                        from {
+                            stroke-dashoffset: 300; /* Estimated length for path 1 */
+                        }
+                        to {
+                            stroke-dashoffset: 0;
+                        }
+                    }
+                    @keyframes drawPath2 {
+                        from {
+                            stroke-dashoffset: 350; /* Estimated length for path 2 */
+                        }
+                        to {
+                            stroke-dashoffset: 0;
+                        }
+                    }
+                    @keyframes drawPath3 {
+                        from {
+                            stroke-dashoffset: 200; /* Estimated length for path 3 */
+                        }
+                        to {
+                            stroke-dashoffset: 0;
+                        }
+                    }
 
-            <div className="max-w-4xl mx-auto">
+                    .path-animate-1 {
+                        stroke-dasharray: 300; /* Must match 'from' value */
+                        stroke-dashoffset: 300;
+                        animation: drawPath1 2s ease-out forwards;
+                    }
+                    .path-animate-2 {
+                        stroke-dasharray: 350;
+                        stroke-dashoffset: 350;
+                        animation: drawPath2 2.5s ease-out forwards 0.5s; /* Delay for staggered effect */
+                    }
+                    .path-animate-3 {
+                        stroke-dasharray: 200;
+                        stroke-dashoffset: 200;
+                        animation: drawPath3 1.8s ease-out forwards 1s; /* Delay for staggered effect */
+                    }
+                    `}
+                </style>
+                {/* Subtle SVG flight path lines in the background */}
+                <svg className="absolute inset-0 w-full h-full opacity-20 dark:opacity-10 pointer-events-none" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="gradient-path" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="currentColor" stopOpacity="0.7" className="text-blue-400 dark:text-blue-600" />
+                            <stop offset="100%" stopColor="currentColor" stopOpacity="0.7" className="text-orange-400 dark:text-orange-600" />
+                        </linearGradient>
+                    </defs>
+                    {/* Example curved lines - MODIFIED: Adjusted translate Y values to move lines up */}
+                    <path d="M0 50 Q 25 20, 50 50 T 100 50" stroke="url(#gradient-path)" strokeWidth="3" fill="none" transform="scale(3) translate(0,-15)" className="path-animate-1" />
+                    <path d="M0 80 C 20 60, 40 100, 60 80 S 100 60, 120 80" stroke="url(#gradient-path)" strokeWidth="2.5" fill="none" transform="scale(2.5) translate(10, -40)" className="path-animate-2" />
+                    <path d="M0 20 Q 20 0, 40 20 T 80 20" stroke="url(#gradient-path)" strokeWidth="2" fill="none" transform="scale(4) translate(-10, 20)" className="path-animate-3" />
+                </svg>
+
+                <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center mb-8">
+                    <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-4">Your Flight<span className='text-blue-600'>Log</span> Dashboard</h2>
+                    <p className="text-lg text-gray-700 dark:text-gray-300">
+                        Welcome to your FlightLog dashboard! Here you can quickly see your disc golf stats at a glance,
+                        including your disc collection, courses played, and recent round scores.
+                    </p>
+                </div>
+            </div>
+            {/* END NEW: Hero Section */}
+
+            <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 -mt-8 relative z-20">
                 {/* Summary Cards Section */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <SummaryCard
@@ -99,7 +176,11 @@ export default function HomePage() {
                     {lastTwoRounds.length > 0 ? (
                         <div className="space-y-4">
                             {lastTwoRounds.map(round => (
-                                <div key={round.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+                                <div
+                                    key={round.id}
+                                    className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                                    onClick={() => handleRoundClick(round.id)}
+                                >
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <h4 className="text-lg font-bold text-blue-600 dark:text-blue-400">{round.courseName}</h4>
@@ -108,11 +189,13 @@ export default function HomePage() {
                                                 {round.date?.toDate ? format(round.date.toDate(), 'MMMM d, yyyy') : 'N/A'}
                                             </p>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{round.totalScore}</p>
-                                            <p className={`text-lg font-semibold ${round.scoreToPar >= 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                                {formatScoreToPar(round.scoreToPar)}
-                                            </p>
+                                        <div className="flex items-center space-x-2">
+                                            <div className="text-right">
+                                                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{round.totalScore}</p>
+                                                <p className={`text-lg font-semibold ${round.scoreToPar >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                                    {formatScoreToPar(round.scoreToPar)}
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

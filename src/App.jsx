@@ -53,6 +53,8 @@ function App() {
   // MODIFIED: Set 'home' as the default page
   const [currentPage, setCurrentPage] = useState('home');
   const [previousPage, setPreviousPage] = useState('home');
+  // NEW: State to store navigation parameters
+  const [pageParams, setPageParams] = useState({});
 
   const [coursesKey, setCoursesKey] = useState(0);
 
@@ -152,16 +154,20 @@ function App() {
     }
   }, [user, isAuthReady, hasInitialNonPlayerRedirected]);
 
-  const handleNavigate = (page) => {
+  // MODIFIED: handleNavigate now accepts an optional params object
+  const handleNavigate = (page, params = {}) => {
     if (page === 'settings') {
       if (currentPage === 'settings') {
         setCurrentPage(previousPage);
+        setPageParams({}); // Clear params when navigating away from settings
       } else {
         setPreviousPage(currentPage);
         setCurrentPage('settings');
+        setPageParams(params); // Set params for settings if needed
       }
     } else {
       setCurrentPage(page);
+      setPageParams(params); // Set params for the new page
     }
 
     if (page === 'courses') {
@@ -175,6 +181,7 @@ function App() {
         await auth.signOut();
         setCurrentPage('home'); // MODIFIED: Default to home page after sign out
         setPreviousPage('home');
+        setPageParams({}); // Clear params on sign out
         setUnreadNotesFromFirestore([]);
         setCurrentNotification(null);
         setAllPublicUserProfiles([]);
@@ -263,7 +270,7 @@ function App() {
         {/* NEW: Render HomePage */}
         {currentPage === 'home' && (
           <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Home...</div>}>
-            <LazyHomePage />
+            <LazyHomePage onNavigate={handleNavigate} /> {/* Pass onNavigate to HomePage */}
           </Suspense>
         )}
         {currentPage === 'courses' && (
@@ -279,7 +286,8 @@ function App() {
         )}
         {currentPage === 'scores' && (
           <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Scores...</div>}>
-            <LazyScoresPage />
+            {/* NEW: Pass pageParams to LazyScoresPage */}
+            <LazyScoresPage onNavigate={handleNavigate} params={pageParams} />
           </Suspense>
         )}
         {currentPage === 'send-note' && (
