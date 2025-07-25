@@ -34,7 +34,7 @@ const Header = ({ onNavigate, onOpenEncouragement, user, canSendEncouragement, c
                         <img
                             src={LogoImage}
                             alt="FlightLog Logo"
-                            className="h-12 w-auto"
+                            className="h-24 w-auto"
                         />
                     </div>
                     {user && (
