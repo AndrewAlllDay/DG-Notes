@@ -29,11 +29,11 @@ const Header = ({ onNavigate, onOpenEncouragement, user, canSendEncouragement, c
                 <div className="relative flex items-center justify-between px-4 h-20">
                     <div
                         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-                        onClick={(e) => handleNavigate(isNonPlayer ? 'send-note' : 'courses', e)}
+                        onClick={(e) => handleNavigate(isNonPlayer ? 'send-note' : 'home', e)}
                     >
                         <img
                             src={LogoImage}
-                            alt="DG Caddy Notes Logo"
+                            alt="FlightLog Logo"
                             className="h-12 w-auto"
                         />
                     </div>

@@ -10,12 +10,14 @@ import { useFirebase, auth } from './firebase.js';
 import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService.jsx';
 import * as Dialog from '@radix-ui/react-dialog';
 
+// Lazy load components for better performance
+const LazyHomePage = lazy(() => import('./components/HomePage.jsx')); // NEW: Import HomePage
 const LazySettingsPage = lazy(() => import('./components/SettingsPage.jsx'));
 const LazySendEncouragement = lazy(() => import('./components/SendEncouragement.jsx'));
 const LazyWeatherDisplay = lazy(() => import('./components/WeatherDisplay.jsx'));
 const LazyInTheBagPage = lazy(() => import('./components/InTheBagPage.jsx'));
 const LazyNewsFeed = lazy(() => import('./components/Newsfeed.jsx'));
-const LazyScoresPage = lazy(() => import('./components/ScoresPage.jsx')); // <-- ADDED
+const LazyScoresPage = lazy(() => import('./components/ScoresPage.jsx'));
 
 const LoadingScreen = ({ isDarkMode }) => {
   const bgColor = isDarkMode ? 'bg-black' : 'bg-gray-100';
@@ -48,8 +50,9 @@ function App() {
   const { user, isAuthReady, userId: currentUserId } = useFirebase(handleLoginSuccess, handleLogoutSuccess);
 
   const [isEncouragementModalOpen, setIsEncouragementModalOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState('courses');
-  const [previousPage, setPreviousPage] = useState('courses'); // NEW STATE: to store the page before settings
+  // MODIFIED: Set 'home' as the default page
+  const [currentPage, setCurrentPage] = useState('home');
+  const [previousPage, setPreviousPage] = useState('home');
 
   const [coursesKey, setCoursesKey] = useState(0);
 
@@ -91,16 +94,10 @@ function App() {
     setIsDarkMode(prevMode => !prevMode);
   };
 
-  // This useEffect handles initial navigation from share-target
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.has('share-target')) {
-      // If we are coming from a share target, immediately go to settings
-      // But importantly, the 'previousPage' should not be updated to 'settings' here
-      // as settings is the *destination*, not the page we were on *before* going to settings.
       setCurrentPage('settings');
-      // No setPreviousPage here, as the initial load doesn't have a 'previous' app page.
-      // The default 'courses' for previousPage is fine.
     }
   }, []);
 
@@ -155,24 +152,18 @@ function App() {
     }
   }, [user, isAuthReady, hasInitialNonPlayerRedirected]);
 
-  // MODIFIED handleNavigate function
   const handleNavigate = (page) => {
-    // If navigating to 'settings'
     if (page === 'settings') {
       if (currentPage === 'settings') {
-        // If currently on settings, go back to previous page
         setCurrentPage(previousPage);
       } else {
-        // If not on settings, store current page as previous, then go to settings
         setPreviousPage(currentPage);
         setCurrentPage('settings');
       }
     } else {
-      // For all other pages, simply set the current page
       setCurrentPage(page);
     }
 
-    // If navigating to 'courses', reset the Courses component to re-fetch/re-render
     if (page === 'courses') {
       setCoursesKey(prevKey => prevKey + 1);
     }
@@ -182,8 +173,8 @@ function App() {
     if (auth) {
       try {
         await auth.signOut();
-        setCurrentPage('courses'); // Default page after sign out
-        setPreviousPage('courses'); // Reset previous page on sign out
+        setCurrentPage('home'); // MODIFIED: Default to home page after sign out
+        setPreviousPage('home');
         setUnreadNotesFromFirestore([]);
         setCurrentNotification(null);
         setAllPublicUserProfiles([]);
@@ -196,7 +187,7 @@ function App() {
 
   const handleSendNoteSuccess = (message) => {
     showAppMessage('success', message);
-    handleNavigate('courses'); // Use handleNavigate to return to courses
+    handleNavigate('home'); // MODIFIED: Return to home page
   };
 
   const handleNotificationRead = async (noteId) => {
@@ -269,6 +260,12 @@ function App() {
       )}
 
       <main className="flex-grow">
+        {/* NEW: Render HomePage */}
+        {currentPage === 'home' && (
+          <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Home...</div>}>
+            <LazyHomePage />
+          </Suspense>
+        )}
         {currentPage === 'courses' && (
           <Courses
             key={coursesKey}
@@ -289,7 +286,7 @@ function App() {
           <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Send Note page...</div>}>
             <LazySendEncouragement
               onSendSuccess={handleSendNoteSuccess}
-              onClose={() => handleNavigate('courses')}
+              onClose={() => handleNavigate('home')} // MODIFIED: Close to home
               showBackButton={showSendNoteBackButton}
             />
           </Suspense>
