@@ -82,9 +82,14 @@ export default function Courses() {
         console.log("Subscribing to courses for userId:", userId);
         const unsubscribeCourses = subscribeToCourses(userId, (fetchedCourses) => {
             console.log("Fetched courses in Courses.jsx:", fetchedCourses);
-            setCourses(fetchedCourses);
+
+            // Sort a copy of the array alphabetically by course name
+            const sortedCourses = [...fetchedCourses].sort((a, b) => a.name.localeCompare(b.name));
+
+            setCourses(sortedCourses); // Use the newly sorted array
+
             if (selectedCourse) {
-                const updatedSelected = fetchedCourses.find(c => c.id === selectedCourse.id);
+                const updatedSelected = sortedCourses.find(c => c.id === selectedCourse.id);
                 if (updatedSelected) {
                     setSelectedCourse(prevSelected => {
                         if (!prevSelected || !prevSelected.holes || !updatedSelected.holes) {
@@ -347,7 +352,7 @@ export default function Courses() {
     console.log("DEBUG Courses.jsx Render: discs =", discs);
 
     return (
-        <div ref={scrollContainerRef} className="max-h-screen bg-gray-100 p-4 overflow-y-auto pb-38">
+        <div ref={scrollContainerRef} className="max-h-screen bg-gray-100 p-4 overflow-y-auto pb-48">
             {appMessage.text && (
                 <div className={`px-4 py-3 rounded relative mb-4
                     ${appMessage.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700' : 'bg-red-100 border border-red-400 text-red-700'}`}

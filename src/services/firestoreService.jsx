@@ -14,10 +14,14 @@ import {
     setDoc,
     where,
     getDocs,
-    writeBatch // NEW: Added for batch deletion
+    writeBatch // Use writeBatch for atomic operations
 } from 'firebase/firestore';
 
 import { appId } from '../firebase';
+
+// This confirms your appId is correct. We can remove this now if you like.
+console.log("DEBUG: The appId being used by firestoreService is:", appId);
+
 
 // Function to get the user-specific courses collection path
 const getUserCoursesCollection = (userId) => {
@@ -202,32 +206,50 @@ export const deleteTeam = async (teamId) => {
     }
 };
 
+// --- FINAL VERSION USING A BATCH WRITE ---
 export const addTeamMember = async (teamId, userId) => {
     try {
         if (!teamId || !userId) {
             throw new Error("Team ID and User ID are required to add a member.");
         }
-        const teamDocRef = doc(getTeamsCollection(), teamId);
-        const userProfileDocRef = doc(getUserProfilesCollection(), userId);
+        // Create a new batch
+        const batch = writeBatch(db);
 
-        await updateDoc(teamDocRef, { memberIds: arrayUnion(userId) });
-        await updateDoc(userProfileDocRef, { teamIds: arrayUnion(teamId) });
+        // Update the team document
+        const teamDocRef = doc(getTeamsCollection(), teamId);
+        batch.update(teamDocRef, { memberIds: arrayUnion(userId) });
+
+        // Update the user's profile document
+        const userProfileDocRef = doc(getUserProfilesCollection(), userId);
+        batch.update(userProfileDocRef, { teamIds: arrayUnion(teamId) });
+
+        // Commit both writes at the same time
+        await batch.commit();
     } catch (e) {
         console.error("Error adding team member: ", e);
         throw e;
     }
 };
 
+// --- FINAL VERSION USING A BATCH WRITE ---
 export const removeTeamMember = async (teamId, userId) => {
     try {
         if (!teamId || !userId) {
             throw new Error("Team ID and User ID are required to remove a member.");
         }
-        const teamDocRef = doc(getTeamsCollection(), teamId);
-        const userProfileDocRef = doc(getUserProfilesCollection(), userId);
+        // Create a new batch
+        const batch = writeBatch(db);
 
-        await updateDoc(teamDocRef, { memberIds: arrayRemove(userId) });
-        await updateDoc(userProfileDocRef, { teamIds: arrayRemove(teamId) });
+        // Update the team document
+        const teamDocRef = doc(getTeamsCollection(), teamId);
+        batch.update(teamDocRef, { memberIds: arrayRemove(userId) });
+
+        // Update the user's profile document
+        const userProfileDocRef = doc(getUserProfilesCollection(), userId);
+        batch.update(userProfileDocRef, { teamIds: arrayRemove(teamId) });
+
+        // Commit both writes at the same time
+        await batch.commit();
     } catch (e) {
         console.error("Error removing team member: ", e);
         throw e;
@@ -235,6 +257,7 @@ export const removeTeamMember = async (teamId, userId) => {
 };
 
 // --- COURSE MANAGEMENT ---
+// ... (rest of the file is unchanged)
 
 export const addCourse = async (courseName, tournamentName, classification, userId) => {
     try {
