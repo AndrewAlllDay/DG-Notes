@@ -140,7 +140,7 @@ export default function HomePage({ onNavigate }) {
                     <path d="M0 20 Q 20 0, 40 20 T 80 20" stroke="url(#gradient-path)" strokeWidth="2" fill="none" transform="scale(4) translate(-10, 20)" className="path-animate-3" />
                 </svg>
 
-                <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center mb-8">
+                <div className="relative z-10 max-w-sm mx-auto px-4 sm:px-6 lg:px-8 text-center mb-8">
                     <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-4">Your Flight<span className='text-blue-600'>Log</span> Dashboard</h2>
                     <p className="text-lg text-gray-700 dark:text-gray-300">
                         Welcome to your FlightLog dashboard! Here you can quickly see your disc golf stats at a glance,
