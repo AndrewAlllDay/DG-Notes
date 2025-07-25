@@ -607,7 +607,8 @@ export const subscribeToRounds = (userId, callback) => {
         callback([]);
         return () => { };
     }
-    const q = query(getUserRoundsCollection(userId), orderBy('createdAt', 'desc'));
+    // ✅ This now sorts by the actual round date ('date') instead of the import date ('createdAt').
+    const q = query(getUserRoundsCollection(userId), orderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const rounds = querySnapshot.docs.map(doc => ({
             id: doc.id,
