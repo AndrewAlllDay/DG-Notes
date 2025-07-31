@@ -148,11 +148,13 @@ export default function HoleItem({
                                 <option value="">No Disc Selected</option>
                                 {sortedDiscTypes.map(type => (
                                     <optgroup key={type} label={type}>
-                                        {groupedDiscs[type].map(disc => (
-                                            <option key={disc.id} value={disc.id}>
-                                                {disc.name}
-                                            </option>
-                                        ))}
+                                        {groupedDiscs[type]
+                                            .sort((a, b) => a.name.localeCompare(b.name)) // Sort discs alphabetically by name
+                                            .map(disc => (
+                                                <option key={disc.id} value={disc.id}>
+                                                    {disc.name} - {disc.color}
+                                                </option>
+                                            ))}
                                     </optgroup>
                                 ))}
                             </select>
