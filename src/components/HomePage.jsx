@@ -1,10 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useFirebase } from '../firebase';
 import { subscribeToUserDiscs } from '../services/firestoreService';
 import { subscribeToCourses } from '../services/firestoreService';
 import { subscribeToRounds } from '../services/firestoreService';
 import { format } from 'date-fns';
 import { Circle, Map, ListChecks } from 'lucide-react';
+
+// NEW: Custom hook for the count-up animation
+const useCountUp = (endValue, duration = 1500) => {
+    const [count, setCount] = useState(0);
+    const animationFrameRef = useRef();
+
+    useEffect(() => {
+        let startTime = null;
+        const animate = (timestamp) => {
+            if (!startTime) startTime = timestamp;
+            const progress = timestamp - startTime;
+            const percentage = Math.min(progress / duration, 1);
+
+            // Apply an easing function for a smoother effect
+            const easedPercentage = 1 - Math.pow(1 - percentage, 3);
+
+            const currentCount = Math.floor(easedPercentage * endValue);
+            setCount(currentCount);
+
+            if (progress < duration) {
+                animationFrameRef.current = requestAnimationFrame(animate);
+            }
+        };
+
+        animationFrameRef.current = requestAnimationFrame(animate);
+
+        return () => cancelAnimationFrame(animationFrameRef.current);
+    }, [endValue, duration]);
+
+    return count;
+};
 
 // A reusable summary card component for the dashboard
 const SummaryCard = ({ icon, title, value, unit }) => (
@@ -27,6 +58,10 @@ export default function HomePage({ onNavigate }) {
     const [courseCount, setCourseCount] = useState(0);
     const [lastTwoRounds, setLastTwoRounds] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    // Get the animated values using the custom hook
+    const animatedDiscCount = useCountUp(discCount);
+    const animatedCourseCount = useCountUp(courseCount);
 
     useEffect(() => {
         if (!userId) {
@@ -156,13 +191,13 @@ export default function HomePage({ onNavigate }) {
                     <SummaryCard
                         icon={<Circle size={24} className="text-blue-600 dark:text-blue-300" />}
                         title="In Your Bag"
-                        value={discCount}
+                        value={animatedDiscCount}
                         unit="Discs"
                     />
                     <SummaryCard
                         icon={<Map size={24} className="text-blue-600 dark:text-blue-300" />}
                         title="Courses Created"
-                        value={courseCount}
+                        value={animatedCourseCount}
                         unit="Courses"
                     />
                 </div>
