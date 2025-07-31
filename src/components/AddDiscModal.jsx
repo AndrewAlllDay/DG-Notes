@@ -7,9 +7,11 @@ export default function AddDiscModal({
     onClose,
     onSubmit,
     initialData = null,
+    discTypes = [],
 }) {
     // Internal state for the form fields that the user can edit
     const [color, setColor] = useState('');
+    const [type, setType] = useState('');
 
     // Determine the mode based on the presence of an ID in the initial data
     const isEditing = initialData && initialData.id;
@@ -17,11 +19,13 @@ export default function AddDiscModal({
     // This effect synchronizes the modal's state with the data passed to it
     useEffect(() => {
         if (isOpen && initialData) {
-            // When editing, or adding details to an API disc, pre-fill the editable fields
+            // When editing or adding, pre-fill the editable fields
             setColor(initialData.color || '');
+            setType(initialData.type || '');
         } else {
             // When the modal closes, reset the fields
             setColor('');
+            setType('');
         }
     }, [isOpen, initialData]);
 
@@ -34,21 +38,19 @@ export default function AddDiscModal({
         const submittedData = {
             name: initialData.name,
             manufacturer: initialData.manufacturer,
-            type: initialData.type,
-            // MODIFIED: Provide a null fallback for each flight number to prevent Firestore errors
+            type: type,
             speed: initialData.speed ?? null,
             glide: initialData.glide ?? null,
             turn: initialData.turn ?? null,
             fade: initialData.fade ?? null,
             stability: initialData.stability ?? null,
-            plastic: initialData.plastic || '', // Keep plastic for older discs, even though it's not added on new ones
+            plastic: initialData.plastic || '',
             color: color.trim(),
         };
 
         onSubmit(submittedData);
     };
 
-    // Use a consistent title based on whether we are editing or adding details
     const modalTitle = isEditing ? 'Edit Your Disc' : 'Add Your Disc Details';
 
     return (
@@ -66,7 +68,7 @@ export default function AddDiscModal({
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Non-Editable Fields Displaying API Data */}
+                        {/* Non-Editable Field */}
                         <div>
                             <label className="block text-sm font-medium text-gray-500 dark:text-gray-400">Disc</label>
                             <p className="w-full border rounded px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
@@ -74,11 +76,21 @@ export default function AddDiscModal({
                             </p>
                         </div>
 
+                        {/* Editable dropdown for Disc Type */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400">Type</label>
-                            <p className="w-full border rounded px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                                {initialData?.type}
-                            </p>
+                            <label htmlFor="discType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Disc Type</label>
+                            <select
+                                id="discType"
+                                value={type}
+                                onChange={(e) => setType(e.target.value)}
+                                className="w-full border rounded px-3 py-2 bg-white dark:bg-gray-700 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                <option value="">Select a Type</option>
+                                {discTypes.map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                ))}
+                                {!discTypes.includes('Other') && <option value="Other">Other</option>}
+                            </select>
                         </div>
 
                         {/* Editable Fields for User Details */}

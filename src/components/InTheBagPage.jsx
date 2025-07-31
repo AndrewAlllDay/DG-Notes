@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useFirebase } from "../firebase";
 import DiscFormModal from '../components/AddDiscModal';
 import AddDiscFromAPImodal from '../components/AddDiscFromAPImodal';
@@ -14,7 +14,7 @@ import { toast } from 'react-toastify';
 import { FaTrash } from 'react-icons/fa';
 import { Archive, FolderOpen, ChevronDown, ChevronUp, Pencil, MoreVertical } from 'lucide-react';
 
-// MODIFIED: Reusable Accordion Component is now controlled by props
+// Reusable Accordion Component is controlled by props
 const Accordion = ({ title, children, isOpen, onToggle }) => {
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md max-w-full mx-auto mb-6">
@@ -54,10 +54,9 @@ export default function InTheBagPage() {
     const [pendingApiDisc, setPendingApiDisc] = useState(null);
 
     const [deleteModalState, setDeleteModalState] = useState({ isOpen: false, disc: null });
-
-    // NEW: State to control all accordions
     const [openAccordions, setOpenAccordions] = useState({});
 
+    // Fetch all discs from the external API when the component mounts
     useEffect(() => {
         const fetchDiscsFromApi = async () => {
             try {
@@ -77,6 +76,16 @@ export default function InTheBagPage() {
         };
         fetchDiscsFromApi();
     }, []);
+
+    // **NEW**: Create a dynamic, sorted list of unique disc types from the API data.
+    const dynamicDiscTypes = useMemo(() => {
+        if (!apiDiscs || apiDiscs.length === 0) return [];
+        // The API response uses 'category' for the disc type
+        const allTypes = apiDiscs.map(disc => disc.category);
+        const uniqueTypes = [...new Set(allTypes)];
+        // Filter out any null/undefined/empty types and sort them alphabetically
+        return uniqueTypes.filter(type => type).sort();
+    }, [apiDiscs]);
 
 
     useEffect(() => {
@@ -211,7 +220,9 @@ export default function InTheBagPage() {
         return acc;
     }, {});
 
+    // This list is now only for sorting the accordion groups on the page
     const discTypeOrder = ['Distance Driver', 'Fairway Driver', 'Midrange', 'Putt & Approach', 'Hybrid'];
+
     const sortedActiveDiscTypes = Object.keys(groupedActiveDiscs).sort((a, b) => {
         const indexA = discTypeOrder.indexOf(a);
         const indexB = discTypeOrder.indexOf(b);
@@ -221,7 +232,6 @@ export default function InTheBagPage() {
         return indexA - indexB;
     });
 
-    // NEW: Functions to control accordions
     const handleToggleAccordion = (type) => {
         setOpenAccordions(prev => ({ ...prev, [type]: !prev[type] }));
     };
@@ -238,10 +248,9 @@ export default function InTheBagPage() {
         setOpenAccordions(allOpen);
     };
 
-    // NEW: Set accordions to be open by default when discs are loaded
     useEffect(() => {
         expandAll();
-    }, [activeDiscs]); // This dependency array ensures it runs when discs are loaded
+    }, [activeDiscs]);
 
     if (!currentUser) {
         return <div className="flex justify-center items-center h-screen bg-gray-100 dark:bg-black"><p className="text-lg text-gray-700 dark:text-gray-300">Please log in to view and manage your disc bag.</p></div>;
@@ -307,7 +316,6 @@ export default function InTheBagPage() {
                 </p>
             ) : (
                 <>
-                    {/* NEW: Collapse/Expand controls */}
                     <div className="max-w-full mx-auto mb-2 flex justify-start space-x-4">
                         <button onClick={collapseAll} className="!text-sm text-gray-400 dark:text-blue-400 !font-normal hover:underline !bg-transparent">Collapse All</button>
                     </div>
@@ -372,6 +380,7 @@ export default function InTheBagPage() {
                 }}
                 onSubmit={handleDetailsSubmit}
                 initialData={currentDiscToEdit || pendingApiDisc}
+                discTypes={dynamicDiscTypes}
             />
 
             <DeleteConfirmationModal
