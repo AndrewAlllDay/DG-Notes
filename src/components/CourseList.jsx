@@ -1,5 +1,3 @@
-// src/components/CourseList.jsx
-
 import React, { useState, useRef, useEffect } from 'react';
 import CourseItem from './CourseItem';
 
@@ -101,15 +99,18 @@ export default function CourseList({ courses, onDeleteCourse, onSelectCourse, to
         hasSwipedEnough.current = false;
     };
 
+    // Sort a copy of the courses array alphabetically by name before rendering
+    const sortedCourses = [...courses].sort((a, b) => a.name.localeCompare(b.name));
+
     return (
         <ul ref={listRef} className="list-none p-0 m-0"> {/* Attach the ref to the ul */}
-            {courses.length === 0 ? (
+            {sortedCourses.length === 0 ? (
                 <div className="text-center p-8 text-gray-600">
                     <p>No courses added yet.</p>
 
                 </div>
             ) : (
-                courses.map((course) => (
+                sortedCourses.map((course) => (
                     <CourseItem
                         key={course.id}
                         course={course}
