@@ -209,7 +209,7 @@ export default function HoleItem({
 
                         {displayDisc && (
                             <p className="text-gray-600 dark:text-gray-400 text-sm italic mt-1 mb-2">
-                                {displayDisc.name}
+                                {displayDisc.name} - {displayDisc.color}
                             </p>
                         )}
 
