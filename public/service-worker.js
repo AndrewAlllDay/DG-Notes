@@ -1,5 +1,5 @@
 // IMPORTANT: Increment this CACHE_NAME any time you make changes to your app's code or assets
-const CACHE_NAME = 'dgnotes-cache-v1.0.27'; // <-- We will increment this again before the final deploy
+const CACHE_NAME = 'dgnotes-cache-v1.0.28'; // <-- We will increment this again before the final deploy
 const urlsToCache = [
     '/',
     '/index.html',
