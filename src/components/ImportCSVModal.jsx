@@ -24,6 +24,7 @@ export default function ImportCSVModal({ isOpen, onClose, onImport }) {
         Papa.parse(file, {
             header: true,
             skipEmptyLines: true,
+            bom: true, // Add this line
             complete: (results) => {
                 const headers = results.meta.fields;
                 if (!results.data.length || !headers.includes('PlayerName') || !headers.includes('CourseName') || !headers.some(h => h.startsWith('Hole'))) {
