@@ -1,13 +1,7 @@
-# This is the full configuration for Netlify.
-
 [build]
-  # This MUST match your build output folder. For Vite projects, it's "dist".
   publish = "dist"
-  # This MUST match the build command in your package.json.
   command = "npm run build"
 
-# This is the crucial SPA redirect rule. It tells Netlify to serve
-# your index.html for any request that doesn't match a file.
 [[redirects]]
   from = "/*"
   to = "/index.html"
