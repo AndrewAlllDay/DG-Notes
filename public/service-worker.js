@@ -1,5 +1,5 @@
-// IMPORTANT: Increment this CACHE_NAME any time you make changes to your app's code or assets
-const CACHE_NAME = 'dgnotes-cache-v1.0.32'; // <-- I've incremented this for you
+// IMPORTANT: Increment this CACHE_NAME any time you make changes
+const CACHE_NAME = 'dgnotes-cache-v1.0.30'; // Reverted to an older version name
 
 const urlsToCache = [
     '/',
@@ -7,90 +7,95 @@ const urlsToCache = [
     '/manifest.json',
 ];
 
+// Helper functions for IndexedDB to temporarily store the shared file.
+function getDb() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('dgnotes-shared-files', 1);
+        request.onerror = event => reject("IndexedDB error: " + event.target.errorCode);
+        request.onsuccess = event => resolve(event.target.result);
+        request.onupgradeneeded = event => {
+            const db = event.target.result;
+            db.createObjectStore('files', { keyPath: 'id', autoIncrement: true });
+        };
+    });
+}
+
+async function saveFile(file) {
+    const db = await getDb();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['files'], 'readwrite');
+        const store = transaction.objectStore('files');
+        const request = store.put({ file: file, timestamp: new Date() });
+        request.onsuccess = resolve;
+        request.onerror = reject;
+    });
+}
+
 self.addEventListener('install', event => {
-    console.log('Service Worker: Installing...');
+    // Standard install logic...
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then(cache => {
-                console.log('Service Worker: Caching static assets');
-                return cache.addAll(urlsToCache);
-            })
-            .then(() => {
-                self.skipWaiting();
-                console.log('Service Worker: Installation complete, skipping waiting.');
-            })
-            .catch(error => {
-                console.error('Service Worker: Caching failed', error);
-            })
+            .then(cache => cache.addAll(urlsToCache))
+            .then(() => self.skipWaiting())
     );
 });
 
 self.addEventListener('activate', event => {
-    console.log('Service Worker: Activating...');
+    // Standard activate logic...
     event.waitUntil(
         caches.keys().then(cacheNames => {
             return Promise.all(
                 cacheNames.map(cache => {
                     if (cache !== CACHE_NAME) {
-                        console.log('Service Worker: Deleting old cache', cache);
                         return caches.delete(cache);
                     }
                     return null;
                 })
             );
-        })
-            .then(() => {
-                console.log('Service Worker: Claiming clients...');
-                return self.clients.claim();
-            })
+        }).then(() => self.clients.claim())
     );
 });
 
 self.addEventListener('fetch', event => {
-    // The problematic share-handling 'if' block has been removed.
-    // Now, the service worker will let the browser handle the share POST request,
-    // which will correctly trigger the launchQueue API in App.jsx.
+    const url = new URL(event.request.url);
 
-    const isFirebaseRequest = event.request.url.includes('firestore.googleapis.com') ||
-        event.request.url.includes('firebase.googleapis.com') ||
-        event.request.url.includes('googleapis.com');
+    // This is the old share handling logic that will be re-introduced
+    if (event.request.method === 'POST' && url.pathname === '/share-receiver.html') {
+        event.respondWith((async () => {
+            try {
+                const formData = await event.request.formData();
+                const file = formData.get('csvfile'); // 'csvfile' is the name from manifest.json
+                if (file) {
+                    await saveFile(file);
+                }
+                // After saving, redirect the user into the main app with a flag.
+                return Response.redirect('/?share-target=true', 303);
+            } catch (error) {
+                console.error('Service Worker: Error handling shared file:', error);
+                // In case of error, still redirect but with an error flag.
+                return Response.redirect('/?share-target-error=true', 303);
+            }
+        })());
+        return; // Stop further processing for this request
+    }
 
+    // Standard cache/network logic for other requests...
+    const isFirebaseRequest = url.hostname.includes('firestore.googleapis.com');
     if (event.request.method === 'POST' || isFirebaseRequest) {
-        // Let network requests for POST and Firebase pass through
+        event.respondWith(fetch(event.request));
+    } else if (url.origin === self.location.origin) {
         event.respondWith(
-            fetch(event.request)
-                .catch(error => {
-                    console.error('Service Worker: Network fetch failed for Firebase/POST request:', event.request.url, error);
-                    throw error;
-                })
-        );
-    } else if (event.request.url.startsWith(self.location.origin)) {
-        // Serve static assets from cache first, then network
-        event.respondWith(
-            caches.match(event.request)
-                .then(response => {
-                    if (response) {
-                        return response;
-                    }
-                    return fetch(event.request).then(networkResponse => {
-                        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-                            return networkResponse;
-                        }
-                        const responseToCache = networkResponse.clone();
-                        caches.open(CACHE_NAME).then(cache => {
-                            cache.put(event.request, responseToCache);
-                        });
-                        return networkResponse;
-                    }).catch(error => {
-                        console.error('Service Worker: Fetch failed for static asset:', event.request.url, error);
-                        return new Response('<h1>Offline</h1><p>Please check your internet connection.</p>', {
-                            headers: { 'Content-Type': 'text/html' }
-                        });
+            caches.match(event.request).then(response => {
+                return response || fetch(event.request).then(networkResponse => {
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then(cache => {
+                        cache.put(event.request, responseToCache);
                     });
-                })
+                    return networkResponse;
+                });
+            })
         );
     } else {
-        // For any other cross-origin GET requests, just fetch from the network
         event.respondWith(fetch(event.request));
     }
 });
@@ -98,6 +103,5 @@ self.addEventListener('fetch', event => {
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
-        console.log('Service Worker: Skip waiting message received from client.');
     }
 });
