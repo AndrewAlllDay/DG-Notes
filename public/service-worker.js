@@ -1,5 +1,5 @@
 // IMPORTANT: Increment this CACHE_NAME any time you make changes
-const CACHE_NAME = 'dgnotes-cache-v1.0.30'; // Reverted to an older version name
+const CACHE_NAME = 'dgnotes-cache-v1.0.31'; // Reverted to an older version name
 
 const urlsToCache = [
     '/',
