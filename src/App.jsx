@@ -90,7 +90,6 @@ function App() {
     setIsDarkMode(prevMode => !prevMode);
   };
 
-  // 🔽🔽🔽 NEW CODE TO HANDLE SHARED FILES 🔽🔽🔽
   useEffect(() => {
     if ('launchQueue' in window) {
       console.log('App: launchQueue API is supported.');
@@ -109,7 +108,6 @@ function App() {
           console.log('Received file object:', file);
           console.log('Filename:', file.name);
 
-          // Navigate to settings page and pass the file object
           handleNavigate('settings', { sharedFile: file });
 
         } catch (error) {
@@ -123,7 +121,7 @@ function App() {
         setCurrentPage('settings');
       }
     }
-  }, []); // Empty dependency array ensures this runs only once on app startup
+  }, []);
 
 
   useEffect(() => {
@@ -301,7 +299,6 @@ function App() {
         )}
         {currentPage === 'settings' && (
           <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Settings...</div>}>
-            {/* The shared file is now passed via pageParams */}
             <LazySettingsPage onSignOut={handleSignOut} onNavigate={handleNavigate} params={pageParams} />
           </Suspense>
         )}
@@ -332,7 +329,7 @@ function App() {
         {currentPage === 'news' && (
           <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading News...</div>}>
             <LazyNewsFeed />
-          </dSuspense>
+          </Suspense>
         )}
       </main>
 
