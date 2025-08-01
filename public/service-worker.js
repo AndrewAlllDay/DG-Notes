@@ -1,7 +1,7 @@
 // public/service-worker.js
 
 // Increment this version any time you make changes to the service worker
-const CACHE_NAME = 'dgnotes-cache-v1.0.32';
+const CACHE_NAME = 'dgnotes-cache-v1.0.33';
 
 const urlsToCache = [
     '/',
@@ -9,7 +9,7 @@ const urlsToCache = [
     '/manifest.json',
 ];
 
-// IndexedDB functions for the share target remain the same
+// IndexedDB functions for the share target (these are correct)
 function getDb() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open('dgnotes-shared-files', 1);
@@ -58,7 +58,7 @@ self.addEventListener('activate', event => {
     );
 });
 
-// --- NEW, SIMPLIFIED FETCH HANDLER ---
+// --- CORRECTED FETCH HANDLER ---
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
 
@@ -81,7 +81,7 @@ self.addEventListener('fetch', event => {
     }
 
     // For all other requests, use a "Network falling back to cache" strategy.
-    // This is much safer for apps that rely on live API data like Firestore.
+    // This correctly handles Firestore requests and provides offline support.
     event.respondWith(
         fetch(event.request).catch(() => {
             // If the network request fails (e.g., offline), try to serve from the cache.
