@@ -1,39 +1,11 @@
 // IMPORTANT: Increment this CACHE_NAME any time you make changes to your app's code or assets
-const CACHE_NAME = 'dgnotes-cache-v1.0.31'; // <-- We will increment this again before the final deploy
+const CACHE_NAME = 'dgnotes-cache-v1.0.32'; // <-- I've incremented this for you
+
 const urlsToCache = [
     '/',
     '/index.html',
     '/manifest.json',
 ];
-
-// --- NEW HELPER FUNCTIONS FOR INDEXEDDB ---
-// This is a simple in-browser database to temporarily store the shared file.
-function getDb() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open('dgnotes-shared-files', 1);
-        request.onerror = event => reject("IndexedDB error: " + event.target.errorCode);
-        request.onsuccess = event => resolve(event.target.result);
-        request.onupgradeneeded = event => {
-            const db = event.target.result;
-            // Create a 'store' for our files
-            db.createObjectStore('files', { keyPath: 'id', autoIncrement: true });
-        };
-    });
-}
-
-async function saveFile(file) {
-    const db = await getDb();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(['files'], 'readwrite');
-        const store = transaction.objectStore('files');
-        // We'll store the file with a timestamp
-        const request = store.put({ file: file, timestamp: new Date() });
-        request.onsuccess = resolve;
-        request.onerror = reject;
-    });
-}
-// --- END OF NEW HELPER FUNCTIONS ---
-
 
 self.addEventListener('install', event => {
     console.log('Service Worker: Installing...');
@@ -75,35 +47,16 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-    const url = new URL(event.request.url);
-
-    // --- NEW LOGIC TO INTERCEPT SHARED FILES ---
-    if (event.request.method === 'POST' && url.pathname === '/share-receiver.html') {
-        event.respondWith((async () => {
-            try {
-                const formData = await event.request.formData();
-                const file = formData.get('csvfile'); // 'csvfile' is the name from manifest.json
-                if (file) {
-                    await saveFile(file);
-                    console.log('Service Worker: Shared file saved to IndexedDB.');
-                }
-                // After saving, redirect the user into the main app with a flag.
-                return Response.redirect('/?share-target=true', 303);
-            } catch (error) {
-                console.error('Service Worker: Error handling shared file:', error);
-                // In case of error, still redirect but with an error flag.
-                return Response.redirect('/?share-target-error=true', 303);
-            }
-        })());
-        return; // Stop further processing for this request
-    }
-    // --- END OF NEW LOGIC ---
+    // The problematic share-handling 'if' block has been removed.
+    // Now, the service worker will let the browser handle the share POST request,
+    // which will correctly trigger the launchQueue API in App.jsx.
 
     const isFirebaseRequest = event.request.url.includes('firestore.googleapis.com') ||
         event.request.url.includes('firebase.googleapis.com') ||
         event.request.url.includes('googleapis.com');
 
     if (event.request.method === 'POST' || isFirebaseRequest) {
+        // Let network requests for POST and Firebase pass through
         event.respondWith(
             fetch(event.request)
                 .catch(error => {
@@ -112,6 +65,7 @@ self.addEventListener('fetch', event => {
                 })
         );
     } else if (event.request.url.startsWith(self.location.origin)) {
+        // Serve static assets from cache first, then network
         event.respondWith(
             caches.match(event.request)
                 .then(response => {
@@ -136,6 +90,7 @@ self.addEventListener('fetch', event => {
                 })
         );
     } else {
+        // For any other cross-origin GET requests, just fetch from the network
         event.respondWith(fetch(event.request));
     }
 });
