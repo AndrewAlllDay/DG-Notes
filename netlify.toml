@@ -1,0 +1,15 @@
+# This is the Netlify configuration file.
+
+[build]
+  # This assumes your build command is "npm run build" and your
+  # public folder is "dist". Change if yours are different.
+  command = "npm run build"
+  publish = "dist"
+
+# This rule fixes the 404 error for single-page apps.
+# It tells Netlify to serve your index.html for any request
+# that doesn't match a file on the server.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
