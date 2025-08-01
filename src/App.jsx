@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import Header from './components/Header.jsx';
 import Courses from './components/Courses.jsx';
@@ -90,7 +91,9 @@ function App() {
     setIsDarkMode(prevMode => !prevMode);
   };
 
+  // --- THIS IS THE CORRECTED useEffect FOR PWA SHARE TARGETS ---
   useEffect(() => {
+    // Handle the modern 'launchQueue' API for file sharing
     if ('launchQueue' in window) {
       console.log('App: launchQueue API is supported.');
       window.launchQueue.setConsumer(async (launchParams) => {
@@ -104,25 +107,29 @@ function App() {
         try {
           const fileHandle = launchParams.files[0];
           const file = await fileHandle.getFile();
-
-          console.log('Received file object:', file);
-          console.log('Filename:', file.name);
-
+          // The launchQueue API provides the file directly, so we need to
+          // pass it to the settings page. Your existing logic does this.
           handleNavigate('settings', { sharedFile: file });
-
         } catch (error) {
           console.error('❌ SHARE HANDLER ERROR: Could not get file from handle.', error);
         }
       });
-    } else {
-      console.warn('App: launchQueue API is not supported. Checking URL params as a fallback.');
-      const params = new URLSearchParams(window.location.search);
-      if (params.has('share-target')) {
-        setCurrentPage('settings');
-      }
     }
-  }, []);
 
+    // ALSO, handle the fallback URL parameter method from the service worker
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('share-target')) {
+      console.log('App: Found "share-target" URL parameter. Navigating to settings.');
+      // This is the key change: it forces the app to show the settings page
+      setCurrentPage('settings');
+
+      // Clean up the URL so the logic doesn't re-run on a refresh
+      const url = new URL(window.location);
+      url.searchParams.delete('share-target');
+      window.history.replaceState({}, '', url);
+    }
+  }, []); // This effect should still only run once on mount
+  // --- END OF CORRECTED useEffect ---
 
   useEffect(() => {
     let unsubscribePublicProfiles;

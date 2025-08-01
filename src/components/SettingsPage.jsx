@@ -131,7 +131,7 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
     const [pendingCourse, setPendingCourse] = useState(null);
     const [pendingRoundData, setPendingRoundData] = useState(null);
 
-    const APP_VERSION = 'v 0.1.56';
+    const APP_VERSION = 'v 0.1.57';
 
     // CRITICAL FIX: Delay shared file processing until user is authenticated
     useEffect(() => {
