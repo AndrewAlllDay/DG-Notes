@@ -24,8 +24,14 @@ export default function ImportCSVModal({ isOpen, onClose, onImport }) {
         Papa.parse(file, {
             header: true,
             skipEmptyLines: true,
-            bom: true, // Add this line
+            bom: true, // Automatically strips BOM
             complete: (results) => {
+                // --- DEBUGGING LOGS START ---
+                console.log("--- CSV Import Debug ---");
+                console.log("Parser Results:", results);
+                console.log("Headers Found:", results.meta.fields);
+                // --- DEBUGGING LOGS END ---
+
                 const headers = results.meta.fields;
                 if (!results.data.length || !headers.includes('PlayerName') || !headers.includes('CourseName') || !headers.some(h => h.startsWith('Hole'))) {
                     setError('Invalid CSV format. Please use a scorecard export with "PlayerName", "CourseName", and "Hole1..." columns.');
@@ -49,10 +55,30 @@ export default function ImportCSVModal({ isOpen, onClose, onImport }) {
         });
     };
 
-    // MODIFIED: This now passes the csvResults object directly
     const handleSubmit = () => {
         if (csvResults) {
-            onImport(csvResults);
+            // Create a copy of the results to modify
+            const sanitizedResults = { ...csvResults };
+
+            // Map over the data array to create a new array with sanitized rows
+            sanitizedResults.data = csvResults.data.map(row => {
+                // Check if the row has a CourseName
+                if (row.CourseName && typeof row.CourseName === 'string') {
+                    // Return a new row object with the apostrophe removed from the CourseName
+                    return {
+                        ...row,
+                        CourseName: row.CourseName.replace(/'/g, '') // Removes all apostrophes
+                    };
+                }
+                // If no CourseName, return the row as-is
+                return row;
+            });
+
+            // For debugging: log the data you're about to import
+            console.log("Attempting to import with sanitized data:", sanitizedResults);
+
+            // Pass the sanitized data to the parent component's import function
+            onImport(sanitizedResults);
         }
     };
 
@@ -95,8 +121,6 @@ export default function ImportCSVModal({ isOpen, onClose, onImport }) {
                             <input id="csv-upload" type="file" className="hidden" accept=".csv, text/csv" onChange={handleFileChange} ref={fileInputRef} />
                         </label>
                     </div>
-
-                    {/* The notes text area has been removed from this modal */}
 
                     {error && <div className="text-red-600 text-sm mt-4 p-2 bg-red-50 rounded-md">{error}</div>}
 
