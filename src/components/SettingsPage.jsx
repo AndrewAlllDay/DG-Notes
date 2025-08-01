@@ -21,7 +21,7 @@ import SelectCourseTypeModal from './SelectCourseTypeModal';
 import SelectPlayerModal from './SelectPlayerModal';
 import AddRoundNotesModal from './AddRoundNotesModal';
 
-// HELPER FUNCTIONS FOR INDEXEDDB (Client-side)
+// HELPER FUNCTIONS FOR INDEXEDDB
 function getDb() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open('dgnotes-shared-files', 1);
@@ -65,7 +65,6 @@ async function clearFiles() {
     });
 }
 
-// Helper function for "Bulletproof" string cleaning
 const cleanStringForComparison = (str) => {
     if (typeof str !== 'string') return '';
     str = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -77,14 +76,9 @@ const cleanStringForComparison = (str) => {
         .trim();
 };
 
-
-// Reusable Accordion Component
 const Accordion = ({ title, children, defaultOpen = false }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
-
-    const toggleAccordion = () => {
-        setIsOpen(!isOpen);
-    };
+    const toggleAccordion = () => setIsOpen(!isOpen);
 
     return (
         <div className="bg-white rounded-lg shadow-md max-w-md mx-auto mb-6">
@@ -105,24 +99,19 @@ const Accordion = ({ title, children, defaultOpen = false }) => {
     );
 };
 
-export default function SettingsPage({ onSignOut, onNavigate }) {
+// Accept the `params` prop from App.jsx
+export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
     const { user, userId, isAuthReady } = useFirebase();
     const [copyMessage, setCopyMessage] = useState('');
     const [displayNameInput, setDisplayNameInput] = useState('');
     const [saveMessage, setSaveMessage] = useState({ type: '', text: '' });
     const [importMessage, setImportMessage] = useState({ type: '', text: '' });
-
-    // State for Admin Role Management
     const [allUserProfiles, setAllUserProfiles] = useState([]);
     const [selectedRole, setSelectedRole] = useState({});
     const [roleSaveMessage, setRoleSaveMessage] = useState({ type: '', text: '' });
-
-    // State for Team Management
     const [teams, setTeams] = useState([]);
     const [newTeamName, setNewTeamName] = useState('');
     const [teamMessage, setTeamMessage] = useState({ type: '', text: '' });
-
-    // State for the entire modal flow, including notes
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
     const [confirmationState, setConfirmationState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => { } });
@@ -131,64 +120,38 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
     const [pendingCourse, setPendingCourse] = useState(null);
     const [pendingRoundData, setPendingRoundData] = useState(null);
 
-    const APP_VERSION = 'v 0.1.57';
+    const APP_VERSION = 'v 0.1.56';
 
-    // CRITICAL FIX: Delay shared file processing until user is authenticated
+    // This new useEffect listens for the params prop from App.jsx
     useEffect(() => {
-        const processSharedFile = async () => {
-            const params = new URLSearchParams(window.location.search);
-            // Check for 'share-target' parameter
-            if (params.has('share-target')) {
-                // Log the auth state immediately when share-target is detected
-                console.log("DEBUG Share: Share target detected. User Auth state at start:", { userId, isAuthReady });
-
-                // If authentication is NOT ready OR userId is NOT available, wait and show message
-                if (!isAuthReady || !userId) {
-                    setImportMessage({ type: 'info', text: 'Waiting for user authentication to process shared file...' });
-                    return; // Exit and wait for useEffect to re-run when auth is ready
-                }
-
-                // If we reach here, userId and isAuthReady ARE available
-                console.log("DEBUG Share: Authentication is ready, processing shared file with userId:", userId);
+        const processFile = async (fileToProcess) => {
+            if (fileToProcess) {
                 setImportMessage({ type: 'info', text: 'Processing shared file...' });
-                try {
-                    const file = await getFile(); // Get file from IndexedDB
-                    if (file) {
-                        Papa.parse(file, {
-                            header: true,
-                            skipEmptyLines: true,
-                            complete: (results) => {
-                                console.log("DEBUG Share: PapaParse completed for shared file.");
-                                console.log("DEBUG Share: Raw CSV Data (first row):", results.data[0]);
-                                console.log("DEBUG Share: Parsed parRow for CourseName:", `'${results.data.find(row => row.PlayerName === 'Par')?.CourseName}'`);
-                                console.log("DEBUG Share: Parsed parRow for LayoutName:", `'${results.data.find(row => row.PlayerName === 'Par')?.LayoutName}'`);
-                                handleCourseImport(results); // Call the main import logic
-                            },
-                            error: () => {
-                                setImportMessage({ type: 'error', text: 'Failed to parse the shared CSV file.' });
-                            }
-                        });
-                        await clearFiles(); // Clear file from IndexedDB after processing
-                    } else {
-                        setImportMessage({ type: 'info', text: 'No shared file found to process.' });
-                    }
-                } catch (error) {
-                    setImportMessage({ type: 'error', text: `Could not process shared file: ${error.message}` });
-                    console.error("DEBUG Share: Error processing shared file:", error);
-                } finally {
-                    // Clean up URL parameters only after processing is attempted
-                    const url = new URL(window.location);
-                    url.searchParams.delete('share-target');
-                    window.history.replaceState({}, '', url);
-                }
+                Papa.parse(fileToProcess, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: (results) => handleCourseImport(results),
+                    error: () => setImportMessage({ type: 'error', text: 'Failed to parse the shared CSV file.' })
+                });
+                await clearFiles();
             }
         };
 
-        // Call the processing function whenever userId or isAuthReady changes,
-        // and if a share-target is present.
-        // This ensures it retries once auth is ready.
-        processSharedFile();
-    }, [userId, isAuthReady]);
+        const runImport = async () => {
+            if (params.sharedFile) {
+                console.log("SettingsPage: Received sharedFile directly via params.");
+                processFile(params.sharedFile);
+            } else if (params.triggerImport) {
+                console.log("SettingsPage: Received triggerImport param. Getting file from IndexedDB.");
+                const file = await getFile();
+                processFile(file);
+            }
+        };
+
+        if (isAuthReady && userId) {
+            runImport();
+        }
+    }, [params, userId, isAuthReady]);
 
     useEffect(() => {
         if (user && user.uid && isAuthReady) {
@@ -230,7 +193,6 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
             setSaveMessage({ type: 'error', text: 'Display Name cannot be empty.' });
             return;
         }
-
         try {
             await setUserProfile(userId, { displayName: displayNameInput.trim() });
             setSaveMessage({ type: 'success', text: 'Display Name saved!' });
@@ -246,62 +208,46 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
             setImportMessage({ type: 'error', text: 'An error occurred. Missing round data.' });
             return;
         }
-
         const { course, userRow, headers } = pendingRoundData;
-
-        // --- START: MODIFIED DATE PARSING LOGIC ---
         let parsedDate;
         try {
-            // Example Date String: "2025-06-08 1638"
             const dateString = userRow.StartDate;
-            const [datePart, timePart] = dateString.split(' '); // -> ["2025-06-08", "1638"]
-            const [year, month, day] = datePart.split('-');   // -> ["2025", "06", "08"]
-            const hour = timePart.substring(0, 2);              // -> "16"
-            const minute = timePart.substring(2, 4);            // -> "38"
-
-            // Create a new Date object. Note: month is 0-indexed in JavaScript.
+            const [datePart, timePart] = dateString.split(' ');
+            const [year, month, day] = datePart.split('-');
+            const hour = timePart.substring(0, 2);
+            const minute = timePart.substring(2, 4);
             parsedDate = new Date(year, month - 1, day, hour, minute);
-
-            if (isNaN(parsedDate)) { // Check if the created date is invalid
+            if (isNaN(parsedDate)) {
                 throw new Error('Could not create a valid date from StartDate.');
             }
         } catch (e) {
             console.error("Date parsing failed:", e);
             setImportMessage({ type: 'error', text: 'Import failed: Could not read the date format in the CSV.' });
-            // Reset state and close the notes modal on failure
             setIsNotesModalOpen(false);
             setPendingRoundData(null);
             return;
         }
-        // --- END: MODIFIED DATE PARSING LOGIC ---
-
-        // Construct the final round data object
         const scores = [];
         for (const header of headers) {
             if (header.match(/^Hole(\w+)$/)) {
                 scores.push(parseInt(userRow[header], 10));
             }
         }
-
         const roundData = {
             courseId: course.id,
             courseName: course.name,
             layoutName: course.tournamentName,
-            date: parsedDate, // Use the new, robustly parsed date
+            date: parsedDate,
             totalScore: parseInt(userRow.Total),
             scoreToPar: parseInt(userRow['+/-']),
             scores: scores
         };
-
         try {
-            // Call the service with the notes
             await addRound(userId, roundData, notes);
             setImportMessage({ type: 'success', text: `Your scorecard for ${course.name} has been imported!` });
         } catch (error) {
             setImportMessage({ type: 'error', text: `Failed to save round: ${error.message}` });
         }
-
-        // Reset state and close the notes modal
         setIsNotesModalOpen(false);
         setPendingRoundData(null);
     };
@@ -309,7 +255,6 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
     const proceedToScoreImport = async (course, csvResults) => {
         const playerRows = csvResults.data.filter(row => row.PlayerName !== 'Par');
         const userRow = playerRows.find(row => cleanStringForComparison(row.PlayerName) === cleanStringForComparison(user.displayName));
-
         const openNotesModalWithData = (selectedRow) => {
             setPendingRoundData({
                 course: course,
@@ -318,7 +263,6 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
             });
             setIsNotesModalOpen(true);
         };
-
         if (userRow) {
             openNotesModalWithData(userRow);
         } else {
@@ -342,10 +286,8 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
 
     const handleCreateFinal = async (classification) => {
         if (!pendingCourse) return;
-
         const { courseData, holesArray, csvResults } = pendingCourse;
         const finalCourseData = { ...courseData, classification };
-
         try {
             const newCourse = await addCourseWithHoles(finalCourseData, holesArray, userId);
             setSelectTypeState({ isOpen: false });
@@ -361,29 +303,21 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
     const handleCourseImport = async (csvResults) => {
         setIsImportModalOpen(false);
         setImportMessage({ type: '', text: '' });
-
         try {
             const csvData = csvResults.data;
             const headers = csvResults.meta.fields;
-
             const parRow = csvData.find(row => row.PlayerName === 'Par');
             if (!parRow) throw new Error("Could not find 'Par' row in CSV.");
-
             const rawCourseName = cleanStringForComparison(parRow.CourseName);
             const rawLayoutName = cleanStringForComparison(parRow.LayoutName);
-
             if (!rawCourseName) throw new Error("CSV is missing 'CourseName'.");
-
             const courseName = rawCourseName;
             const layoutName = rawLayoutName;
-
             const existingCourses = await getUserCourses(userId);
-
             const existingCourse = existingCourses.find(c =>
                 cleanStringForComparison(c.name) === courseName &&
                 cleanStringForComparison(c.tournamentName) === layoutName
             );
-
             if (existingCourse) {
                 await proceedToScoreImport(existingCourse, csvResults);
             } else {
@@ -399,9 +333,7 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
                         });
                     }
                 }
-
                 if (holesArray.length === 0) throw new Error("No 'HoleX' columns found.");
-
                 const courseData = { name: courseName, tournamentName: layoutName };
                 setConfirmationState({
                     isOpen: true,
@@ -410,7 +342,6 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
                     onConfirm: () => handleCreationConfirmed(courseData, holesArray, csvResults)
                 });
             }
-
         } catch (error) {
             setImportMessage({ type: 'error', text: `Import failed: ${error.message}` });
             console.error("DEBUG: handleCourseImport error:", error);
@@ -422,7 +353,6 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
     const handleSaveRole = async (targetUserId) => {
         const roleToSave = selectedRole[targetUserId];
         if (!roleToSave || !targetUserId) return;
-
         try {
             await setUserProfile(targetUserId, { role: roleToSave });
             setRoleSaveMessage({ type: 'success', text: `Role updated!` });
@@ -489,7 +419,6 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
     return (
         <div className="max-h-screen !bg-gray-100 p-4 pb-28">
             <h2 className="text-2xl font-bold mb-6 text-center pt-5">Settings</h2>
-
             <Accordion title="Your User Account">
                 <div className="mb-4">
                     <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-1">Set Your Display Name:</label>
@@ -516,7 +445,6 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
                 {user.email && <p className="text-gray-600 text-sm mt-3">Logged in as: {user.email}</p>}
                 <p className="text-gray-600 text-sm">Your Role: <span className="font-semibold capitalize">{user.role || 'player'}</span></p>
             </Accordion>
-
             <Accordion title="Data Management">
                 <h3 className="text-lg font-semibold text-gray-800">Import Scorecard</h3>
                 <p className="text-sm text-gray-600 mb-2">Upload a scorecard exported from Udisc.</p>
@@ -540,7 +468,6 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
                     </p>
                 )}
             </Accordion>
-
             {user.role === 'admin' && (
                 <Accordion title="User Role Management (Admin)">
                     {roleSaveMessage.text && <p className={`mb-4 text-sm ${roleSaveMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{roleSaveMessage.text}</p>}
@@ -569,7 +496,6 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
                     </ul>
                 </Accordion>
             )}
-
             {user.role === 'admin' && (
                 <Accordion title="Team Management (Admin)">
                     {teamMessage.text && <p className={`mb-4 text-sm ${teamMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{teamMessage.text}</p>}
@@ -608,26 +534,22 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
                     ) : <p className="text-gray-600">No teams created yet.</p>}
                 </Accordion>
             )}
-
             <Accordion title="Account Actions">
                 <button onClick={onSignOut} className="w-full flex items-center justify-center gap-2 !bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700">
                     <LogOut size={20} />
                     Logout
                 </button>
             </Accordion>
-
             <div className="mt-8 text-center text-sm text-gray-500">
                 FlightLog: {APP_VERSION}
             </div>
-
             <ImportCSVModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={handleCourseImport} />
             <ConfirmationModal isOpen={confirmationState.isOpen} onClose={() => setConfirmationState({ ...confirmationState, isOpen: false })} onConfirm={confirmationState.onConfirm} title={confirmationState.title} message={confirmationState.message} />
             <SelectCourseTypeModal isOpen={selectTypeState.isOpen} onClose={() => setSelectTypeState({ isOpen: false })} onSubmit={handleCreateFinal} />
             <SelectPlayerModal isOpen={selectPlayerState.isOpen} onClose={() => setSelectPlayerState({ isOpen: false, players: [], onSelect: () => { } })} onSelect={selectPlayerState.onSelect} players={selectPlayerState.players} />
-
             <AddRoundNotesModal
                 isOpen={isNotesModalOpen}
-                onClose={() => handleFinalizeRoundImport('')} // Allow skipping by finalizing with empty notes
+                onClose={() => handleFinalizeRoundImport('')}
                 onSubmit={handleFinalizeRoundImport}
             />
         </div>
