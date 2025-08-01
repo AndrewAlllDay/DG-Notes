@@ -1,7 +1,7 @@
+// src/components/SettingsPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useFirebase } from '../firebase';
 import { Copy, ChevronDown, ChevronUp, PlusCircle, Trash2, UserPlus, UserMinus, LogOut } from 'lucide-react';
-import { parse } from 'date-fns';
 import Papa from 'papaparse';
 import {
     setUserProfile,
@@ -13,14 +13,13 @@ import {
     deleteTeam,
     addCourseWithHoles,
     getUserCourses,
-    updateCourse,
     addRound
 } from '../services/firestoreService';
 import ImportCSVModal from './ImportCSVModal';
 import ConfirmationModal from './ConfirmationModal';
 import SelectCourseTypeModal from './SelectCourseTypeModal';
 import SelectPlayerModal from './SelectPlayerModal';
-import AddRoundNotesModal from './AddRoundNotesModal'; // NEW: Import the notes modal
+import AddRoundNotesModal from './AddRoundNotesModal';
 
 // HELPER FUNCTIONS FOR INDEXEDDB (Client-side)
 function getDb() {
@@ -123,14 +122,14 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
     const [newTeamName, setNewTeamName] = useState('');
     const [teamMessage, setTeamMessage] = useState({ type: '', text: '' });
 
-    // MODIFIED: State for the entire modal flow, including notes
+    // State for the entire modal flow, including notes
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-    const [isNotesModalOpen, setIsNotesModalOpen] = useState(false); // NEW
+    const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
     const [confirmationState, setConfirmationState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => { } });
     const [selectTypeState, setSelectTypeState] = useState({ isOpen: false });
     const [selectPlayerState, setSelectPlayerState] = useState({ isOpen: false, players: [], onSelect: () => { } });
     const [pendingCourse, setPendingCourse] = useState(null);
-    const [pendingRoundData, setPendingRoundData] = useState(null); // NEW: To hold data before saving round
+    const [pendingRoundData, setPendingRoundData] = useState(null);
 
     const APP_VERSION = 'v 0.1.56';
 
@@ -189,7 +188,7 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
         // and if a share-target is present.
         // This ensures it retries once auth is ready.
         processSharedFile();
-    }, [userId, isAuthReady]); // DEPENDENCY ARRAY NOW INCLUDES userId and isAuthReady
+    }, [userId, isAuthReady]);
 
     useEffect(() => {
         if (user && user.uid && isAuthReady) {
@@ -242,7 +241,6 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
         }
     };
 
-    // NEW: This function will be called AFTER the user adds notes.
     const handleFinalizeRoundImport = async (notes) => {
         if (!pendingRoundData) {
             setImportMessage({ type: 'error', text: 'An error occurred. Missing round data.' });
@@ -250,6 +248,32 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
         }
 
         const { course, userRow, headers } = pendingRoundData;
+
+        // --- START: MODIFIED DATE PARSING LOGIC ---
+        let parsedDate;
+        try {
+            // Example Date String: "2025-06-08 1638"
+            const dateString = userRow.StartDate;
+            const [datePart, timePart] = dateString.split(' '); // -> ["2025-06-08", "1638"]
+            const [year, month, day] = datePart.split('-');   // -> ["2025", "06", "08"]
+            const hour = timePart.substring(0, 2);              // -> "16"
+            const minute = timePart.substring(2, 4);            // -> "38"
+
+            // Create a new Date object. Note: month is 0-indexed in JavaScript.
+            parsedDate = new Date(year, month - 1, day, hour, minute);
+
+            if (isNaN(parsedDate)) { // Check if the created date is invalid
+                throw new Error('Could not create a valid date from StartDate.');
+            }
+        } catch (e) {
+            console.error("Date parsing failed:", e);
+            setImportMessage({ type: 'error', text: 'Import failed: Could not read the date format in the CSV.' });
+            // Reset state and close the notes modal on failure
+            setIsNotesModalOpen(false);
+            setPendingRoundData(null);
+            return;
+        }
+        // --- END: MODIFIED DATE PARSING LOGIC ---
 
         // Construct the final round data object
         const scores = [];
@@ -263,7 +287,7 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
             courseId: course.id,
             courseName: course.name,
             layoutName: course.tournamentName,
-            date: parse(userRow.StartDate, 'yyyy-MM-dd HHmm', new Date()),
+            date: parsedDate, // Use the new, robustly parsed date
             totalScore: parseInt(userRow.Total),
             scoreToPar: parseInt(userRow['+/-']),
             scores: scores
@@ -282,7 +306,6 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
         setPendingRoundData(null);
     };
 
-    // MODIFIED: This function now gathers data and opens the notes modal.
     const proceedToScoreImport = async (course, csvResults) => {
         const playerRows = csvResults.data.filter(row => row.PlayerName !== 'Par');
         const userRow = playerRows.find(row => cleanStringForComparison(row.PlayerName) === cleanStringForComparison(user.displayName));
@@ -597,13 +620,11 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
                 FlightLog: {APP_VERSION}
             </div>
 
-            {/* MODIFIED: Add the new Notes Modal here alongside the others */}
             <ImportCSVModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={handleCourseImport} />
             <ConfirmationModal isOpen={confirmationState.isOpen} onClose={() => setConfirmationState({ ...confirmationState, isOpen: false })} onConfirm={confirmationState.onConfirm} title={confirmationState.title} message={confirmationState.message} />
             <SelectCourseTypeModal isOpen={selectTypeState.isOpen} onClose={() => setSelectTypeState({ isOpen: false })} onSubmit={handleCreateFinal} />
             <SelectPlayerModal isOpen={selectPlayerState.isOpen} onClose={() => setSelectPlayerState({ isOpen: false, players: [], onSelect: () => { } })} onSelect={selectPlayerState.onSelect} players={selectPlayerState.players} />
 
-            {/* NEW: Render the notes modal */}
             <AddRoundNotesModal
                 isOpen={isNotesModalOpen}
                 onClose={() => handleFinalizeRoundImport('')} // Allow skipping by finalizing with empty notes
