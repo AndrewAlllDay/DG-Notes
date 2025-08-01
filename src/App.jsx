@@ -35,7 +35,6 @@ const LoadingScreen = ({ isDarkMode }) => {
   );
 };
 
-
 function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
@@ -48,7 +47,7 @@ function App() {
     showAppMessage('success', 'You have been signed out.');
   };
 
-  const { user, isAuthReady, userId: currentUserId } = useFirebase(handleLoginSuccess, handleLogoutSuccess);
+  const { user, isAuthReady } = useFirebase(handleLoginSuccess, handleLogoutSuccess);
 
   const [isEncouragementModalOpen, setIsEncouragementModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState('home');
@@ -91,27 +90,18 @@ function App() {
     setIsDarkMode(prevMode => !prevMode);
   };
 
-  // --- THIS IS THE CORRECTED useEffect FOR PWA SHARE TARGETS ---
   useEffect(() => {
     // Handle the modern 'launchQueue' API for file sharing
     if ('launchQueue' in window) {
       console.log('App: launchQueue API is supported.');
       window.launchQueue.setConsumer(async (launchParams) => {
-        if (!launchParams.files || launchParams.files.length === 0) {
-          console.log('App: Launch did not contain files.');
-          return;
-        }
-
-        console.log('✅ SHARE HANDLER SUCCESS. Received launchParams:', launchParams);
-
+        if (!launchParams.files || launchParams.files.length === 0) return;
         try {
           const fileHandle = launchParams.files[0];
           const file = await fileHandle.getFile();
-          // The launchQueue API provides the file directly, so we need to
-          // pass it to the settings page. Your existing logic does this.
           handleNavigate('settings', { sharedFile: file });
         } catch (error) {
-          console.error('❌ SHARE HANDLER ERROR: Could not get file from handle.', error);
+          console.error('SHARE HANDLER ERROR:', error);
         }
       });
     }
@@ -119,17 +109,16 @@ function App() {
     // ALSO, handle the fallback URL parameter method from the service worker
     const params = new URLSearchParams(window.location.search);
     if (params.has('share-target')) {
-      console.log('App: Found "share-target" URL parameter. Navigating to settings.');
-      // This is the key change: it forces the app to show the settings page
-      setCurrentPage('settings');
+      console.log('App: Found "share-target" URL parameter. Navigating and triggering import.');
+      // Navigate AND pass a parameter to SettingsPage
+      handleNavigate('settings', { triggerImport: true });
 
-      // Clean up the URL so the logic doesn't re-run on a refresh
+      // Clean up the URL
       const url = new URL(window.location);
       url.searchParams.delete('share-target');
       window.history.replaceState({}, '', url);
     }
-  }, []); // This effect should still only run once on mount
-  // --- END OF CORRECTED useEffect ---
+  }, []);
 
   useEffect(() => {
     let unsubscribePublicProfiles;
@@ -139,9 +128,7 @@ function App() {
       });
     }
     return () => {
-      if (unsubscribePublicProfiles) {
-        unsubscribePublicProfiles();
-      }
+      if (unsubscribePublicProfiles) unsubscribePublicProfiles();
     };
   }, [isAuthReady]);
 
@@ -155,9 +142,7 @@ function App() {
       setUnreadNotesFromFirestore([]);
     }
     return () => {
-      if (unsubscribeNotes) {
-        unsubscribeNotes();
-      }
+      if (unsubscribeNotes) unsubscribeNotes();
     };
   }, [user?.uid, isAuthReady]);
 
