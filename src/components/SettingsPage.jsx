@@ -132,7 +132,7 @@ export default function SettingsPage({ onSignOut, onNavigate }) {
     const [pendingCourse, setPendingCourse] = useState(null);
     const [pendingRoundData, setPendingRoundData] = useState(null); // NEW: To hold data before saving round
 
-    const APP_VERSION = 'v 0.1.55';
+    const APP_VERSION = 'v 0.1.56';
 
     // CRITICAL FIX: Delay shared file processing until user is authenticated
     useEffect(() => {

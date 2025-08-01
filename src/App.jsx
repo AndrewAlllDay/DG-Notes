@@ -10,8 +10,8 @@ import { useFirebase, auth } from './firebase.js';
 import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService.jsx';
 import * as Dialog from '@radix-ui/react-dialog';
 
-// Lazy load components for better performance
-const LazyHomePage = lazy(() => import('./components/HomePage.jsx')); // NEW: Import HomePage
+// Lazy load components
+const LazyHomePage = lazy(() => import('./components/HomePage.jsx'));
 const LazySettingsPage = lazy(() => import('./components/SettingsPage.jsx'));
 const LazySendEncouragement = lazy(() => import('./components/SendEncouragement.jsx'));
 const LazyWeatherDisplay = lazy(() => import('./components/WeatherDisplay.jsx'));
@@ -50,24 +50,18 @@ function App() {
   const { user, isAuthReady, userId: currentUserId } = useFirebase(handleLoginSuccess, handleLogoutSuccess);
 
   const [isEncouragementModalOpen, setIsEncouragementModalOpen] = useState(false);
-  // MODIFIED: Set 'home' as the default page
   const [currentPage, setCurrentPage] = useState('home');
   const [previousPage, setPreviousPage] = useState('home');
-  // NEW: State to store navigation parameters
   const [pageParams, setPageParams] = useState({});
-
   const [coursesKey, setCoursesKey] = useState(0);
-
   const [unreadNotesFromFirestore, setUnreadNotesFromFirestore] = useState([]);
   const [currentNotification, setCurrentNotification] = useState(null);
   const [allPublicUserProfiles, setAllPublicUserProfiles] = useState([]);
-
   const [hasInitialNonPlayerRedirected, setHasInitialNonPlayerRedirected] = useState(false);
-
   const [showReloadPrompt, setShowReloadPrompt] = useState(false);
   const [waitingWorker, setWaitingWorker] = useState(null);
-
   const [appMessage, setAppMessage] = useState({ type: '', text: '' });
+
   const showAppMessage = (type, text) => {
     setAppMessage({ type, text });
     setTimeout(() => {
@@ -96,12 +90,40 @@ function App() {
     setIsDarkMode(prevMode => !prevMode);
   };
 
+  // 🔽🔽🔽 NEW CODE TO HANDLE SHARED FILES 🔽🔽🔽
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('share-target')) {
-      setCurrentPage('settings');
+    if ('launchQueue' in window) {
+      console.log('App: launchQueue API is supported.');
+      window.launchQueue.setConsumer(async (launchParams) => {
+        if (!launchParams.files || launchParams.files.length === 0) {
+          console.log('App: Launch did not contain files.');
+          return;
+        }
+
+        console.log('✅ SHARE HANDLER SUCCESS. Received launchParams:', launchParams);
+
+        try {
+          const fileHandle = launchParams.files[0];
+          const file = await fileHandle.getFile();
+
+          console.log('Received file object:', file);
+          console.log('Filename:', file.name);
+
+          // Navigate to settings page and pass the file object
+          handleNavigate('settings', { sharedFile: file });
+
+        } catch (error) {
+          console.error('❌ SHARE HANDLER ERROR: Could not get file from handle.', error);
+        }
+      });
+    } else {
+      console.warn('App: launchQueue API is not supported. Checking URL params as a fallback.');
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('share-target')) {
+        setCurrentPage('settings');
+      }
     }
-  }, []);
+  }, []); // Empty dependency array ensures this runs only once on app startup
 
 
   useEffect(() => {
@@ -154,20 +176,19 @@ function App() {
     }
   }, [user, isAuthReady, hasInitialNonPlayerRedirected]);
 
-  // MODIFIED: handleNavigate now accepts an optional params object
   const handleNavigate = (page, params = {}) => {
     if (page === 'settings') {
       if (currentPage === 'settings') {
         setCurrentPage(previousPage);
-        setPageParams({}); // Clear params when navigating away from settings
+        setPageParams({});
       } else {
         setPreviousPage(currentPage);
         setCurrentPage('settings');
-        setPageParams(params); // Set params for settings if needed
+        setPageParams(params);
       }
     } else {
       setCurrentPage(page);
-      setPageParams(params); // Set params for the new page
+      setPageParams(params);
     }
 
     if (page === 'courses') {
@@ -179,9 +200,9 @@ function App() {
     if (auth) {
       try {
         await auth.signOut();
-        setCurrentPage('home'); // MODIFIED: Default to home page after sign out
+        setCurrentPage('home');
         setPreviousPage('home');
-        setPageParams({}); // Clear params on sign out
+        setPageParams({});
         setUnreadNotesFromFirestore([]);
         setCurrentNotification(null);
         setAllPublicUserProfiles([]);
@@ -194,7 +215,7 @@ function App() {
 
   const handleSendNoteSuccess = (message) => {
     showAppMessage('success', message);
-    handleNavigate('home'); // MODIFIED: Return to home page
+    handleNavigate('home');
   };
 
   const handleNotificationRead = async (noteId) => {
@@ -267,10 +288,9 @@ function App() {
       )}
 
       <main className="flex-grow">
-        {/* NEW: Render HomePage */}
         {currentPage === 'home' && (
           <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Home...</div>}>
-            <LazyHomePage onNavigate={handleNavigate} /> {/* Pass onNavigate to HomePage */}
+            <LazyHomePage onNavigate={handleNavigate} />
           </Suspense>
         )}
         {currentPage === 'courses' && (
@@ -281,12 +301,12 @@ function App() {
         )}
         {currentPage === 'settings' && (
           <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Settings...</div>}>
-            <LazySettingsPage onSignOut={handleSignOut} onNavigate={handleNavigate} />
+            {/* The shared file is now passed via pageParams */}
+            <LazySettingsPage onSignOut={handleSignOut} onNavigate={handleNavigate} params={pageParams} />
           </Suspense>
         )}
         {currentPage === 'scores' && (
           <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Scores...</div>}>
-            {/* NEW: Pass pageParams to LazyScoresPage */}
             <LazyScoresPage onNavigate={handleNavigate} params={pageParams} />
           </Suspense>
         )}
@@ -294,7 +314,7 @@ function App() {
           <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Send Note page...</div>}>
             <LazySendEncouragement
               onSendSuccess={handleSendNoteSuccess}
-              onClose={() => handleNavigate('home')} // MODIFIED: Close to home
+              onClose={() => handleNavigate('home')}
               showBackButton={showSendNoteBackButton}
             />
           </Suspense>
@@ -312,7 +332,7 @@ function App() {
         {currentPage === 'news' && (
           <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading News...</div>}>
             <LazyNewsFeed />
-          </Suspense>
+          </dSuspense>
         )}
       </main>
 
