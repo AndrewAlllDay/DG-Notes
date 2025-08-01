@@ -55,30 +55,10 @@ export default function ImportCSVModal({ isOpen, onClose, onImport }) {
         });
     };
 
+    // This function passes the successfully parsed data to the parent.
     const handleSubmit = () => {
         if (csvResults) {
-            // Create a copy of the results to modify
-            const sanitizedResults = { ...csvResults };
-
-            // Map over the data array to create a new array with sanitized rows
-            sanitizedResults.data = csvResults.data.map(row => {
-                // Check if the row has a CourseName
-                if (row.CourseName && typeof row.CourseName === 'string') {
-                    // Return a new row object with the apostrophe removed from the CourseName
-                    return {
-                        ...row,
-                        CourseName: row.CourseName.replace(/'/g, '') // Removes all apostrophes
-                    };
-                }
-                // If no CourseName, return the row as-is
-                return row;
-            });
-
-            // For debugging: log the data you're about to import
-            console.log("Attempting to import with sanitized data:", sanitizedResults);
-
-            // Pass the sanitized data to the parent component's import function
-            onImport(sanitizedResults);
+            onImport(csvResults);
         }
     };
 
