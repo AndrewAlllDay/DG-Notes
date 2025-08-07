@@ -425,7 +425,7 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
     if (!user) return <div className="text-center p-4">Please log in to view settings.</div>;
 
     return (
-        <div className="max-h-screen !bg-gray-100 p-4 pb-28">
+        <div className="max-h-screen !bg-gray-100 p-4 pb-48">
             <h2 className="text-2xl font-bold mb-6 text-center pt-5">Settings</h2>
             <Accordion title="Your User Account">
                 <div className="mb-4">
