@@ -226,12 +226,18 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
             setPendingRoundData(null);
             return;
         }
-        const scores = [];
+
+        // --- FIX: Changed from an array to an object ---
+        const scores = {}; // Use an object to store scores with hole numbers as keys
         for (const header of headers) {
-            if (header.match(/^Hole(\w+)$/)) {
-                scores.push(parseInt(userRow[header], 10));
+            const match = header.match(/^Hole(\w+)$/);
+            if (match) {
+                const holeNumber = match[1]; // e.g., "1", "2", "18"
+                scores[holeNumber] = parseInt(userRow[header], 10); // Use hole number as key
             }
         }
+        // --- END FIX ---
+
         const roundData = {
             courseId: course.id,
             courseName: course.name,
@@ -239,7 +245,7 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
             date: parsedDate,
             totalScore: parseInt(userRow.Total),
             scoreToPar: parseInt(userRow['+/-']),
-            scores: scores
+            scores: scores // Now saves the correctly structured object
         };
         try {
             await addRound(userId, roundData, notes);
@@ -589,7 +595,7 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
                 FlightLog: {APP_VERSION}
             </div>
             <ImportCSVModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={handleCourseImport} />
-            <ConfirmationModal isOpen={confirmationState.isOpen} onClose={() => setConfirmationState({ ...confirmationState, isOpen: false })} onConfirm={confirmationState.onConfirm} title={confirmationState.title} message={confirmationState.message} />
+            <ConfirmationModal isOpen={confirmationState.isOpen} onClose={() => setConfirmationState({ ...confirmationState, isOpen: false })} onConfirm={confirmationationState.onConfirm} title={confirmationState.title} message={confirmationState.message} />
             <SelectCourseTypeModal isOpen={selectTypeState.isOpen} onClose={() => setSelectTypeState({ isOpen: false })} onSubmit={handleCreateFinal} />
             <SelectPlayerModal isOpen={selectPlayerState.isOpen} onClose={() => setSelectPlayerState({ isOpen: false, players: [], onSelect: () => { } })} onSelect={selectPlayerState.onSelect} players={selectPlayerState.players} />
             <AddRoundNotesModal
