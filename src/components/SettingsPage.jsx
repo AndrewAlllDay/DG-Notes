@@ -107,7 +107,6 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
     const [saveMessage, setSaveMessage] = useState({ type: '', text: '' });
     const [importMessage, setImportMessage] = useState({ type: '', text: '' });
     const [allUserProfiles, setAllUserProfiles] = useState([]);
-    const [selectedRole, setSelectedRole] = useState({});
     const [roleSaveMessage, setRoleSaveMessage] = useState({ type: '', text: '' });
     const [teams, setTeams] = useState([]);
     const [newTeamName, setNewTeamName] = useState('');
@@ -348,21 +347,18 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
         }
     };
 
-    const handleRoleChange = (targetUserId, role) => setSelectedRole(prev => ({ ...prev, [targetUserId]: role }));
-
-    const handleSaveRole = async (targetUserId) => {
-        const roleToSave = selectedRole[targetUserId];
-        if (!roleToSave || !targetUserId) return;
+    const handleAutoSaveRole = async (targetUserId, newRole) => {
+        if (!newRole || !targetUserId) return;
+        const userProfile = allUserProfiles.find(p => p.id === targetUserId);
+        // Do nothing if the role hasn't changed
+        if (userProfile && (userProfile.role || 'player') === newRole) {
+            return;
+        }
         try {
-            await setUserProfile(targetUserId, { role: roleToSave });
-            setRoleSaveMessage({ type: 'success', text: `Role updated!` });
-            setSelectedRole(prev => {
-                const newState = { ...prev };
-                delete newState[targetUserId];
-                return newState;
-            });
+            await setUserProfile(targetUserId, { role: newRole });
+            setRoleSaveMessage({ type: 'success', text: `Role for ${userProfile.displayName || 'user'} updated!` });
         } catch (error) {
-            setRoleSaveMessage({ type: 'error', text: `Failed to save role: ${error.message}` });
+            setRoleSaveMessage({ type: 'error', text: `Failed to update role: ${error.message}` });
         } finally {
             setTimeout(() => setRoleSaveMessage({ type: '', text: '' }), 3000);
         }
@@ -412,6 +408,18 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
             setTimeout(() => setTeamMessage({ type: '', text: '' }), 3000);
         }
     };
+
+    const roleOrder = { 'admin': 0, 'player': 1, 'non-player': 2 };
+    const sortedUserProfiles = [...allUserProfiles].sort((a, b) => {
+        const roleA = a.role || 'player';
+        const roleB = b.role || 'player';
+        const orderA = roleOrder[roleA];
+        const orderB = roleOrder[roleB];
+        if (orderA !== orderB) {
+            return orderA - orderB;
+        }
+        return (a.displayName || 'Unnamed').localeCompare(b.displayName || 'Unnamed');
+    });
 
     if (!isAuthReady) return <div className="text-center p-4">Loading settings...</div>;
     if (!user) return <div className="text-center p-4">Please log in to view settings.</div>;
@@ -469,35 +477,45 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
                 )}
             </Accordion>
             {user.role === 'admin' && (
-                <Accordion title="User Role Management (Admin)">
+                <Accordion title="User Role Management">
                     {roleSaveMessage.text && <p className={`mb-4 text-sm ${roleSaveMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{roleSaveMessage.text}</p>}
-                    <ul className="space-y-4">
-                        {allUserProfiles.map(profile => (
-                            <li key={profile.id} className="border-b pb-2 last:border-b-0">
-                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full">
-                                    <div className="mb-2 sm:mb-0"><p className="font-semibold text-gray-800 break-words">{profile.displayName || 'No Name'}</p></div>
-                                    {profile.id === user.uid ? (
-                                        <div className="text-gray-500">Your Profile</div>
-                                    ) : (
-                                        <div className="flex items-center space-x-2">
-                                            <select className="p-2 border rounded-md !bg-white" value={selectedRole[profile.id] || profile.role || 'player'} onChange={(e) => handleRoleChange(profile.id, e.target.value)}>
+                    <div className="border rounded-md bg-white">
+                        <ul className="divide-y divide-gray-200">
+                            {sortedUserProfiles.map(profile => {
+                                if (profile.id === user.uid) {
+                                    return (
+                                        <li key={profile.id} className="p-3 bg-blue-50">
+                                            <div className="flex justify-between items-center">
+                                                <span className="font-medium text-blue-900">{profile.displayName || 'No Name'}</span>
+                                                <span className="text-sm font-semibold text-blue-800 capitalize">{(profile.role || 'player').replace('-', ' ')}</span>
+                                            </div>
+                                        </li>
+                                    );
+                                }
+                                const currentRole = profile.role || 'player';
+                                return (
+                                    <li key={profile.id} className="p-3">
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-medium text-sm text-gray-800">{profile.displayName || 'No Name'}</span>
+                                            <select
+                                                className="p-1 border rounded-md !bg-white text-sm"
+                                                value={currentRole}
+                                                onChange={(e) => handleAutoSaveRole(profile.id, e.target.value)}
+                                            >
                                                 <option value="player">Player</option>
                                                 <option value="non-player">Non-Player</option>
                                                 <option value="admin">Admin</option>
                                             </select>
-                                            <button onClick={() => handleSaveRole(profile.id)} className="px-3 py-2 !bg-green-600 text-white rounded-md" disabled={!selectedRole[profile.id] || selectedRole[profile.id] === (profile.role || 'player')}>
-                                                Save
-                                            </button>
                                         </div>
-                                    )}
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
                 </Accordion>
             )}
             {user.role === 'admin' && (
-                <Accordion title="Team Management (Admin)">
+                <Accordion title="Team Management">
                     {teamMessage.text && <p className={`mb-4 text-sm ${teamMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{teamMessage.text}</p>}
                     <div className="mb-6 border-b pb-4">
                         <h3 className="text-lg font-semibold mb-2">Create New Team</h3>
@@ -509,27 +527,53 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
                     <h3 className="text-lg font-semibold mb-3">Existing Teams</h3>
                     {teams.length > 0 ? (
                         <ul className="space-y-4">
-                            {teams.map(team => (
-                                <li key={team.id} className="border p-4 rounded-md shadow-sm bg-gray-50">
-                                    <div className="flex justify-between items-center mb-2"><p className="font-semibold">{team.name}</p><button onClick={() => handleDeleteTeam(team.id)} className="p-1 text-red-600 hover:text-red-800"><Trash2 size={20} /></button></div>
-                                    <h4 className="text-md font-medium mt-4 mb-2">Team Members:</h4>
-                                    {allUserProfiles.length > 0 ? (
-                                        <ul className="max-h-40 overflow-y-auto border rounded-md p-2 bg-white">
-                                            {allUserProfiles.map(profile => {
-                                                const isMember = team.memberIds?.includes(profile.id);
-                                                return (
-                                                    <li key={profile.id} className="flex justify-between items-center py-1 border-b last:border-b-0">
-                                                        <span className="text-sm">{profile.displayName || 'Unnamed'}</span>
-                                                        <button onClick={() => handleToggleTeamMembership(team.id, profile.id, isMember)} className={`p-1 rounded-md ${isMember ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                                            {isMember ? <UserMinus size={16} /> : <UserPlus size={16} />}
-                                                        </button>
-                                                    </li>
-                                                )
-                                            })}
-                                        </ul>
-                                    ) : <p className="text-gray-600 text-sm">No users to add.</p>}
-                                </li>
-                            ))}
+                            {teams.map(team => {
+                                // Sort profiles to show members first, then sort alphabetically
+                                const sortedProfiles = [...allUserProfiles].sort((a, b) => {
+                                    const aIsMember = !!team.memberIds?.includes(a.id);
+                                    const bIsMember = !!team.memberIds?.includes(b.id);
+                                    if (aIsMember === bIsMember) {
+                                        return (a.displayName || 'Unnamed').localeCompare(b.displayName || 'Unnamed');
+                                    }
+                                    return aIsMember ? -1 : 1; // Members come first
+                                });
+
+                                return (
+                                    <li key={team.id} className="border p-4 rounded-md shadow-sm bg-gray-50">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <p className="font-semibold">{team.name}</p>
+                                            <button onClick={() => handleDeleteTeam(team.id)} className="p-1 text-red-600 hover:text-red-800"><Trash2 size={20} /></button>
+                                        </div>
+                                        <h4 className="text-md font-medium mt-4 mb-2">Edit Members:</h4>
+                                        {allUserProfiles.length > 0 ? (
+                                            <div className="border rounded-md bg-white">
+                                                <ul className="divide-y divide-gray-200">
+                                                    {sortedProfiles.map(profile => {
+                                                        const isMember = !!team.memberIds?.includes(profile.id);
+                                                        return (
+                                                            <li key={profile.id} className={`flex justify-between items-center p-2 transition-colors ${isMember ? 'bg-green-50' : 'bg-white'}`}>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-medium text-gray-800 text-sm">{profile.displayName || 'Unnamed'}</span>
+                                                                    {isMember && (
+                                                                        <span className="text-xs font-semibold bg-green-200 text-green-800 px-2 py-0.5 rounded-full">Member</span>
+                                                                    )}
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => handleToggleTeamMembership(team.id, profile.id, isMember)}
+                                                                    className={`p-1 rounded-md transition-colors ${isMember ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
+                                                                    aria-label={isMember ? 'Remove from team' : 'Add to team'}
+                                                                >
+                                                                    {isMember ? <UserMinus size={16} /> : <UserPlus size={16} />}
+                                                                </button>
+                                                            </li>
+                                                        )
+                                                    })}
+                                                </ul>
+                                            </div>
+                                        ) : <p className="text-gray-600 text-sm">No users to add.</p>}
+                                    </li>
+                                );
+                            })}
                         </ul>
                     ) : <p className="text-gray-600">No teams created yet.</p>}
                 </Accordion>
