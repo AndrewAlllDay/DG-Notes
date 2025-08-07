@@ -137,17 +137,26 @@ export default function InTheBagPage() {
             return;
         }
 
+        // --- Sanitize and convert flight numbers to integers ---
+        const sanitizedData = {
+            ...detailsData,
+            speed: detailsData.speed != null && detailsData.speed !== '' ? parseInt(detailsData.speed, 10) : null,
+            glide: detailsData.glide != null && detailsData.glide !== '' ? parseInt(detailsData.glide, 10) : null,
+            turn: detailsData.turn != null && detailsData.turn !== '' ? parseInt(detailsData.turn, 10) : null,
+            fade: detailsData.fade != null && detailsData.fade !== '' ? parseInt(detailsData.fade, 10) : null,
+        };
+
         try {
             if (currentDiscToEdit) {
-                await updateDiscInBag(currentUser.uid, currentDiscToEdit.id, detailsData);
-                toast.success(`${detailsData.name} updated successfully!`);
+                await updateDiscInBag(currentUser.uid, currentDiscToEdit.id, sanitizedData);
+                toast.success(`${sanitizedData.name} updated successfully!`);
             } else if (pendingApiDisc) {
                 const allDiscs = [...activeDiscs, ...archivedDiscs];
                 const maxOrder = allDiscs.length > 0 ? Math.max(...allDiscs.map(d => d.displayOrder || 0)) : -1;
 
                 const finalDiscData = {
                     ...pendingApiDisc,
-                    ...detailsData,
+                    ...sanitizedData,
                     isArchived: false,
                     displayOrder: maxOrder + 1,
                 };
@@ -159,6 +168,7 @@ export default function InTheBagPage() {
             setPendingApiDisc(null);
         } catch (error) {
             toast.error("Failed to save disc.");
+            console.error("Save disc error:", error);
         }
     };
 
@@ -221,7 +231,14 @@ export default function InTheBagPage() {
     }, {});
 
     // This list is now only for sorting the accordion groups on the page
-    const discTypeOrder = ['Distance Driver', 'Fairway Driver', 'Midrange', 'Putt & Approach', 'Hybrid'];
+    const discTypeOrder = [
+        'Distance Driver',
+        'Hybrid Driver',
+        'Control Driver',
+        'Midrange',
+        'Approach Discs',
+        'Putter'
+    ];
 
     const sortedActiveDiscTypes = Object.keys(groupedActiveDiscs).sort((a, b) => {
         const indexA = discTypeOrder.indexOf(a);
@@ -332,7 +349,24 @@ export default function InTheBagPage() {
                                 onToggle={() => handleToggleAccordion(type)}
                             >
                                 <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                                    {groupedActiveDiscs[type].map(disc => renderDiscItem(disc, 'active'))}
+                                    {groupedActiveDiscs[type]
+                                        .sort((a, b) => {
+                                            // --- Primary Sort: By Speed (now fastest to slowest) ---
+                                            const speedA = parseInt(a.speed, 10) || 0;
+                                            const speedB = parseInt(b.speed, 10) || 0;
+
+                                            if (speedA !== speedB) {
+                                                return speedB - speedA; // This is the only line that changed
+                                            }
+
+                                            // --- Secondary Sort (Tie-breaker): Alphabetical by Name ---
+                                            const nameA = (a.name || '').trim();
+                                            const nameB = (b.name || '').trim();
+
+                                            return nameA.localeCompare(nameB);
+                                        })
+                                        .map(disc => renderDiscItem(disc, 'active'))
+                                    }
                                 </ul>
                             </Accordion>
                         ))}

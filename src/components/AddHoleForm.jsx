@@ -1,55 +1,53 @@
-import React, { useState, useEffect } from 'react'; // <--- ADD useEffect import
+import React, { useState, useEffect } from 'react';
 
-export default function AddHoleForm({ onAddHole, onCancel, discs }) { // <--- ADD 'discs' PROP HERE
+// Define a shared constant for disc type order
+const DISC_TYPE_ORDER = [
+    'Distance Driver',
+    'Fairway Driver',
+    'Midrange',
+    'Putt/Approach',
+    'Hybrid',
+    'Other'
+];
+
+export default function AddHoleForm({ onAddHole, onCancel, discs }) {
     const [holeNumber, setHoleNumber] = useState('');
     const [holePar, setHolePar] = useState('');
+    // --- 1. Add state for distance ---
+    const [holeDistance, setHoleDistance] = useState('');
     const [holeNote, setHoleNote] = useState('');
-    // REMOVED: No longer tracking tournamentName here for hole context
-    // const [tournamentName, setTournamentName] = useState(''); // This state is for Course, not Hole.
+    const [selectedDiscId, setSelectedDiscId] = useState('');
 
-    const [selectedDiscId, setSelectedDiscId] = useState(''); // <--- NEW STATE FOR SELECTED DISC
-
-    // Reset form fields when the component is mounted or props change (e.g., modal opens)
-    // Use useEffect to clear form when it's logically "closed" or resetting
+    // This effect can be used to reset the form if the modal is re-opened,
+    // though clearing on submit/cancel is also effective.
     useEffect(() => {
-        // You might need a prop like 'isVisible' or 'isNewHole' to trigger proper reset,
-        // but for now, we'll assume this form's lifecycle aligns with a submission/cancel.
-        // A simple way to reset after submit/cancel is within handleSubmit and onCancel
-        // or by having the parent (AddHoleModal) control the initial states more directly.
-        // For simplicity, we'll rely on the handleSubmit and onCancel to clear.
-    }, []); // Empty dependency array means it runs once on mount
+        // Parent component can trigger a reset by changing a key on AddHoleModal
+    }, []);
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        // MODIFIED: Pass selectedDiscId as the fourth argument
-        onAddHole(holeNumber, holePar, holeNote, selectedDiscId); // <--- PASS selectedDiscId
+        // --- 2. Pass distance to the onAddHole handler ---
+        onAddHole(holeNumber, holePar, holeDistance, holeNote, selectedDiscId);
+
         // Clear form fields after submission
         setHoleNumber('');
         setHolePar('');
+        setHoleDistance(''); // Clear distance
         setHoleNote('');
-        setSelectedDiscId(''); // <--- Clear selected disc after submission
+        setSelectedDiscId('');
     };
 
-    // Also clear if cancelled
     const handleCancel = () => {
+        // Clear form fields on cancel
         setHoleNumber('');
         setHolePar('');
+        setHoleDistance(''); // Clear distance
         setHoleNote('');
-        setSelectedDiscId(''); // <--- Clear selected disc on cancel
+        setSelectedDiscId('');
         onCancel();
     };
 
-    // Define the desired order of disc types for display (can be moved to a shared utility if used elsewhere)
-    const DISC_TYPE_ORDER = [
-        'Distance Driver',
-        'Fairway Driver',
-        'Midrange',
-        'Putt/Approach',
-        'Hybrid',
-        'Other' // For discs without a specified type
-    ];
-
-    // Logic to group discs by type for the dropdown (copied from HoleItem.jsx)
+    // Group discs by type for the dropdown
     const groupedDiscs = {};
     if (discs) {
         discs.forEach(disc => {
@@ -61,97 +59,116 @@ export default function AddHoleForm({ onAddHole, onCancel, discs }) { // <--- AD
         });
     }
 
-    // Sort the disc types according to the predefined order, or put 'Other' at the end (copied from HoleItem.jsx)
+    // Sort disc types by the predefined order
     const sortedDiscTypes = Object.keys(groupedDiscs).sort((a, b) => {
         const indexA = DISC_TYPE_ORDER.indexOf(a);
         const indexB = DISC_TYPE_ORDER.indexOf(b);
-
         if (indexA === -1 && indexB === -1) return a.localeCompare(b);
         if (indexA === -1) return 1;
         if (indexB === -1) return -1;
         return indexA - indexB;
     });
 
-
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-            <label htmlFor="holeNumber" className="block text-gray-700 text-sm font-bold mb-1">
-                Hole Number:
-            </label>
-            <input
-                type="number" // Changed to type="number"
-                id="holeNumber"
-                placeholder="e.g., 1, 10"
-                value={holeNumber}
-                onChange={(e) => setHoleNumber(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-                required
-            />
-            <label htmlFor="holePar" className="block text-gray-700 text-sm font-bold mb-1">
-                Par:
-            </label>
-            <input
-                type="number" // Changed to type="number"
-                id="holePar"
-                placeholder="e.g., 3, 4"
-                value={holePar}
-                onChange={(e) => setHolePar(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-                required
-            />
+            <div>
+                <label htmlFor="holeNumber" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-1">
+                    Hole Number:
+                </label>
+                <input
+                    type="text"
+                    id="holeNumber"
+                    placeholder="e.g., 1"
+                    value={holeNumber}
+                    onChange={(e) => setHoleNumber(e.target.value)}
+                    className="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    required
+                />
+            </div>
+            <div>
+                <label htmlFor="holePar" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-1">
+                    Par:
+                </label>
+                <input
+                    type="number"
+                    id="holePar"
+                    placeholder="e.g., 3"
+                    value={holePar}
+                    onChange={(e) => setHolePar(e.target.value)}
+                    className="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    required
+                />
+            </div>
 
-            {/* --- MOVED DISC SELECTION DROPDOWN (NOW BEFORE NOTES) --- */}
-            <label htmlFor="discSelect" className="block text-gray-700 text-sm font-bold mb-1">
-                Recommended Disc:
-            </label>
-            <select
-                id="discSelect"
-                className="w-full border rounded px-3 py-2 custom-select-dropdown"
-                value={selectedDiscId}
-                onChange={(e) => setSelectedDiscId(e.target.value)}
-            >
-                <option value="">No Disc Selected</option>
-                {sortedDiscTypes.map(type => (
-                    <optgroup key={type} label={type}>
-                        {groupedDiscs[type].map(disc => (
-                            <option key={disc.id} value={disc.id}>
-                                {disc.name} ({disc.manufacturer})
-                            </option>
-                        ))}
-                    </optgroup>
-                ))}
-            </select>
-            {discs && discs.length === 0 && ( // Ensure discs is not null/undefined
-                <p className="text-sm text-gray-500 mt-2">
-                    No discs found in your bag. Add some in the "In The Bag" section to select here.
-                </p>
-            )}
-            {/* --- END MOVED DISC SELECTION DROPDOWN --- */}
+            {/* --- 3. Add the distance input field to the form --- */}
+            <div>
+                <label htmlFor="holeDistance" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-1">
+                    Distance (ft):
+                </label>
+                <input
+                    type="number"
+                    id="holeDistance"
+                    placeholder="e.g., 350"
+                    value={holeDistance}
+                    onChange={(e) => setHoleDistance(e.target.value)}
+                    className="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                />
+            </div>
 
-            {/* --- MOVED NOTES FIELD (NOW AFTER DISC SELECTION) --- */}
-            <label htmlFor="holeNote" className="block text-gray-700 text-sm font-bold mb-1">
-                Notes:
-            </label>
-            <textarea
-                id="holeNote"
-                placeholder="Any specific tips or observations for this hole?"
-                value={holeNote}
-                onChange={(e) => setHoleNote(e.target.value)}
-                className="w-full border rounded px-3 py-2 h-24 resize-none" // Added h-24 and resize-none for better textarea
-            />
-            {/* --- END MOVED NOTES FIELD --- */}
+            <div>
+                <label htmlFor="discSelect" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-1">
+                    Recommended Disc:
+                </label>
+                <select
+                    id="discSelect"
+                    className="w-full border rounded px-3 py-2 custom-select-dropdown dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    value={selectedDiscId}
+                    onChange={(e) => setSelectedDiscId(e.target.value)}
+                >
+                    <option value="">No Disc Selected</option>
+                    {sortedDiscTypes.map(type => (
+                        <optgroup key={type} label={type}>
+                            {groupedDiscs[type]
+                                .sort((a, b) => a.name.localeCompare(b.name))
+                                .map(disc => (
+                                    <option key={disc.id} value={disc.id}>
+                                        {disc.name} - {disc.color}
+                                    </option>
+                                ))}
+                        </optgroup>
+                    ))}
+                </select>
+                {discs && discs.length === 0 && (
+                    <p className="text-sm text-gray-500 mt-2">
+                        No discs found. Add some in the "In The Bag" section.
+                    </p>
+                )}
+            </div>
 
-            <div className="flex justify-end gap-2">
+            <div>
+                <label htmlFor="holeNote" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-1">
+                    Notes:
+                </label>
+                <textarea
+                    id="holeNote"
+                    placeholder="e.g., Hyzer flip, aim for the big oak tree"
+                    value={holeNote}
+                    onChange={(e) => setHoleNote(e.target.value)}
+                    className="w-full border rounded px-3 py-2 h-24 resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
                 <button
                     type="button"
-                    onClick={handleCancel} // <--- Call new handleCancel
-                    className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                    onClick={handleCancel}
+                    className="bg-gray-300 dark:bg-gray-600 dark:text-white px-4 py-2 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
                 >
                     Cancel
                 </button>
                 <button
                     type="submit"
-                    className="!bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                    className="!bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
                 >
                     Add Hole
                 </button>

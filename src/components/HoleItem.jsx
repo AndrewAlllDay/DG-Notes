@@ -28,6 +28,8 @@ export default function HoleItem({
 
     const [currentEditNumber, setCurrentEditNumber] = useState(hole.number);
     const [currentEditPar, setCurrentEditPar] = useState(hole.par);
+    // --- 1. Add state for distance ---
+    const [currentEditDistance, setCurrentEditDistance] = useState(hole.distance || '');
     const [currentEditNote, setCurrentEditNote] = useState(hole.note);
     const [currentEditDiscId, setCurrentEditDiscId] = useState(hole.discId || '');
 
@@ -35,11 +37,15 @@ export default function HoleItem({
         if (isCurrentlyEditing && editingHoleData && editingHoleData.id === hole.id) {
             setCurrentEditNumber(editingHoleData.number || '');
             setCurrentEditPar(editingHoleData.par || '');
+            // --- 2. Update state from editingHoleData ---
+            setCurrentEditDistance(editingHoleData.distance || '');
             setCurrentEditNote(editingHoleData.note || '');
             setCurrentEditDiscId(editingHoleData.discId || '');
         } else if (!isCurrentlyEditing) {
             setCurrentEditNumber(hole.number);
             setCurrentEditPar(hole.par);
+            // --- 3. Reset state when not editing ---
+            setCurrentEditDistance(hole.distance || '');
             setCurrentEditNote(hole.note);
             setCurrentEditDiscId(hole.discId || '');
         }
@@ -49,6 +55,8 @@ export default function HoleItem({
         const { name, value } = e.target;
         if (name === 'number') setCurrentEditNumber(value);
         else if (name === 'par') setCurrentEditPar(value);
+        // --- 4. Handle input changes for distance ---
+        else if (name === 'distance') setCurrentEditDistance(value);
         else if (name === 'note') setCurrentEditNote(value);
         else if (name === 'discId') setCurrentEditDiscId(value);
 
@@ -59,6 +67,8 @@ export default function HoleItem({
         onToggleEdit(hole.id, hole);
         setCurrentEditNumber(hole.number);
         setCurrentEditPar(hole.par);
+        // --- 5. Reset distance on cancel ---
+        setCurrentEditDistance(hole.distance || '');
         setCurrentEditNote(hole.note);
         setCurrentEditDiscId(hole.discId || '');
     };
@@ -114,7 +124,7 @@ export default function HoleItem({
                         <label className="block">
                             <span className="text-gray-700 dark:text-gray-300 text-sm">Hole Number:</span>
                             <input
-                                type="number"
+                                type="text"
                                 placeholder="Hole Number"
                                 name="number"
                                 value={currentEditNumber}
@@ -136,6 +146,18 @@ export default function HoleItem({
                             />
                         </label>
 
+                        {/* --- 6. Add the distance input field --- */}
+                        <label className="block">
+                            <span className="text-gray-700 dark:text-gray-300 text-sm">Distance (ft):</span>
+                            <input
+                                type="number"
+                                placeholder="Distance in feet"
+                                name="distance"
+                                value={currentEditDistance}
+                                onChange={handleLocalInputChange}
+                                className="w-full mt-1 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            />
+                        </label>
 
                         <label className="block">
                             <span className="text-gray-700 dark:text-gray-300 text-sm">Recommended Disc:</span>
@@ -203,8 +225,10 @@ export default function HoleItem({
                 ) : (
                     // Display mode
                     <div className='flex-grow'>
+                        {/* --- 7. Display the distance --- */}
                         <p className='mb-2 text-gray-800 dark:text-white'>
                             <span className='font-bold text-lg'>Hole {hole.number}</span> - Par {hole.par}
+                            {hole.distance && <span className="text-gray-600 dark:text-gray-400"> - {hole.distance} ft</span>}
                         </p>
 
                         {displayDisc && (

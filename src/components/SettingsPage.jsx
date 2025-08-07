@@ -433,7 +433,7 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
     return (
         <div className="max-h-screen !bg-gray-100 p-4 pb-48">
             <h2 className="text-2xl font-bold mb-6 text-center pt-5">Settings</h2>
-            <Accordion title="Your User Account">
+            <Accordion title="Your Account">
                 <div className="mb-4">
                     <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-1">Set Your Display Name:</label>
                     <div className="flex items-center gap-2">
@@ -465,7 +465,7 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
                 </button>
 
             </Accordion>
-            <Accordion title="Data Management">
+            <Accordion title="Manage Scorecards">
                 <h3 className="text-lg font-semibold text-gray-800">Import Scorecard</h3>
                 <p className="text-sm text-gray-600 mb-2">Upload a scorecard exported from Udisc.</p>
                 <button

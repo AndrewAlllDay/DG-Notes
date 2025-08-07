@@ -1,11 +1,9 @@
-// src/components/Courses.jsx
-
 import React, { useState, useEffect, useRef } from 'react';
-import CourseList from './CourseList';
-import HoleList from './HoleList';
-import AddCourseModal from './AddCourseModal';
-import AddHoleModal from './AddHoleModal';
-import DeleteConfirmationModal from './DeleteConfirmationModal';
+import CourseList from '../components/CourseList';
+import HoleList from '../components/HoleList';
+import AddCourseModal from '../components/AddCourseModal';
+import AddHoleModal from '../components/AddHoleModal';
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 
 import {
     subscribeToCourses,
@@ -27,7 +25,6 @@ export default function Courses() {
     const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
     const [newCourseName, setNewCourseName] = useState('');
     const [newCourseTournamentName, setNewCourseTournamentName] = useState('');
-    // State for course classification, correctly added
     const [newCourseClassification, setNewCourseClassification] = useState('');
 
     const [selectedCourse, setSelectedCourse] = useState(null);
@@ -39,13 +36,10 @@ export default function Courses() {
     const [holeToDeleteId, setHoleToDeleteId] = useState(null);
 
     const [appMessage, setAppMessage] = useState({ type: '', text: '' });
-
-    // FAB state - Initialized to true, and scroll logic removed.
     const [showFab, setShowFab] = useState(true);
-    // lastScrollY and scrollContainerRef are no longer needed for FAB visibility, but kept if used elsewhere.
+
     const lastScrollY = useRef(0);
     const scrollContainerRef = useRef(null);
-
     const swipeRefs = useRef({});
     const holeListRef = useRef(null);
 
@@ -73,20 +67,14 @@ export default function Courses() {
 
     useEffect(() => {
         if (!isAuthReady || !userId) {
-            console.log("Auth not ready or userId not available, skipping data subscriptions.");
             setCourses([]);
             setDiscs([]);
             return;
         }
 
-        console.log("Subscribing to courses for userId:", userId);
         const unsubscribeCourses = subscribeToCourses(userId, (fetchedCourses) => {
-            console.log("Fetched courses in Courses.jsx:", fetchedCourses);
-
-            // Sort a copy of the array alphabetically by course name
             const sortedCourses = [...fetchedCourses].sort((a, b) => a.name.localeCompare(b.name));
-
-            setCourses(sortedCourses); // Use the newly sorted array
+            setCourses(sortedCourses);
 
             if (selectedCourse) {
                 const updatedSelected = sortedCourses.find(c => c.id === selectedCourse.id);
@@ -107,9 +95,7 @@ export default function Courses() {
             }
         });
 
-        console.log("Subscribing to discs for userId:", userId);
         const unsubscribeDiscs = subscribeToUserDiscs(userId, (fetchedDiscs) => {
-            console.log("Fetched discs in Courses.jsx:", fetchedDiscs);
             setDiscs(fetchedDiscs);
         });
 
@@ -124,13 +110,11 @@ export default function Courses() {
             if (selectedCourse && holeListRef.current && !holeListRef.current.contains(event.target)) {
                 const isClickOnModal = event.target.closest('.modal-overlay') || event.target.closest('.modal-content');
                 const isClickOnHoleItem = event.target.closest('.HoleItem') || event.target.closest('li.mb-4');
-
                 if (!isClickOnModal && !isClickOnHoleItem) {
                     closeAllHoleEdits();
                 }
             }
         }
-
         if (selectedCourse) {
             document.addEventListener('mousedown', handleClickOutside);
         }
@@ -139,18 +123,13 @@ export default function Courses() {
         };
     }, [selectedCourse]);
 
-
-
     const closeAllHoleEdits = () => {
         if (!selectedCourse) return;
         setSelectedCourse(prev => {
             if (!prev) return null;
             return {
                 ...prev,
-                holes: prev.holes.map(hole => ({
-                    ...hole,
-                    editing: false
-                }))
+                holes: prev.holes.map(hole => ({ ...hole, editing: false }))
             };
         });
         setEditingHoleData({});
@@ -200,19 +179,17 @@ export default function Courses() {
         swipeRefs.current[id] = null;
     };
 
-    // Modified handleAddCourse to accept classification
     const handleAddCourse = async (courseName, tournamentName, classification) => {
         if (!userId) {
-            showAppMessage('error', "User not authenticated. Please wait for authentication to complete or refresh the page.");
+            showAppMessage('error', "User not authenticated.");
             return;
         }
         try {
-            // Pass the new classification to addCourse
             await addCourse(courseName, tournamentName, classification, userId);
             setIsAddCourseModalOpen(false);
             setNewCourseName('');
             setNewCourseTournamentName('');
-            setNewCourseClassification(''); // Reset classification state after adding
+            setNewCourseClassification('');
             showAppMessage('success', `Course "${courseName}" added successfully!`);
         } catch (error) {
             console.error("Failed to add course:", error);
@@ -222,7 +199,7 @@ export default function Courses() {
 
     const handleDeleteCourse = async (id) => {
         if (!userId) {
-            showAppMessage('error', "User not authenticated. Please wait for authentication to complete or refresh the page.");
+            showAppMessage('error', "User not authenticated.");
             return;
         }
         try {
@@ -271,22 +248,20 @@ export default function Courses() {
         setHoleToDeleteId(null);
     };
 
-    const handleAddHole = async (holeNumber, holePar, holeNote, discId = null) => {
-        if (!holeNumber.trim() || !holePar.trim() || !selectedCourse || !userId) {
-            showAppMessage('error', "Hole number and par are required, a course must be selected, and user must be authenticated.");
-            return;
-        }
+    const handleAddHole = async (holeNumber, holePar, holeDistance, holeNote, discId = null) => {
+        // ... validation ...
         const newHole = {
-            id: `${selectedCourse.id}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-            number: holeNumber,
-            par: holePar,
+            id: `${selectedCourse.id}-${Date.now()}`,
+            number: holeNumber, // <--- REMOVE parseInt() here
+            par: parseInt(holePar, 10) || 0, // Keep this as a number
+            distance: parseFloat(holeDistance) || null, // Keep this as a number
             note: holeNote || '',
-            discId: discId, // Added discId to new hole object
+            discId: discId,
         };
         try {
             await addHoleToCourse(selectedCourse.id, newHole, userId);
             setIsAddHoleModalOpen(false);
-            showAppMessage('success', `Hole ${holeNumber} added successfully!`);
+            showAppMessage('success', `Hole ${newHole.number} added successfully!`);
         } catch (error) {
             console.error("Failed to add hole:", error);
             showAppMessage('error', `Failed to add hole: ${error.message}`);
@@ -294,28 +269,26 @@ export default function Courses() {
     };
 
     const handleSaveHoleChanges = async (holeId) => {
-        if (!selectedCourse || !userId) {
-            showAppMessage('error', "User not authenticated or course not selected.");
-            return;
-        }
+        // ... validation ...
         const updatedHole = {
             id: holeId,
-            number: editingHoleData.number,
-            par: editingHoleData.par,
-            note: editingHoleData.note,
-            discId: editingHoleData.discId !== undefined ? editingHoleData.discId : null,
+            number: editingHoleData.number, // <--- REMOVE parseInt() here
+            par: parseInt(editingHoleData.par, 10) || 0, // Keep this as a number
+            distance: parseFloat(editingHoleData.distance) || null, // Keep this as a number
+            note: editingHoleData.note || '',
+            discId: editingHoleData.discId || null,
         };
         try {
             await updateHoleInCourse(selectedCourse.id, holeId, updatedHole, userId);
             setEditingHoleData({});
             closeAllHoleEdits();
             showAppMessage('success', `Hole ${updatedHole.number} changes saved!`);
-        }
-        catch (error) {
+        } catch (error) {
             console.error("Failed to save hole changes:", error);
             showAppMessage('error', `Failed to save hole changes: ${error.message}`);
         }
     };
+
 
     const backToList = () => {
         closeAllHoleEdits();
@@ -343,37 +316,33 @@ export default function Courses() {
     if (!isAuthReady) {
         return (
             <div className="flex justify-center items-center min-h-screen bg-gray-100 text-xl text-gray-700">
-                Loading authentication...
+                Loading...
             </div>
         );
     }
 
-    console.log("DEBUG Courses.jsx Render: selectedCourse =", selectedCourse);
-    console.log("DEBUG Courses.jsx Render: discs =", discs);
-
     return (
-        <div ref={scrollContainerRef} className="max-h-screen bg-gray-100 p-4 overflow-y-auto pb-48">
+        <div ref={scrollContainerRef} className="max-h-screen bg-gray-100 dark:bg-gray-900 p-4 overflow-y-auto pb-48">
             {appMessage.text && (
                 <div className={`px-4 py-3 rounded relative mb-4
-                    ${appMessage.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700' : 'bg-red-100 border border-red-400 text-red-700'}`}
+                    ${appMessage.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700 dark:bg-green-900 dark:border-green-700 dark:text-green-300' : 'bg-red-100 border border-red-400 text-red-700 dark:bg-red-900 dark:border-red-700 dark:text-red-300'}`}
                     role="alert">
                     <span className="block sm:inline">{appMessage.text}</span>
                 </div>
             )}
 
             {selectedCourse ? (
-                <div className="relative min-h-screen bg-gray-100 p-4 pt-5">
+                <div className="relative min-h-screen bg-gray-100 dark:bg-gray-900 p-4 pt-5">
                     <div className="text-center mb-6 pt-5">
-                        <h2 className="text-2xl font-bold mb-3">
+                        <h2 className="text-2xl font-bold mb-3 dark:text-white">
                             {selectedCourse.name}
                         </h2>
                         {selectedCourse.tournamentName && (
-                            <p className="text-lg text-gray-600">{selectedCourse.tournamentName}</p>
+                            <p className="text-lg text-gray-600 dark:text-gray-400">{selectedCourse.tournamentName}</p>
                         )}
-                        {/* Display Course Classification if available */}
                         {selectedCourse.classification && (
-                            <p className="text-md text-gray-500 italic">
-                                Style: {selectedCourse.classification.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                            <p className="text-md text-gray-500 dark:text-gray-500 italic">
+                                Style: {selectedCourse.classification.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                             </p>
                         )}
                     </div>
@@ -391,12 +360,10 @@ export default function Courses() {
                         />
                     </div>
 
-                    {/* FAB for Add Hole - Now always visible */}
                     <button
                         onClick={() => setIsAddHoleModalOpen(true)}
-                        className={`fixed bottom-25 right-6 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50`}
-                        aria-label="Add Hole"
-                    >
+                        className={`fixed bottom-24 right-4 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-40`}
+                        aria-label="Add Hole">
                         <span className="text-2xl">＋</span>
                     </button>
 
@@ -411,21 +378,19 @@ export default function Courses() {
                         isOpen={isDeleteConfirmationModalOpen}
                         onClose={handleCancelDeleteHole}
                         onConfirm={handleConfirmDeleteHole}
-                        message={`Are you sure you want to delete Hole ${selectedCourse.holes.find(h => h.id === holeToDeleteId)?.number || ''}? This action cannot be undone.`}
+                        message={`Are you sure you want to delete Hole ${selectedCourse.holes.find(h => h.id === holeToDeleteId)?.number || ''}? This cannot be undone.`}
                     />
                 </div>
             ) : (
                 <>
-                    <h2 className="text-2xl font-bold mb-3 text-center pt-5">Your Courses</h2>
-                    <p className='text-center text-gray-600'>Beyond the scorecard, this is your tactical journal. </p>
-                    <p className='text-center text-gray-600 mb-6'>Break down every hole, assign the perfect plastic, and craft the strategy to shave strokes off your game.</p>
+                    <h2 className="text-2xl font-bold mb-3 text-center pt-5 dark:text-white">Your Courses</h2>
+                    <p className='text-center text-gray-600 dark:text-gray-400'>Beyond the scorecard, this is your tactical journal. </p>
+                    <p className='text-center text-gray-600 dark:text-gray-400 mb-6'>Break down every hole and craft the strategy to shave strokes off your game.</p>
 
-                    {/* FAB for Add Course - Now always visible. Removed conditional `showFab` class. */}
                     <button
                         onClick={() => setIsAddCourseModalOpen(true)}
-                        className={`fab-fix fixed bottom-25 right-6 !bg-blue-600 hover:bg-red-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50`}
-                        aria-label="Add Course"
-                    >
+                        className={`fixed bottom-24 right-4 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-40`}
+                        aria-label="Add Course">
                         <span className="text-2xl">＋</span>
                     </button>
 
@@ -437,13 +402,11 @@ export default function Courses() {
                         setNewCourseName={setNewCourseName}
                         newCourseTournamentName={newCourseTournamentName}
                         setNewCourseTournamentName={setNewCourseTournamentName}
-                        // Correctly passing the classification state and its setter
                         newCourseClassification={newCourseClassification}
                         setNewCourseClassification={setNewCourseClassification}
                     />
                     <CourseList
                         courses={courses}
-                        // Corrected prop name to match what CourseList expects for selection
                         onSelectCourse={setSelectedCourse}
                         onDeleteCourse={handleDeleteCourse}
                         swipedCourseId={swipedCourseId}
