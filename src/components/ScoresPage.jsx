@@ -250,10 +250,66 @@ export default function ScoresPage() {
                     </div>
                 )}
 
-                {/* --- Gemini Integration UI --- */}
+                {/* --- Gemini Integration UI (MOVED TO BOTTOM) --- */}
+
                 <div className="max-w-2xl mx-auto mt-8 mb-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-                    {/* ... (Gemini UI remains unchanged) ... */}
+
+                    <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Ask Gemini about your scores</h3>
+
+                    <textarea
+
+                        value={geminiPrompt}
+
+                        onChange={(e) => setGeminiPrompt(e.target.value)}
+
+                        placeholder="E.g., 'What was my best round?' or 'Summarize my performance.'"
+
+                        rows="3"
+
+                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-blue-500 focus:border-blue-500"
+
+                        disabled={isGeminiLoading}
+
+                    />
+
+                    <button
+
+                        onClick={runGeminiAnalysis}
+
+                        className="mt-3 w-full !bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50"
+
+                        disabled={isGeminiLoading}
+
+                    >
+
+                        {isGeminiLoading ? 'Analyzing...' : 'Get Score Insights from Gemini'}
+
+                    </button>
+
+
+
+                    {geminiError && (
+
+                        <p className="text-red-500 text-sm mt-3">Error: {geminiError}</p>
+
+                    )}
+
+
+
+                    {geminiResponse && (
+
+                        <div className="mt-5 p-4 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600">
+
+                            <h4 className="font-semibold text-gray-700 dark:text-gray-200 mb-2">Gemini's Insights:</h4>
+
+                            <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{geminiResponse}</p>
+
+                        </div>
+
+                    )}
+
                 </div>
+
                 {/* --- End Gemini Integration UI --- */}
 
                 {roundToDelete && (
