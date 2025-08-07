@@ -1,7 +1,7 @@
 // src/components/SettingsPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useFirebase } from '../firebase';
-import { Copy, ChevronDown, ChevronUp, PlusCircle, Trash2, UserPlus, UserMinus, LogOut } from 'lucide-react';
+import { Copy, ChevronDown, ChevronUp, PlusCircle, Trash2, UserPlus, UserMinus, LogOut, Save } from 'lucide-react';
 import Papa from 'papaparse';
 import {
     setUserProfile,
@@ -430,28 +430,34 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
             <Accordion title="Your User Account">
                 <div className="mb-4">
                     <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-1">Set Your Display Name:</label>
-                    <input
-                        type="text"
-                        id="displayName"
-                        className="w-full p-2 border border-gray-300 rounded-md !bg-white"
-                        value={displayNameInput}
-                        onChange={(e) => setDisplayNameInput(e.target.value)}
-                        placeholder="e.g., Disc Golf Pro"
-                    />
-                    <button onClick={handleSaveDisplayName} className="mt-2 w-full !bg-green-600 text-white p-2 rounded-md font-semibold hover:bg-green-700">
-                        Save Display Name
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="text"
+                            id="displayName"
+                            className="flex-grow p-2 border border-gray-300 rounded-md !bg-white"
+                            value={displayNameInput}
+                            onChange={(e) => setDisplayNameInput(e.target.value)}
+                            placeholder="e.g., Disc Golf Pro"
+                        />
+                        <button
+                            onClick={handleSaveDisplayName}
+                            className="p-2 !bg-green-600 text-white rounded-md hover:!bg-green-700"
+                            aria-label="Save Display Name"
+                        >
+                            <Save size={20} />
+                        </button>
+                    </div>
                     {saveMessage.text && <p className={`mt-2 text-sm ${saveMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{saveMessage.text}</p>}
                 </div>
-                <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md border">
-                    <span className="font-medium text-gray-700 truncate mr-2">User ID: {userId || 'N/A'}</span>
-                    <button onClick={handleCopyUserId} className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md relative">
-                        <Copy size={18} />
-                        {copyMessage && <span className="absolute top-full mt-2 text-xs bg-black text-white px-2 py-1 rounded-md">{copyMessage}</span>}
-                    </button>
-                </div>
-                {user.email && <p className="text-gray-600 text-sm mt-3">Logged in as: {user.email}</p>}
-                <p className="text-gray-600 text-sm">Your Role: <span className="font-semibold capitalize">{user.role || 'player'}</span></p>
+
+                {user.email && <p className="text-gray-600 text-sm mt-3 "><span className="font-semibold">Username:</span> {user.email}</p>}
+                <p className="text-gray-600 text-sm"><span className="font-semibold">Your Role:</span> {user.role || 'player'}</p>
+
+                <button onClick={onSignOut} className="w-full flex items-center justify-center gap-2 !bg-red-600 text-white mt-5 p-3 rounded-md font-semibold hover:bg-red-700">
+                    <LogOut size={20} />
+                    Logout
+                </button>
+
             </Accordion>
             <Accordion title="Data Management">
                 <h3 className="text-lg font-semibold text-gray-800">Import Scorecard</h3>
@@ -496,7 +502,7 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
                                 return (
                                     <li key={profile.id} className="p-3">
                                         <div className="flex justify-between items-center">
-                                            <span className="font-medium text-sm text-gray-800">{profile.displayName || 'No Name'}</span>
+                                            <span className="font-medium text-gray-800">{profile.displayName || 'No Name'}</span>
                                             <select
                                                 className="p-1 border rounded-md !bg-white text-sm"
                                                 value={currentRole}
@@ -578,12 +584,7 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
                     ) : <p className="text-gray-600">No teams created yet.</p>}
                 </Accordion>
             )}
-            <Accordion title="Account Actions">
-                <button onClick={onSignOut} className="w-full flex items-center justify-center gap-2 !bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700">
-                    <LogOut size={20} />
-                    Logout
-                </button>
-            </Accordion>
+
             <div className="mt-8 text-center text-sm text-gray-500">
                 FlightLog: {APP_VERSION}
             </div>
