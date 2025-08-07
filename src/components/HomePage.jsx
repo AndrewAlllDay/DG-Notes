@@ -113,7 +113,7 @@ export default function HomePage({ onNavigate }) {
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 dark:bg-black">
+        <div className="min-h-screen bg-gray-100 dark:bg-black pb-48">
             {/* NEW: Hero Section with Flight Path Lines */}
             <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-green-50 dark:from-gray-900 dark:to-black py-10 sm:py-12 lg:py-16">
                 {/* NEW: Style block for animation */}
