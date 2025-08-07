@@ -159,7 +159,45 @@ export default function ScoresPage() {
     };
 
     const runGeminiAnalysis = async () => {
-        // ... (Gemini logic remains unchanged)
+        if (!BACKEND_API_URL || BACKEND_API_URL.includes('your-function-name')) {
+            setGeminiError("Backend API URL is not configured. Please set BACKEND_API_URL in ScoresPage.jsx.");
+            return;
+        }
+        if (!geminiPrompt.trim() && rounds.length === 0) {
+            setGeminiError("Please enter a prompt or ensure you have scores to analyze.");
+            return;
+        }
+        setIsGeminiLoading(true);
+        setGeminiError(null);
+        setGeminiResponse('');
+        try {
+            const response = await fetch(BACKEND_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: geminiPrompt,
+                    rounds: rounds.map(round => ({
+                        courseName: round.courseName,
+                        layoutName: round.layoutName,
+                        date: round.date,
+                        totalScore: round.totalScore,
+                        scoreToPar: round.scoreToPar,
+                        scores: round.scores
+                    }))
+                }),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            setGeminiResponse(data.response);
+        } catch (err) {
+            console.error("Error communicating with backend:", err);
+            setGeminiError(`Failed to get insights from Gemini: ${err.message}. Ensure your backend server is running.`);
+        } finally {
+            setIsGeminiLoading(false);
+        }
     };
 
     if (isLoading) {
@@ -170,7 +208,7 @@ export default function ScoresPage() {
         <div className="min-h-screen bg-gray-100 dark:bg-black p-4 pb-36">
             <div className="max-h-screen overflow-y-auto">
                 <h2 className="text-2xl font-bold mb-6 text-center pt-5 text-gray-800 dark:text-gray-100">My Scores</h2>
-
+                <p className="text-md text-gray-600 dark:text-gray-400 text-center mb-6">Click on your scorecard for the hole breakdown.</p>
                 {rounds.length === 0 ? (
                     <p className="text-center text-gray-600 dark:text-gray-400">You haven't imported any scores yet.</p>
                 ) : (
@@ -201,7 +239,7 @@ export default function ScoresPage() {
                                             </div>
                                             <button
                                                 onClick={(e) => handleDeleteRound(e, round.id, round.courseName, round.layoutName)}
-                                                className="p-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10 relative"
+                                                className="p-2 !bg-transparent text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10 relative"
                                                 title={`Delete scorecard for ${round.courseName}`}
                                             >
                                                 <FaTrash size={18} />
@@ -218,10 +256,9 @@ export default function ScoresPage() {
                                         </div>
                                     )}
 
-                                    {/* MODIFIED: EXPANDABLE SCORES SECTION with Pars */}
                                     {isExpanded && (
                                         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                                            <h4 className="font-semibold text-md mb-3 text-gray-700 dark:text-gray-300">Hole-by-Hole Scores</h4>
+                                            <h4 className="font-semibold text-md mb-3 text-gray-700 dark:text-gray-300">Hole Breakdown</h4>
                                             {isHolesLoading ? (
                                                 <p className="text-center text-gray-500">Loading hole details...</p>
                                             ) : (
@@ -250,67 +287,35 @@ export default function ScoresPage() {
                     </div>
                 )}
 
-                {/* --- Gemini Integration UI (MOVED TO BOTTOM) --- */}
-
                 <div className="max-w-2xl mx-auto mt-8 mb-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-
                     <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Ask Gemini about your scores</h3>
-
                     <textarea
-
                         value={geminiPrompt}
-
                         onChange={(e) => setGeminiPrompt(e.target.value)}
-
                         placeholder="E.g., 'What was my best round?' or 'Summarize my performance.'"
-
                         rows="3"
-
                         className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-blue-500 focus:border-blue-500"
-
                         disabled={isGeminiLoading}
-
                     />
-
                     <button
-
                         onClick={runGeminiAnalysis}
-
                         className="mt-3 w-full !bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50"
-
                         disabled={isGeminiLoading}
-
                     >
-
                         {isGeminiLoading ? 'Analyzing...' : 'Get Score Insights from Gemini'}
-
                     </button>
 
-
-
                     {geminiError && (
-
                         <p className="text-red-500 text-sm mt-3">Error: {geminiError}</p>
-
                     )}
-
-
 
                     {geminiResponse && (
-
                         <div className="mt-5 p-4 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600">
-
                             <h4 className="font-semibold text-gray-700 dark:text-gray-200 mb-2">Gemini's Insights:</h4>
-
                             <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{geminiResponse}</p>
-
                         </div>
-
                     )}
-
                 </div>
-
-                {/* --- End Gemini Integration UI --- */}
 
                 {roundToDelete && (
                     <DeleteConfirmationModal
