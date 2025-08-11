@@ -726,3 +726,48 @@ export const updateRoundRating = async (userId, roundId, rating) => {
         throw new Error("Failed to save the new rating.");
     }
 };
+
+// --- NEW FUNCTION TO UPDATE A ROUND'S TOURNAMENT NAME ---
+/**
+ * Updates the tournament name for a specific round.
+ * @param {string} userId - The ID of the current user.
+ * @param {string} roundId - The ID of the round document to update.
+ * @param {string} tournamentName - The new tournament name to set for the round. Can be an empty string to clear it.
+ */
+export const updateRoundTournament = async (userId, roundId, tournamentName) => {
+    if (!userId || !roundId) {
+        throw new Error("User ID and Round ID must be provided to update the tournament name.");
+    }
+    const roundDocRef = doc(getUserRoundsCollection(userId), roundId);
+    try {
+        await updateDoc(roundDocRef, {
+            tournamentName: tournamentName,
+        });
+    } catch (error) {
+        console.error("Error updating tournament name in Firestore: ", error);
+        throw new Error("Could not update tournament name in the database.");
+    }
+};
+
+// --- NEW FUNCTION TO UPDATE A ROUND'S NOTES ---
+/**
+ * Updates the notes for a specific round.
+ * @param {string} userId - The ID of the current user.
+ * @param {string} roundId - The ID of the round document to update.
+ * @param {string} notes - The new notes to set for the round.
+ */
+export const updateRoundNotes = async (userId, roundId, notes) => {
+    if (!userId || !roundId) {
+        throw new Error("User ID and Round ID must be provided to update notes.");
+    }
+
+    const roundDocRef = doc(getUserRoundsCollection(userId), roundId);
+    try {
+        await updateDoc(roundDocRef, {
+            notes: notes,
+        });
+    } catch (error) {
+        console.error("Error updating round notes in Firestore: ", error);
+        throw new Error("Failed to save the new notes.");
+    }
+};
