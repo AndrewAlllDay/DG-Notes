@@ -30,16 +30,21 @@ const feedSources = {
             name: 'Griplocked',
             url: 'https://feeds.simplecast.com/WCZ5a8oV',
             platformLinks: {
-                apple: 'https://podcasts.apple.com/us/podcast/grip-locked/id1494809392',
-                spotify: 'https://open.spotify.com/show/426A70vYwG9c2w3eYt1t2A' // <-- CORRECTED LINK
+                PocketCasts: 'https://pca.st/podcast/07f29fe0-bb6f-0137-0dc0-0acc26574db2',
             }
         },
         {
             name: 'The Upshot',
             url: 'https://www.spreaker.com/show/1765686/episodes/feed',
             platformLinks: {
-                apple: 'https://podcasts.apple.com/us/podcast/the-upshot/id1281484739',
-                spotify: 'https://open.spotify.com/show/1cECTMePfMOa1cGQAwSKh6' // <-- CORRECTED LINK
+                PocketCasts: 'https://pca.st/podcast/c1dc4a30-0410-0134-9c92-59d98c6b72b8',
+            }
+        },
+        {
+            name: 'Crushed Pepper',
+            url: 'https://media.rss.com/crushed-pepper/feed.xml',
+            platformLinks: {
+                PocketCasts: 'https://pocketcasts.com/podcasts/2377ca00-b185-013d-4c1f-0affce82ed89',
             }
         }
     ],
@@ -50,7 +55,6 @@ const feedSources = {
 };
 
 const PodcastModal = ({ item, onClose }) => {
-    // This component requires no changes and will work with the updated data
     if (!item) return null;
     const handleModalContentClick = (e) => e.stopPropagation();
 
@@ -60,14 +64,9 @@ const PodcastModal = ({ item, onClose }) => {
                 <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">{item.title}</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Listen on your favorite platform:</p>
                 <div className="space-y-3">
-                    {item.podcastLinks?.apple && (
-                        <a href={item.podcastLinks.apple} target="_blank" rel="noopener noreferrer" className="block w-full text-center bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-2 px-4 rounded transition-colors">
-                            Apple Podcasts
-                        </a>
-                    )}
-                    {item.podcastLinks?.spotify && (
-                        <a href={item.podcastLinks.spotify} target="_blank" rel="noopener noreferrer" className="block w-full text-center bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-2 px-4 rounded transition-colors">
-                            Spotify
+                    {item.podcastLinks?.PocketCasts && (
+                        <a href={item.podcastLinks.PocketCasts} target="_blank" rel="noopener noreferrer" className="block w-full text-center bg-red-500 hover:bg-red-600 !text-white font-bold py-2 px-4 rounded transition-colors">
+                            Pocket Casts
                         </a>
                     )}
                     <a href={item.link} target="_blank" rel="noopener noreferrer" className="block w-full text-center bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-2 px-4 rounded transition-colors">
@@ -117,7 +116,6 @@ const NewsFeed = () => {
 
             try {
                 const responses = await Promise.all(
-                    // --- UPDATED: Pass the entire source object, not just the name ---
                     currentSources.map(source => {
                         const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(source.url)}`;
                         return fetch(proxyUrl).then(res => ({ res, source }));
@@ -133,20 +131,28 @@ const NewsFeed = () => {
                         const parser = new window.DOMParser();
                         const xmlDoc = parser.parseFromString(text, "application/xml");
 
+                        // --- NEW: Find the main podcast cover image from the channel level ---
+                        const channelImageTag = xmlDoc.querySelector('channel > image > url');
+                        const itunesImageTag = xmlDoc.querySelector('channel > itunes\\:image');
+                        const channelCoverUrl = channelImageTag?.textContent || itunesImageTag?.getAttribute('href') || null;
+
                         return Array.from(xmlDoc.querySelectorAll('item, entry')).map(item => {
                             const mediaNamespace = 'http://search.yahoo.com/mrss/';
                             const enclosure = item.querySelector('enclosure');
                             const mediaThumbnail = item.getElementsByTagNameNS(mediaNamespace, 'thumbnail')[0];
-                            let imageUrl = null;
+
+                            // This part looks for per-episode images, which may not exist
+                            let episodeImageUrl = null;
                             if (enclosure && enclosure.getAttribute('type')?.startsWith('image/')) {
-                                imageUrl = enclosure.getAttribute('url');
+                                episodeImageUrl = enclosure.getAttribute('url');
                             } else if (mediaThumbnail) {
-                                imageUrl = mediaThumbnail.getAttribute('url');
+                                episodeImageUrl = mediaThumbnail.getAttribute('url');
                             } else {
                                 const content = item.querySelector('description')?.textContent || item.getElementsByTagNameNS(mediaNamespace, 'description')[0]?.textContent || '';
                                 const doc = new DOMParser().parseFromString(content, 'text/html');
-                                imageUrl = doc.querySelector('img')?.src || null;
+                                episodeImageUrl = doc.querySelector('img')?.src || null;
                             }
+
                             const descriptionHTML = item.querySelector('description')?.textContent || item.getElementsByTagNameNS(mediaNamespace, 'description')[0]?.textContent || '';
                             const descParser = new window.DOMParser();
                             const descDoc = descParser.parseFromString(descriptionHTML, 'text/html');
@@ -163,9 +169,9 @@ const NewsFeed = () => {
                                 link,
                                 description: cleanDescription,
                                 published,
-                                imageUrl,
-                                // --- UPDATED: Directly assign the links from our configuration ---
-                                podcastLinks: source.platformLinks || { apple: null, spotify: null }
+                                imageUrl: episodeImageUrl, // Per-episode image
+                                podcastCoverUrl: channelCoverUrl, // --- NEW: Main podcast cover ---
+                                podcastLinks: source.platformLinks
                             };
                         });
                     })
@@ -204,7 +210,8 @@ const NewsFeed = () => {
                         return (
                             <li ref={isLastItem ? lastItemRef : null} key={item.guid} className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
                                 <button onClick={() => setSelectedPodcast(item)} className="flex items-center gap-4 p-3 text-left w-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200">
-                                    <img src={defaultImages[item.source] || defaultImages.default} alt={item.source} className="w-20 h-20 md:w-24 md:h-24 rounded-md object-cover flex-shrink-0" loading="lazy" />
+                                    {/* --- UPDATED: Use the fetched podcast cover, with fallbacks --- */}
+                                    <img src={item.podcastCoverUrl || defaultImages[item.source] || defaultImages.default} alt={item.source} className="w-20 h-20 md:w-24 md:h-24 rounded-md object-cover flex-shrink-0" loading="lazy" />
                                     <div className="flex-grow">
                                         <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">{item.source}</p>
                                         <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mt-1">{item.title}</h3>
