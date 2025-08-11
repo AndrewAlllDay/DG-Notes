@@ -318,8 +318,9 @@ function App() {
             <LazyInTheBagPage />
           </Suspense>
         )}
-        {currentPage === 'news' && (
-          <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading News...</div>}>
+        {/* --- UPDATED --- */}
+        {currentPage === 'media' && (
+          <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Media...</div>}>
             <LazyNewsFeed />
           </Suspense>
         )}

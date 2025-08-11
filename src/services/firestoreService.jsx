@@ -695,3 +695,34 @@ export const deleteRound = async (userId, roundId) => {
         throw e;
     }
 };
+
+
+// --- NEW FUNCTION TO UPDATE A ROUND'S RATING ---
+/**
+ * Updates the rating for a specific round.
+ * @param {string} userId - The ID of the current user.
+ * @param {string} roundId - The ID of the round document to update.
+ * @param {number|string} rating - The new rating to set for the round.
+ */
+export const updateRoundRating = async (userId, roundId, rating) => {
+    if (!userId || !roundId) {
+        throw new Error("User ID and Round ID must be provided to update a rating.");
+    }
+
+    // Ensure the rating is a number before saving. Allow empty string to clear the rating.
+    const ratingValue = rating === '' ? null : Number(rating);
+    if (rating !== '' && isNaN(ratingValue)) {
+        throw new Error("Rating must be a valid number.");
+    }
+
+    const roundDocRef = doc(getUserRoundsCollection(userId), roundId);
+    try {
+        // updateDoc efficiently updates fields on an existing document
+        await updateDoc(roundDocRef, {
+            rating: ratingValue
+        });
+    } catch (error) {
+        console.error("Error updating round rating in Firestore: ", error);
+        throw new Error("Failed to save the new rating.");
+    }
+};

@@ -67,11 +67,11 @@ const Header = ({ onNavigate, onOpenEncouragement, user, canSendEncouragement, c
                         )}
                         <div
                             className={`flex flex-col items-center w-20 text-center transition-colors cursor-pointer p-2
-                                ${isActive('news') ? activeTextColor : inactiveTextColor}`}
-                            onClick={(e) => handleNavigate('news', e)}
+                                ${isActive('media') ? activeTextColor : inactiveTextColor}`}
+                            onClick={(e) => handleNavigate('media', e)}
                         >
-                            <Newspaper size={20} className={isActive('news') ? activeIconColor : inactiveIconColor} />
-                            <span className="text-xs mt-1 leading-tight">News</span>
+                            <Newspaper size={20} className={isActive('media') ? activeIconColor : inactiveIconColor} />
+                            <span className="text-xs mt-1 leading-tight">Media</span>
                         </div>
                     </div>
 

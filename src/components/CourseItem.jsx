@@ -51,7 +51,7 @@ export default function CourseItem({
     };
 
     return (
-        <li className="relative h-20 select-none touch-pan-y mb-2 overflow-hidden">
+        <li className="relative h-30 select-none touch-pan-y mb-2 overflow-hidden">
 
             {/* DELETE BUTTON */}
             <button
