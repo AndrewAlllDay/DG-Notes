@@ -208,10 +208,10 @@ export default function ScoresPage() {
                                         <div className="flex justify-between items-start gap-4">
                                             <div>
                                                 {round.tournamentName && (
-                                                    <p className="text-sm font-bold text-purple-600 dark:text-purple-400 mb-2 leading-none">{round.tournamentName}</p>
+                                                    <p className="text-sm font-normal text-black dark:text-purple-400 mb-2 leading-none">{round.tournamentName}</p>
                                                 )}
-                                                <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400">{round.courseName}</h3>
-                                                <p className="text-sm text-gray-600 dark:text-gray-400">{round.layoutName}</p>
+                                                <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-none">{round.courseName}</h3>
+
                                                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                                                     {round.date?.toDate ? format(round.date.toDate(), 'MMMM d, yyyy') : 'N/A Date'}
                                                 </p>
@@ -275,7 +275,8 @@ export default function ScoresPage() {
                                                             <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap bg-gray-50 dark:bg-gray-900 p-3 rounded-md">{round.notes}</p>
                                                         </div>
                                                     )}
-                                                    <h4 className="font-semibold text-md mb-3 text-gray-700 dark:text-gray-300">Hole Breakdown</h4>
+                                                    <h4 className="font-semibold text-md text-gray-700 dark:text-gray-300">Hole Breakdown</h4>
+                                                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{round.layoutName}</p>
                                                     {isHolesLoading ? (
                                                         <p className="text-center text-gray-500">Loading hole details...</p>
                                                     ) : (
