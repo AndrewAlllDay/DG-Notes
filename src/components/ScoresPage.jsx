@@ -244,9 +244,7 @@ export default function ScoresPage() {
                                             >
                                                 <FaTrash size={18} />
                                             </button>
-                                            <span className="text-gray-400 dark:text-gray-500">
-                                                {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
-                                            </span>
+
                                         </div>
                                     </div>
 
