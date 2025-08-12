@@ -1,11 +1,9 @@
 // src/components/SettingsPage.jsx
 import React, { useState, useEffect } from 'react';
-import { useFirebase } from '../firebase';
 import { Copy, ChevronDown, ChevronUp, PlusCircle, Trash2, UserPlus, UserMinus, LogOut, Save } from 'lucide-react';
 import Papa from 'papaparse';
 import {
     setUserProfile,
-    subscribeToAllUserProfiles,
     addTeam,
     subscribeToAllTeams,
     addTeamMember,
@@ -14,14 +12,16 @@ import {
     addCourseWithHoles,
     getUserCourses,
     addRound
+    // `subscribeToAllUserProfiles` is no longer needed here
 } from '../services/firestoreService';
+import { getCache, setCache } from '../utilities/cache.js';
 import ImportCSVModal from './ImportCSVModal';
 import ConfirmationModal from './ConfirmationModal';
 import SelectCourseTypeModal from './SelectCourseTypeModal';
 import SelectPlayerModal from './SelectPlayerModal';
 import AddRoundNotesModal from './AddRoundNotesModal';
 
-// HELPER FUNCTIONS FOR INDEXEDDB
+// HELPER FUNCTIONS FOR INDEXEDDB (unchanged)
 function getDb() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open('dgnotes-shared-files', 1);
@@ -99,14 +99,16 @@ const Accordion = ({ title, children, defaultOpen = false }) => {
     );
 };
 
-// Accept the `params` prop from App.jsx
-export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
-    const { user, userId, isAuthReady } = useFirebase();
+// ✨ --- FINAL REFACTOR --- ✨
+// 1. Accept `allUserProfiles` as a prop.
+export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavigate, params = {} }) {
+    const userId = user?.uid;
+
+    // Local state for this component
     const [copyMessage, setCopyMessage] = useState('');
     const [displayNameInput, setDisplayNameInput] = useState('');
     const [saveMessage, setSaveMessage] = useState({ type: '', text: '' });
     const [importMessage, setImportMessage] = useState({ type: '', text: '' });
-    const [allUserProfiles, setAllUserProfiles] = useState([]);
     const [roleSaveMessage, setRoleSaveMessage] = useState({ type: '', text: '' });
     const [teams, setTeams] = useState([]);
     const [newTeamName, setNewTeamName] = useState('');
@@ -119,9 +121,11 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
     const [pendingCourse, setPendingCourse] = useState(null);
     const [pendingRoundData, setPendingRoundData] = useState(null);
 
+    // 2. The local state for `allUserProfiles` has been removed.
+    // 3. The `useEffect` to fetch all user profiles has been removed.
+
     const APP_VERSION = 'v 0.1.56';
 
-    // This new useEffect listens for the params prop from App.jsx
     useEffect(() => {
         const processFile = async (fileToProcess) => {
             if (fileToProcess) {
@@ -147,32 +151,32 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
             }
         };
 
-        if (isAuthReady && userId) {
+        if (userId) {
             runImport();
         }
-    }, [params, userId, isAuthReady]);
+    }, [params, userId]);
 
     useEffect(() => {
-        if (user && user.uid && isAuthReady) {
+        if (user) {
             setDisplayNameInput(user.displayName || '');
         }
-    }, [user, isAuthReady]);
+    }, [user]);
 
-    useEffect(() => {
-        let unsubscribe;
-        if (user?.role === 'admin' && isAuthReady) {
-            unsubscribe = subscribeToAllUserProfiles((profiles) => setAllUserProfiles(profiles));
-        }
-        return () => unsubscribe && unsubscribe();
-    }, [user?.role, isAuthReady]);
-
+    // This useEffect handles the Team data, which is still fetched locally.
     useEffect(() => {
         let unsubscribeTeams;
-        if (user?.role === 'admin' && isAuthReady) {
-            unsubscribeTeams = subscribeToAllTeams((fetchedTeams) => setTeams(fetchedTeams));
+        if (user?.role === 'admin') {
+            const cachedTeams = getCache('allTeams');
+            if (cachedTeams) {
+                setTeams(cachedTeams);
+            }
+            unsubscribeTeams = subscribeToAllTeams((fetchedTeams) => {
+                setTeams(fetchedTeams);
+                setCache('allTeams', fetchedTeams);
+            });
         }
         return () => unsubscribeTeams && unsubscribeTeams();
-    }, [user?.role, isAuthReady]);
+    }, [user?.role]);
 
     const handleCopyUserId = () => {
         if (userId) {
@@ -227,16 +231,14 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
             return;
         }
 
-        // --- FIX: Changed from an array to an object ---
-        const scores = {}; // Use an object to store scores with hole numbers as keys
+        const scores = {};
         for (const header of headers) {
             const match = header.match(/^Hole(\w+)$/);
             if (match) {
-                const holeNumber = match[1]; // e.g., "1", "2", "18"
-                scores[holeNumber] = parseInt(userRow[header], 10); // Use hole number as key
+                const holeNumber = match[1];
+                scores[holeNumber] = parseInt(userRow[header], 10);
             }
         }
-        // --- END FIX ---
 
         const roundData = {
             courseId: course.id,
@@ -245,7 +247,7 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
             date: parsedDate,
             totalScore: parseInt(userRow.Total),
             scoreToPar: parseInt(userRow['+/-']),
-            scores: scores // Now saves the correctly structured object
+            scores: scores
         };
         try {
             await addRound(userId, roundData, notes);
@@ -356,7 +358,6 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
     const handleAutoSaveRole = async (targetUserId, newRole) => {
         if (!newRole || !targetUserId) return;
         const userProfile = allUserProfiles.find(p => p.id === targetUserId);
-        // Do nothing if the role hasn't changed
         if (userProfile && (userProfile.role || 'player') === newRole) {
             return;
         }
@@ -416,7 +417,8 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
     };
 
     const roleOrder = { 'admin': 0, 'player': 1, 'non-player': 2 };
-    const sortedUserProfiles = [...allUserProfiles].sort((a, b) => {
+    // The component now uses the `allUserProfiles` prop directly
+    const sortedUserProfiles = [...(allUserProfiles || [])].sort((a, b) => {
         const roleA = a.role || 'player';
         const roleB = b.role || 'player';
         const orderA = roleOrder[roleA];
@@ -427,7 +429,6 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
         return (a.displayName || 'Unnamed').localeCompare(b.displayName || 'Unnamed');
     });
 
-    if (!isAuthReady) return <div className="text-center p-4">Loading settings...</div>;
     if (!user) return <div className="text-center p-4">Please log in to view settings.</div>;
 
     return (
@@ -540,14 +541,13 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
                     {teams.length > 0 ? (
                         <ul className="space-y-4">
                             {teams.map(team => {
-                                // Sort profiles to show members first, then sort alphabetically
-                                const sortedProfiles = [...allUserProfiles].sort((a, b) => {
+                                const sortedProfiles = [...(allUserProfiles || [])].sort((a, b) => {
                                     const aIsMember = !!team.memberIds?.includes(a.id);
                                     const bIsMember = !!team.memberIds?.includes(b.id);
                                     if (aIsMember === bIsMember) {
                                         return (a.displayName || 'Unnamed').localeCompare(b.displayName || 'Unnamed');
                                     }
-                                    return aIsMember ? -1 : 1; // Members come first
+                                    return aIsMember ? -1 : 1;
                                 });
 
                                 return (
@@ -557,7 +557,7 @@ export default function SettingsPage({ onSignOut, onNavigate, params = {} }) {
                                             <button onClick={() => handleDeleteTeam(team.id)} className="p-1 text-red-600 hover:text-red-800"><Trash2 size={20} /></button>
                                         </div>
                                         <h4 className="text-md font-medium mt-4 mb-2">Edit Members:</h4>
-                                        {allUserProfiles.length > 0 ? (
+                                        {allUserProfiles && allUserProfiles.length > 0 ? (
                                             <div className="border rounded-md bg-white">
                                                 <ul className="divide-y divide-gray-200">
                                                     {sortedProfiles.map(profile => {

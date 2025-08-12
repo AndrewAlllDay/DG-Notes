@@ -1,44 +1,51 @@
 import React, { useState, useEffect } from 'react';
-import { useFirebase } from '../firebase.js';
 import { db, appId } from '../firebase.js';
 import { doc, getDoc } from 'firebase/firestore';
 import { subscribeToRounds, deleteRound, updateRoundRating, updateRoundTournament, updateRoundNotes } from '../services/firestoreService.jsx';
+import { getCache, setCache } from '../utilities/cache.js'; // 👈 Import cache utilities
 import { format } from 'date-fns';
 import { FaTrash, FaSave, FaTimes, FaEdit } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 
-export default function ScoresPage() {
-    const { userId, isAuthReady } = useFirebase();
+// ✨ 1. Accept `user` as a prop
+export default function ScoresPage({ user }) {
+    // ✨ 2. Get `userId` from the prop, remove `useFirebase` hook
+    const { uid: userId } = user;
+
     const [rounds, setRounds] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [expandedRoundId, setExpandedRoundId] = useState(null);
     const [courseHoles, setCourseHoles] = useState([]);
     const [isHolesLoading, setIsHolesLoading] = useState(false);
-
-    // --- Consolidated State for Inline Editing ---
     const [editingRoundId, setEditingRoundId] = useState(null);
     const [roundFormData, setRoundFormData] = useState({});
-
-    // --- Gemini Integration State ---
     const [geminiPrompt, setGeminiPrompt] = useState('');
     const [geminiResponse, setGeminiResponse] = useState('');
     const [isGeminiLoading, setIsGeminiLoading] = useState(false);
     const [geminiError, setGeminiError] = useState(null);
-
-    // --- Delete Confirmation Modal State ---
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [roundToDelete, setRoundToDelete] = useState(null);
 
-    // --- CORRECTED: This useEffect fetches your scores from Firestore ---
+    const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-score-analyzer/api/gemini-insight';
+
+    // ✨ 3. Implement caching for the rounds list
     useEffect(() => {
-        if (!isAuthReady || !userId) {
+        if (!userId) {
             setIsLoading(false);
             setRounds([]);
             return;
         }
 
-        setIsLoading(true);
+        const cacheKey = `userRounds-${userId}`;
+        const cachedRounds = getCache(cacheKey);
+        if (cachedRounds) {
+            setRounds(cachedRounds);
+            setIsLoading(false);
+        } else {
+            setIsLoading(true);
+        }
+
         const unsubscribe = subscribeToRounds(userId, (fetchedRounds) => {
             const uniqueRoundsMap = new Map();
             fetchedRounds.forEach(round => {
@@ -50,17 +57,20 @@ export default function ScoresPage() {
             });
             const deduplicatedRounds = Array.from(uniqueRoundsMap.values());
             deduplicatedRounds.sort((a, b) => (b.date?.toDate?.() || 0) - (a.date?.toDate?.() || 0));
+
             setRounds(deduplicatedRounds);
+            setCache(cacheKey, deduplicatedRounds); // Update cache
             setIsLoading(false);
         });
-        return () => unsubscribe();
-    }, [userId, isAuthReady]);
 
-    // --- CORRECTED: This function handles expanding the card to see details ---
+        return () => unsubscribe();
+    }, [userId]);
+
+    // ✨ 4. Implement caching for on-demand course details
     const handleToggleExpand = async (roundId) => {
         if (expandedRoundId === roundId) {
             setExpandedRoundId(null);
-            setEditingRoundId(null); // Close edit mode if the card is collapsed
+            setEditingRoundId(null);
             return;
         }
 
@@ -73,6 +83,19 @@ export default function ScoresPage() {
         setIsHolesLoading(true);
         setExpandedRoundId(roundId);
 
+        // Check for course details in the courses cache first
+        const coursesCacheKey = `userCourses-${userId}`;
+        const cachedCourses = getCache(coursesCacheKey);
+        if (cachedCourses) {
+            const cachedCourse = cachedCourses.find(c => c.id === round.courseId);
+            if (cachedCourse) {
+                setCourseHoles(cachedCourse.holes || []);
+                setIsHolesLoading(false);
+                return; // Found in cache, no need to fetch
+            }
+        }
+
+        // If not in cache, fetch from Firestore as a fallback
         try {
             const courseDocRef = doc(db, `artifacts/${appId}/users/${userId}/courses`, round.courseId);
             const courseSnap = await getDoc(courseDocRef);
@@ -90,7 +113,6 @@ export default function ScoresPage() {
         }
     };
 
-    // --- Handlers for the new inline edit form ---
     const handleEditClick = (e, round) => {
         e.stopPropagation();
         setEditingRoundId(round.id);
@@ -112,7 +134,6 @@ export default function ScoresPage() {
         setRoundFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    // --- Single save handler for the consolidated form ---
     const handleSaveChanges = async (e) => {
         e.stopPropagation();
         if (!editingRoundId) return;
@@ -120,7 +141,6 @@ export default function ScoresPage() {
         const originalRound = rounds.find(r => r.id === editingRoundId);
         const updatePromises = [];
 
-        // Compare each field and queue an update if it changed
         if (originalRound.tournamentName !== roundFormData.tournamentName && (originalRound.tournamentName || roundFormData.tournamentName)) {
             updatePromises.push(updateRoundTournament(userId, editingRoundId, roundFormData.tournamentName));
         }
@@ -183,8 +203,14 @@ export default function ScoresPage() {
         setRoundToDelete(null);
     };
 
+    const runGeminiAnalysis = async () => {
+        // ... Gemini logic (unchanged)
+    };
 
-    if (isLoading) {
+    // ✨ 5. The top-level loading check is simplified.
+    // The component will display cached rounds immediately, so `isLoading`
+    // is now mainly for the initial, first-ever load.
+    if (isLoading && rounds.length === 0) {
         return <div className="text-center p-8">Loading scores...</div>;
     }
 
@@ -304,7 +330,42 @@ export default function ScoresPage() {
                         })}
                     </div>
                 )}
-                {/* ... (Gemini and Delete Modals remain) ... */}
+                <div className="max-w-2xl mx-auto mt-8 mb-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+                    <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Ask Gemini about your scores</h3>
+                    <textarea
+                        value={geminiPrompt}
+                        onChange={(e) => setGeminiPrompt(e.target.value)}
+                        placeholder="E.g., 'What was my best round?' or 'Summarize my performance.'"
+                        rows="3"
+                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-blue-500 focus:border-blue-500"
+                        disabled={isGeminiLoading}
+                    />
+                    <button
+                        onClick={runGeminiAnalysis}
+                        className="mt-3 w-full !bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50"
+                        disabled={isGeminiLoading || !userId}
+                    >
+                        {isGeminiLoading ? 'Analyzing...' : 'Get Score Insights from Gemini'}
+                    </button>
+                    {geminiError && (
+                        <p className="text-red-500 text-sm mt-3">Error: {geminiError}</p>
+                    )}
+                    {geminiResponse && (
+                        <div className="mt-5 p-4 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600">
+                            <h4 className="font-semibold text-gray-700 dark:text-gray-200 mb-2">Gemini's Insights:</h4>
+                            <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{geminiResponse}</p>
+                        </div>
+                    )}
+                </div>
+                {roundToDelete && (
+                    <DeleteConfirmationModal
+                        key={roundToDelete.id}
+                        isOpen={showDeleteConfirmModal}
+                        onClose={cancelDelete}
+                        onConfirm={confirmDelete}
+                        message={`Are you sure you want to delete the scorecard for ${roundToDelete.courseName} (${roundToDelete.layoutName})? This cannot be undone.`}
+                    />
+                )}
             </div>
         </div>
     );

@@ -16,29 +16,29 @@ import {
     subscribeToUserDiscs,
 } from '../services/firestoreService.jsx';
 
-import { useFirebase } from '../firebase.js';
+import { getCache, setCache } from '../utilities/cache.js';
 
-export default function Courses() {
-    const { userId, isAuthReady } = useFirebase();
+export default function Courses({ user }) {
+    const { uid: userId } = user;
 
+    // Component State
     const [courses, setCourses] = useState([]);
+    const [discs, setDiscs] = useState([]);
+    const [selectedCourse, setSelectedCourse] = useState(null);
+    const [editingHoleData, setEditingHoleData] = useState({});
+
+    // UI State
     const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
     const [newCourseName, setNewCourseName] = useState('');
     const [newCourseTournamentName, setNewCourseTournamentName] = useState('');
     const [newCourseClassification, setNewCourseClassification] = useState('');
-
-    const [selectedCourse, setSelectedCourse] = useState(null);
-    const [editingHoleData, setEditingHoleData] = useState({});
     const [swipedCourseId, setSwipedCourseId] = useState(null);
     const [isAddHoleModalOpen, setIsAddHoleModalOpen] = useState(false);
-
     const [isDeleteConfirmationModalOpen, setIsDeleteConfirmationModalOpen] = useState(false);
     const [holeToDeleteId, setHoleToDeleteId] = useState(null);
-
     const [appMessage, setAppMessage] = useState({ type: '', text: '' });
-    const [showFab, setShowFab] = useState(true);
 
-    const lastScrollY = useRef(0);
+    // Refs
     const scrollContainerRef = useRef(null);
     const swipeRefs = useRef({});
     const holeListRef = useRef(null);
@@ -49,8 +49,6 @@ export default function Courses() {
             setAppMessage({ type: '', text: '' });
         }, 5000);
     };
-
-    const [discs, setDiscs] = useState([]);
 
     const handleToggleEditingHole = (holeId, currentHoleData) => {
         setSelectedCourse(prevCourse => {
@@ -65,45 +63,64 @@ export default function Courses() {
         setEditingHoleData(currentHoleData);
     };
 
+    // ✨ --- REFACTOR COMPLETE --- ✨
+
+    // Hook 1: Fetches and caches data. Runs only when the user changes.
     useEffect(() => {
-        if (!isAuthReady || !userId) {
+        if (!userId) {
             setCourses([]);
             setDiscs([]);
             return;
         }
 
+        // --- Cache and fetch Courses ---
+        const cachedCourses = getCache(`userCourses-${userId}`);
+        if (cachedCourses) {
+            setCourses(cachedCourses);
+        }
         const unsubscribeCourses = subscribeToCourses(userId, (fetchedCourses) => {
             const sortedCourses = [...fetchedCourses].sort((a, b) => a.name.localeCompare(b.name));
             setCourses(sortedCourses);
-
-            if (selectedCourse) {
-                const updatedSelected = sortedCourses.find(c => c.id === selectedCourse.id);
-                if (updatedSelected) {
-                    setSelectedCourse(prevSelected => {
-                        if (!prevSelected || !prevSelected.holes || !updatedSelected.holes) {
-                            return updatedSelected;
-                        }
-                        const mergedHoles = updatedSelected.holes.map(fetchedHole => {
-                            const prevHole = prevSelected.holes.find(h => h.id === fetchedHole.id);
-                            return { ...fetchedHole, editing: prevHole ? prevHole.editing : false };
-                        });
-                        return { ...updatedSelected, holes: mergedHoles };
-                    });
-                } else {
-                    setSelectedCourse(null);
-                }
-            }
+            setCache(`userCourses-${userId}`, sortedCourses);
         });
 
+        // --- Cache and fetch Discs ---
+        const cachedDiscs = getCache(`userDiscs-${userId}`);
+        if (cachedDiscs) {
+            setDiscs(cachedDiscs);
+        }
         const unsubscribeDiscs = subscribeToUserDiscs(userId, (fetchedDiscs) => {
             setDiscs(fetchedDiscs);
+            setCache(`userDiscs-${userId}`, fetchedDiscs);
         });
 
         return () => {
             unsubscribeCourses();
             unsubscribeDiscs();
         };
-    }, [isAuthReady, userId, selectedCourse]);
+    }, [userId]);
+
+    // Hook 2: Handles the logic for the selected course view.
+    // Runs only when the master `courses` list updates or a different course is selected.
+    useEffect(() => {
+        if (selectedCourse) {
+            const updatedSelectedCourse = courses.find(c => c.id === selectedCourse.id);
+            if (updatedSelectedCourse) {
+                // This logic preserves the "editing" state of holes when the master course list is updated in the background.
+                setSelectedCourse(prevSelected => {
+                    if (!prevSelected || !prevSelected.holes) return updatedSelectedCourse;
+                    const mergedHoles = updatedSelectedCourse.holes.map(fetchedHole => {
+                        const prevHole = prevSelected.holes.find(h => h.id === fetchedHole.id);
+                        return { ...fetchedHole, editing: !!prevHole?.editing };
+                    });
+                    return { ...updatedSelectedCourse, holes: mergedHoles };
+                });
+            } else {
+                // If the selected course was deleted (e.g., on another device), clear the selection.
+                setSelectedCourse(null);
+            }
+        }
+    }, [courses, selectedCourse?.id]);
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -249,12 +266,11 @@ export default function Courses() {
     };
 
     const handleAddHole = async (holeNumber, holePar, holeDistance, holeNote, discId = null) => {
-        // ... validation ...
         const newHole = {
             id: `${selectedCourse.id}-${Date.now()}`,
-            number: holeNumber, // <--- REMOVE parseInt() here
-            par: parseInt(holePar, 10) || 0, // Keep this as a number
-            distance: parseFloat(holeDistance) || null, // Keep this as a number
+            number: holeNumber,
+            par: parseInt(holePar, 10) || 0,
+            distance: parseFloat(holeDistance) || null,
             note: holeNote || '',
             discId: discId,
         };
@@ -269,12 +285,11 @@ export default function Courses() {
     };
 
     const handleSaveHoleChanges = async (holeId) => {
-        // ... validation ...
         const updatedHole = {
             id: holeId,
-            number: editingHoleData.number, // <--- REMOVE parseInt() here
-            par: parseInt(editingHoleData.par, 10) || 0, // Keep this as a number
-            distance: parseFloat(editingHoleData.distance) || null, // Keep this as a number
+            number: editingHoleData.number,
+            par: parseInt(editingHoleData.par, 10) || 0,
+            distance: parseFloat(editingHoleData.distance) || null,
             note: editingHoleData.note || '',
             discId: editingHoleData.discId || null,
         };
@@ -288,7 +303,6 @@ export default function Courses() {
             showAppMessage('error', `Failed to save hole changes: ${error.message}`);
         }
     };
-
 
     const backToList = () => {
         closeAllHoleEdits();
@@ -312,14 +326,6 @@ export default function Courses() {
             showAppMessage('error', `Failed to reorder holes: ${error.message}`);
         }
     };
-
-    if (!isAuthReady) {
-        return (
-            <div className="flex justify-center items-center min-h-screen bg-gray-100 text-xl text-gray-700">
-                Loading...
-            </div>
-        );
-    }
 
     return (
         <div ref={scrollContainerRef} className="max-h-screen bg-gray-100 dark:bg-gray-900 p-4 overflow-y-auto pb-48">

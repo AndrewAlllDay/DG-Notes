@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useFirebase } from "../firebase";
 import DiscFormModal from '../components/AddDiscModal';
 import AddDiscFromAPImodal from '../components/AddDiscFromAPImodal';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
@@ -10,12 +9,14 @@ import {
     updateDiscInBag,
     deleteDiscFromBag
 } from '../services/firestoreService';
+// ✨ 1. Import all cache utilities
+import { getCache, setCache, getTtlCache, setTtlCache } from '../utilities/cache.js';
 import { toast } from 'react-toastify';
 import { FaTrash } from 'react-icons/fa';
 import { Archive, FolderOpen, ChevronDown, ChevronUp, Pencil, MoreVertical } from 'lucide-react';
 
-// Reusable Accordion Component is controlled by props
 const Accordion = ({ title, children, isOpen, onToggle }) => {
+    // ... Accordion component code (unchanged)
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md max-w-full mx-auto mb-6">
             <button
@@ -35,36 +36,43 @@ const Accordion = ({ title, children, isOpen, onToggle }) => {
     );
 };
 
-export default function InTheBagPage() {
-    const { user: currentUser } = useFirebase();
+export default function InTheBagPage({ user: currentUser }) {
     const [activeDiscs, setActiveDiscs] = useState([]);
     const [archivedDiscs, setArchivedDiscs] = useState([]);
-
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [isApiModalOpen, setIsApiModalOpen] = useState(false);
-
     const [currentDiscToEdit, setCurrentDiscToEdit] = useState(null);
     const [openDiscActionsId, setOpenDiscActionsId] = useState(null);
     const dropdownRef = useRef(null);
-
     const [apiDiscs, setApiDiscs] = useState([]);
     const [isApiLoading, setIsApiLoading] = useState(true);
     const [apiFetchError, setApiFetchError] = useState(null);
-
     const [pendingApiDisc, setPendingApiDisc] = useState(null);
-
     const [deleteModalState, setDeleteModalState] = useState({ isOpen: false, disc: null });
     const [openAccordions, setOpenAccordions] = useState({});
 
-    // Fetch all discs from the external API when the component mounts
+    // ✨ 2. API fetch now uses TTL caching
     useEffect(() => {
         const fetchDiscsFromApi = async () => {
+            const cacheKey = 'apiDiscs';
+            // Try to get data from cache, valid for 24 hours (1440 minutes)
+            const cachedData = getTtlCache(cacheKey, 1440);
+
+            if (cachedData) {
+                setApiDiscs(cachedData);
+                setIsApiLoading(false);
+                setApiFetchError(null);
+                return; // Found fresh data in cache, no need to fetch
+            }
+
+            // If no valid cache, fetch from the network
             try {
                 const response = await fetch('https://discit-api.fly.dev/disc');
                 if (!response.ok) {
                     throw new Error(`API error! Status: ${response.status}`);
                 }
                 const data = await response.json();
+                setTtlCache(cacheKey, data); // Save new data to cache
                 setApiDiscs(data);
                 setApiFetchError(null);
             } catch (error) {
@@ -77,23 +85,35 @@ export default function InTheBagPage() {
         fetchDiscsFromApi();
     }, []);
 
-    // **NEW**: Create a dynamic, sorted list of unique disc types from the API data.
     const dynamicDiscTypes = useMemo(() => {
         if (!apiDiscs || apiDiscs.length === 0) return [];
-        // The API response uses 'category' for the disc type
         const allTypes = apiDiscs.map(disc => disc.category);
         const uniqueTypes = [...new Set(allTypes)];
-        // Filter out any null/undefined/empty types and sort them alphabetically
         return uniqueTypes.filter(type => type).sort();
     }, [apiDiscs]);
-
 
     useEffect(() => {
         let unsubscribeActive;
         let unsubscribeArchived;
         if (currentUser && currentUser.uid) {
-            unsubscribeActive = subscribeToUserDiscs(currentUser.uid, setActiveDiscs);
-            unsubscribeArchived = subscribeToArchivedUserDiscs(currentUser.uid, setArchivedDiscs);
+            const activeCacheKey = `userDiscs-active-${currentUser.uid}`;
+            const archivedCacheKey = `userDiscs-archived-${currentUser.uid}`;
+            const cachedActive = getCache(activeCacheKey);
+            if (cachedActive) {
+                setActiveDiscs(cachedActive);
+            }
+            unsubscribeActive = subscribeToUserDiscs(currentUser.uid, (discs) => {
+                setActiveDiscs(discs);
+                setCache(activeCacheKey, discs);
+            });
+            const cachedArchived = getCache(archivedCacheKey);
+            if (cachedArchived) {
+                setArchivedDiscs(cachedArchived);
+            }
+            unsubscribeArchived = subscribeToArchivedUserDiscs(currentUser.uid, (discs) => {
+                setArchivedDiscs(discs);
+                setCache(archivedCacheKey, discs);
+            });
         } else {
             setActiveDiscs([]);
             setArchivedDiscs([]);
@@ -136,8 +156,6 @@ export default function InTheBagPage() {
             toast.error("An error occurred. Please try again.");
             return;
         }
-
-        // --- Sanitize and convert flight numbers to integers ---
         const sanitizedData = {
             ...detailsData,
             speed: detailsData.speed != null && detailsData.speed !== '' ? parseInt(detailsData.speed, 10) : null,
@@ -145,7 +163,6 @@ export default function InTheBagPage() {
             turn: detailsData.turn != null && detailsData.turn !== '' ? parseInt(detailsData.turn, 10) : null,
             fade: detailsData.fade != null && detailsData.fade !== '' ? parseInt(detailsData.fade, 10) : null,
         };
-
         try {
             if (currentDiscToEdit) {
                 await updateDiscInBag(currentUser.uid, currentDiscToEdit.id, sanitizedData);
@@ -153,7 +170,6 @@ export default function InTheBagPage() {
             } else if (pendingApiDisc) {
                 const allDiscs = [...activeDiscs, ...archivedDiscs];
                 const maxOrder = allDiscs.length > 0 ? Math.max(...allDiscs.map(d => d.displayOrder || 0)) : -1;
-
                 const finalDiscData = {
                     ...pendingApiDisc,
                     ...sanitizedData,
@@ -230,14 +246,8 @@ export default function InTheBagPage() {
         return acc;
     }, {});
 
-    // This list is now only for sorting the accordion groups on the page
     const discTypeOrder = [
-        'Distance Driver',
-        'Hybrid Driver',
-        'Control Driver',
-        'Midrange',
-        'Approach Discs',
-        'Putter'
+        'Distance Driver', 'Hybrid Driver', 'Control Driver', 'Midrange', 'Approach Discs', 'Putter'
     ];
 
     const sortedActiveDiscTypes = Object.keys(groupedActiveDiscs).sort((a, b) => {
@@ -257,23 +267,12 @@ export default function InTheBagPage() {
         setOpenAccordions({});
     };
 
-    const expandAll = () => {
-        const allOpen = sortedActiveDiscTypes.reduce((acc, type) => {
-            acc[type] = true;
-            return acc;
-        }, {});
-        setOpenAccordions(allOpen);
-    };
-
-    useEffect(() => {
-        expandAll();
-    }, [activeDiscs]);
-
     if (!currentUser) {
         return <div className="flex justify-center items-center h-screen bg-gray-100 dark:bg-black"><p className="text-lg text-gray-700 dark:text-gray-300">Please log in to view and manage your disc bag.</p></div>;
     }
 
     const renderDiscItem = (disc, type) => (
+        // ... renderDiscItem code (unchanged)
         <li
             key={disc.id}
             className={`disc-item border rounded-lg shadow-sm p-4 flex justify-between items-center relative ${type === 'active' ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'} ${openDiscActionsId === disc.id ? 'z-30' : ''}`}
@@ -287,7 +286,7 @@ export default function InTheBagPage() {
                 </p>
             </div>
             <div className="relative">
-                <button onClick={() => handleToggleDiscActions(disc.id)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Disc Options">
+                <button onClick={() => handleToggleDiscActions(disc.id)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-2 rounded-full !bg-transparent transition-colors" title="Disc Options">
                     <MoreVertical size={20} />
                 </button>
                 {openDiscActionsId === disc.id && (
@@ -351,18 +350,13 @@ export default function InTheBagPage() {
                                 <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                                     {groupedActiveDiscs[type]
                                         .sort((a, b) => {
-                                            // --- Primary Sort: By Speed (now fastest to slowest) ---
                                             const speedA = parseInt(a.speed, 10) || 0;
                                             const speedB = parseInt(b.speed, 10) || 0;
-
                                             if (speedA !== speedB) {
-                                                return speedB - speedA; // This is the only line that changed
+                                                return speedB - speedA;
                                             }
-
-                                            // --- Secondary Sort (Tie-breaker): Alphabetical by Name ---
                                             const nameA = (a.name || '').trim();
                                             const nameB = (b.name || '').trim();
-
                                             return nameA.localeCompare(nameB);
                                         })
                                         .map(disc => renderDiscItem(disc, 'active'))

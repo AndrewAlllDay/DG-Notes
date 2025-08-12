@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { getTtlCache, setTtlCache } from '../utilities/cache.js'; // 👈 IMPORT NEW CACHE UTILS
 
 // --- Local default images ---
 import UltiworldDefaultImage from '../assets/Ultiworld_Default.jpg';
@@ -106,12 +107,26 @@ const NewsFeed = () => {
         if (node) observer.current.observe(node);
     }, [isLoading, allItems, displayedItems]);
 
+    // ✨ --- CACHING LOGIC IMPLEMENTED HERE --- ✨
     useEffect(() => {
         const fetchAllFeeds = async () => {
-            setAllItems([]);
-            setDisplayedItems([]);
             setIsLoading(true);
             setError(null);
+
+            // 1. Check for valid, non-expired cache first
+            const cacheKey = `feed-${activeTab}`;
+            const cachedData = getTtlCache(cacheKey, 15); // Cache for 15 minutes
+
+            if (cachedData) {
+                setAllItems(cachedData);
+                setDisplayedItems(cachedData.slice(0, 5));
+                setIsLoading(false);
+                return; // Skip network fetch
+            }
+
+            // 2. If no valid cache, proceed to fetch from network
+            setAllItems([]);
+            setDisplayedItems([]);
             const currentSources = feedSources[activeTab];
 
             try {
@@ -130,8 +145,6 @@ const NewsFeed = () => {
                         const text = await res.text();
                         const parser = new window.DOMParser();
                         const xmlDoc = parser.parseFromString(text, "application/xml");
-
-                        // --- NEW: Find the main podcast cover image from the channel level ---
                         const channelImageTag = xmlDoc.querySelector('channel > image > url');
                         const itunesImageTag = xmlDoc.querySelector('channel > itunes\\:image');
                         const channelCoverUrl = channelImageTag?.textContent || itunesImageTag?.getAttribute('href') || null;
@@ -141,7 +154,6 @@ const NewsFeed = () => {
                             const enclosure = item.querySelector('enclosure');
                             const mediaThumbnail = item.getElementsByTagNameNS(mediaNamespace, 'thumbnail')[0];
 
-                            // This part looks for per-episode images, which may not exist
                             let episodeImageUrl = null;
                             if (enclosure && enclosure.getAttribute('type')?.startsWith('image/')) {
                                 episodeImageUrl = enclosure.getAttribute('url');
@@ -169,8 +181,8 @@ const NewsFeed = () => {
                                 link,
                                 description: cleanDescription,
                                 published,
-                                imageUrl: episodeImageUrl, // Per-episode image
-                                podcastCoverUrl: channelCoverUrl, // --- NEW: Main podcast cover ---
+                                imageUrl: episodeImageUrl,
+                                podcastCoverUrl: channelCoverUrl,
                                 podcastLinks: source.platformLinks
                             };
                         });
@@ -179,6 +191,10 @@ const NewsFeed = () => {
                 const combinedItems = allParsedItems.flat();
                 const sortedItems = combinedItems.sort((a, b) => new Date(b.published) - new Date(a.published));
                 const uniqueItems = Array.from(new Map(sortedItems.map(item => [item.guid, item])).values());
+
+                // 3. Save the fresh data to the cache
+                setTtlCache(cacheKey, uniqueItems);
+
                 setAllItems(uniqueItems);
                 setDisplayedItems(uniqueItems.slice(0, 5));
             } catch (e) {
@@ -210,7 +226,6 @@ const NewsFeed = () => {
                         return (
                             <li ref={isLastItem ? lastItemRef : null} key={item.guid} className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
                                 <button onClick={() => setSelectedPodcast(item)} className="flex items-center gap-4 p-3 text-left w-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200">
-                                    {/* --- UPDATED: Use the fetched podcast cover, with fallbacks --- */}
                                     <img src={item.podcastCoverUrl || defaultImages[item.source] || defaultImages.default} alt={item.source} className="w-20 h-20 md:w-24 md:h-24 rounded-md object-cover flex-shrink-0" loading="lazy" />
                                     <div className="flex-grow">
                                         <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">{item.source}</p>

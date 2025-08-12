@@ -8,8 +8,9 @@ import NotificationToast from './components/NotificationToast.jsx';
 import SplashPage from './components/SplashPage.jsx';
 import './styles/EncouragementModal.css';
 import { useFirebase, auth } from './firebase.js';
-import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserDisplayNames } from './services/firestoreService.jsx';
+import { subscribeToEncouragementNotes, markEncouragementNoteAsRead, subscribeToAllUserProfiles } from './services/firestoreService.jsx';
 import * as Dialog from '@radix-ui/react-dialog';
+import { getCache, setCache } from './utilities/cache.js';
 
 // Lazy load components
 const LazyHomePage = lazy(() => import('./components/HomePage.jsx'));
@@ -91,7 +92,6 @@ function App() {
   };
 
   useEffect(() => {
-    // Handle the modern 'launchQueue' API for file sharing
     if ('launchQueue' in window) {
       console.log('App: launchQueue API is supported.');
       window.launchQueue.setConsumer(async (launchParams) => {
@@ -106,14 +106,10 @@ function App() {
       });
     }
 
-    // ALSO, handle the fallback URL parameter method from the service worker
     const params = new URLSearchParams(window.location.search);
     if (params.has('share-target')) {
       console.log('App: Found "share-target" URL parameter. Navigating and triggering import.');
-      // Navigate AND pass a parameter to SettingsPage
       handleNavigate('settings', { triggerImport: true });
-
-      // Clean up the URL
       const url = new URL(window.location);
       url.searchParams.delete('share-target');
       window.history.replaceState({}, '', url);
@@ -123,8 +119,13 @@ function App() {
   useEffect(() => {
     let unsubscribePublicProfiles;
     if (isAuthReady) {
-      unsubscribePublicProfiles = subscribeToAllUserDisplayNames((profiles) => {
+      const cachedProfiles = getCache('allUserProfiles');
+      if (cachedProfiles) {
+        setAllPublicUserProfiles(cachedProfiles);
+      }
+      unsubscribePublicProfiles = subscribeToAllUserProfiles((profiles) => {
         setAllPublicUserProfiles(profiles);
+        setCache('allUserProfiles', profiles);
       });
     }
     return () => {
@@ -286,17 +287,24 @@ function App() {
         {currentPage === 'courses' && (
           <Courses
             key={coursesKey}
+            user={user}
             setIsEncouragementModalOpen={setIsEncouragementModalOpen}
           />
         )}
         {currentPage === 'settings' && (
           <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Settings...</div>}>
-            <LazySettingsPage onSignOut={handleSignOut} onNavigate={handleNavigate} params={pageParams} />
+            <LazySettingsPage
+              user={user}
+              allUserProfiles={allPublicUserProfiles}
+              onSignOut={handleSignOut}
+              onNavigate={handleNavigate}
+              params={pageParams}
+            />
           </Suspense>
         )}
         {currentPage === 'scores' && (
           <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Scores...</div>}>
-            <LazyScoresPage onNavigate={handleNavigate} params={pageParams} />
+            <LazyScoresPage user={user} onNavigate={handleNavigate} params={pageParams} />
           </Suspense>
         )}
         {currentPage === 'send-note' && (
@@ -315,10 +323,9 @@ function App() {
         )}
         {currentPage === 'in-the-bag' && (
           <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading In The Bag...</div>}>
-            <LazyInTheBagPage />
+            <LazyInTheBagPage user={user} />
           </Suspense>
         )}
-        {/* --- UPDATED --- */}
         {currentPage === 'media' && (
           <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Media...</div>}>
             <LazyNewsFeed />
