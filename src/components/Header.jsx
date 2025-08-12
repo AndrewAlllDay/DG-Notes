@@ -1,7 +1,8 @@
 // src/components/Header.jsx
 
 import React from "react";
-import { ThumbsUp, Send, Settings, Flag, Backpack, Newspaper } from "lucide-react";
+// ✨ 1. Replaced the `Send` icon with `ClipboardList`
+import { ThumbsUp, Settings, Flag, Backpack, Newspaper, ClipboardList } from "lucide-react";
 import LogoImage from '../assets/DG Logo.svg';
 
 const Header = ({ onNavigate, onOpenEncouragement, user, canSendEncouragement, currentPage }) => {
@@ -77,14 +78,15 @@ const Header = ({ onNavigate, onOpenEncouragement, user, canSendEncouragement, c
 
                     {/* --- Right Side Links Group (Takes up 40% of the width) --- */}
                     <div className="flex items-center justify-around w-2/5">
-                        {user && canSendEncouragement && (
+                        {/* ✨ 2. This block is now the "Scores" link */}
+                        {!isNonPlayer && (
                             <div
                                 className={`flex flex-col items-center w-20 text-center transition-colors cursor-pointer p-2
-                                    ${isActive('send-note') ? activeTextColor : inactiveTextColor}`}
-                                onClick={(e) => handleNavigate('send-note', e)}
+                                    ${isActive('scores') ? activeTextColor : inactiveTextColor}`}
+                                onClick={(e) => handleNavigate('scores', e)}
                             >
-                                <Send size={20} className={isActive('send-note') ? activeIconColor : inactiveIconColor} />
-                                <span className="text-xs mt-1 leading-tight">Send Note</span>
+                                <ClipboardList size={20} className={isActive('scores') ? activeIconColor : inactiveIconColor} />
+                                <span className="text-xs mt-1 leading-tight">Scores</span>
                             </div>
                         )}
                         {!isNonPlayer && (

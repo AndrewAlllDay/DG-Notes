@@ -1,41 +1,12 @@
+// src/components/HomePage.jsx
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useFirebase } from '../firebase';
-import { subscribeToUserDiscs } from '../services/firestoreService';
-import { subscribeToCourses } from '../services/firestoreService';
-import { subscribeToRounds } from '../services/firestoreService';
+import { subscribeToUserDiscs, subscribeToCourses, subscribeToRounds } from '../services/firestoreService';
+// ✨ NEW: Import the TTL cache functions
+import { getTtlCache, setTtlCache } from '../utilities/cache';
 import { format } from 'date-fns';
 import { Circle, Map, ListChecks } from 'lucide-react';
-
-// NEW: Custom hook for the count-up animation
-const useCountUp = (endValue, duration = 1500) => {
-    const [count, setCount] = useState(0);
-    const animationFrameRef = useRef();
-
-    useEffect(() => {
-        let startTime = null;
-        const animate = (timestamp) => {
-            if (!startTime) startTime = timestamp;
-            const progress = timestamp - startTime;
-            const percentage = Math.min(progress / duration, 1);
-
-            // Apply an easing function for a smoother effect
-            const easedPercentage = 1 - Math.pow(1 - percentage, 3);
-
-            const currentCount = Math.floor(easedPercentage * endValue);
-            setCount(currentCount);
-
-            if (progress < duration) {
-                animationFrameRef.current = requestAnimationFrame(animate);
-            }
-        };
-
-        animationFrameRef.current = requestAnimationFrame(animate);
-
-        return () => cancelAnimationFrame(animationFrameRef.current);
-    }, [endValue, duration]);
-
-    return count;
-};
 
 // A reusable summary card component for the dashboard
 const SummaryCard = ({ icon, title, value, unit }) => (
@@ -52,47 +23,95 @@ const SummaryCard = ({ icon, title, value, unit }) => (
     </div>
 );
 
+// Custom hook for the count-up animation (Unchanged)
+const useCountUp = (endValue, duration = 1500) => {
+    const [count, setCount] = useState(0);
+    const animationFrameRef = useRef();
+
+    useEffect(() => {
+        let startTime = null;
+        const animate = (timestamp) => {
+            if (!startTime) startTime = timestamp;
+            const progress = timestamp - startTime;
+            const percentage = Math.min(progress / duration, 1);
+            const easedPercentage = 1 - Math.pow(1 - percentage, 3);
+            const currentCount = Math.floor(easedPercentage * endValue);
+            setCount(currentCount);
+
+            if (progress < duration) {
+                animationFrameRef.current = requestAnimationFrame(animate);
+            }
+        };
+        animationFrameRef.current = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(animationFrameRef.current);
+    }, [endValue, duration]);
+
+    return count;
+};
+
+
 export default function HomePage({ onNavigate }) {
-    const { userId } = useFirebase();
+    const { user } = useFirebase(); // ✨ Changed from userId to user for consistency
     const [discCount, setDiscCount] = useState(0);
     const [courseCount, setCourseCount] = useState(0);
     const [lastTwoRounds, setLastTwoRounds] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Get the animated values using the custom hook
     const animatedDiscCount = useCountUp(discCount);
     const animatedCourseCount = useCountUp(courseCount);
 
     useEffect(() => {
-        if (!userId) {
+        // ✨ Use the user's UID to create a unique cache key
+        const CACHE_KEY = `dashboardData_${user?.uid}`;
+
+        if (!user?.uid) {
             setIsLoading(false);
             return;
         }
 
-        // Subscribe to all discs (active and archived) to get a total count
-        const unsubscribeDiscs = subscribeToUserDiscs(userId, (discs) => {
-            setDiscCount(discs.length);
+        // ✨ 1. Try to load data from the cache first
+        const cachedData = getTtlCache(CACHE_KEY); // Default TTL is 15 minutes
+        if (cachedData) {
+            setDiscCount(cachedData.discCount || 0);
+            setCourseCount(cachedData.courseCount || 0);
+            setLastTwoRounds(cachedData.lastTwoRounds || []);
+            setIsLoading(false); // We have data, so we're not "loading" anymore
+        }
+
+        // ✨ 2. Subscribe to live data to get updates and prime the cache
+        const unsubscribeDiscs = subscribeToUserDiscs(user.uid, (discs) => {
+            const newDiscCount = discs.length;
+            setDiscCount(newDiscCount);
+            // Update cache when new data arrives
+            setTtlCache(CACHE_KEY, { ...getTtlCache(CACHE_KEY), discCount: newDiscCount });
         });
 
-        // Subscribe to courses to get a total count
-        const unsubscribeCourses = subscribeToCourses(userId, (courses) => {
-            setCourseCount(courses.length);
+        const unsubscribeCourses = subscribeToCourses(user.uid, (courses) => {
+            const newCourseCount = courses.length;
+            setCourseCount(newCourseCount);
+            // Update cache when new data arrives
+            setTtlCache(CACHE_KEY, { ...getTtlCache(CACHE_KEY), courseCount: newCourseCount });
         });
 
-        // Subscribe to rounds and get the last two
-        const unsubscribeRounds = subscribeToRounds(userId, (rounds) => {
-            // The rounds are already sorted by date in the service, so we just take the first two
-            setLastTwoRounds(rounds.slice(0, 2));
-            setIsLoading(false);
+        const unsubscribeRounds = subscribeToRounds(user.uid, (rounds) => {
+            const newLastTwoRounds = rounds.slice(0, 2);
+            setLastTwoRounds(newLastTwoRounds);
+            // Update cache when new data arrives
+            setTtlCache(CACHE_KEY, { ...getTtlCache(CACHE_KEY), lastTwoRounds: newLastTwoRounds });
+
+            // ✨ Only set loading to false here if there was no initial cache
+            if (!cachedData) {
+                setIsLoading(false);
+            }
         });
 
-        // Cleanup subscriptions on component unmount
         return () => {
             unsubscribeDiscs();
             unsubscribeCourses();
             unsubscribeRounds();
         };
-    }, [userId]);
+    }, [user?.uid]);
+
 
     const formatScoreToPar = (score) => {
         if (score === 0) return 'E';
@@ -104,64 +123,27 @@ export default function HomePage({ onNavigate }) {
         if (onNavigate) {
             onNavigate('scores', { roundId: roundId });
         } else {
-            console.warn("onNavigate prop not provided to HomePage. Cannot navigate to scores.");
+            console.warn("onNavigate prop not provided to HomePage.");
         }
     };
 
+    // ✨ Show loading screen only on the very first load when no cache exists
     if (isLoading) {
         return <div className="text-center p-8 text-gray-700 dark:text-gray-300">Loading dashboard...</div>;
     }
 
     return (
         <div className="min-h-screen bg-gray-100 dark:bg-black pb-48">
-            {/* NEW: Hero Section with Flight Path Lines */}
+            {/* Hero Section (Unchanged) */}
             <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-green-50 dark:from-gray-900 dark:to-black py-10 sm:py-12 lg:py-16">
-                {/* NEW: Style block for animation */}
-                <style>
-                    {`
-                    @keyframes drawPath1 {
-                        from {
-                            stroke-dashoffset: 300; /* Estimated length for path 1 */
-                        }
-                        to {
-                            stroke-dashoffset: 0;
-                        }
-                    }
-                    @keyframes drawPath2 {
-                        from {
-                            stroke-dashoffset: 350; /* Estimated length for path 2 */
-                        }
-                        to {
-                            stroke-dashoffset: 0;
-                        }
-                    }
-                    @keyframes drawPath3 {
-                        from {
-                            stroke-dashoffset: 200; /* Estimated length for path 3 */
-                        }
-                        to {
-                            stroke-dashoffset: 0;
-                        }
-                    }
-
-                    .path-animate-1 {
-                        stroke-dasharray: 300; /* Must match 'from' value */
-                        stroke-dashoffset: 300;
-                        animation: drawPath1 2s ease-out forwards;
-                    }
-                    .path-animate-2 {
-                        stroke-dasharray: 350;
-                        stroke-dashoffset: 350;
-                        animation: drawPath2 2.5s ease-out forwards 0.5s; /* Delay for staggered effect */
-                    }
-                    .path-animate-3 {
-                        stroke-dasharray: 200;
-                        stroke-dashoffset: 200;
-                        animation: drawPath3 1.8s ease-out forwards 1s; /* Delay for staggered effect */
-                    }
-                    `}
-                </style>
-                {/* Subtle SVG flight path lines in the background */}
+                <style>{`
+                    @keyframes drawPath1 { from { stroke-dashoffset: 300; } to { stroke-dashoffset: 0; } }
+                    @keyframes drawPath2 { from { stroke-dashoffset: 350; } to { stroke-dashoffset: 0; } }
+                    @keyframes drawPath3 { from { stroke-dashoffset: 200; } to { stroke-dashoffset: 0; } }
+                    .path-animate-1 { stroke-dasharray: 300; stroke-dashoffset: 300; animation: drawPath1 2s ease-out forwards; }
+                    .path-animate-2 { stroke-dasharray: 350; stroke-dashoffset: 350; animation: drawPath2 2.5s ease-out forwards 0.5s; }
+                    .path-animate-3 { stroke-dasharray: 200; stroke-dashoffset: 200; animation: drawPath3 1.8s ease-out forwards 1s; }
+                `}</style>
                 <svg className="absolute inset-0 w-full h-full opacity-20 dark:opacity-10 pointer-events-none" aria-hidden="true">
                     <defs>
                         <linearGradient id="gradient-path" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -169,7 +151,6 @@ export default function HomePage({ onNavigate }) {
                             <stop offset="100%" stopColor="currentColor" stopOpacity="0.7" className="text-orange-400 dark:text-orange-600" />
                         </linearGradient>
                     </defs>
-                    {/* Example curved lines - MODIFIED: Adjusted translate Y values to move lines up */}
                     <path d="M0 50 Q 25 20, 50 50 T 100 50" stroke="url(#gradient-path)" strokeWidth="3" fill="none" transform="scale(3) translate(0,-15)" className="path-animate-1" />
                     <path d="M0 80 C 20 60, 40 100, 60 80 S 100 60, 120 80" stroke="url(#gradient-path)" strokeWidth="2.5" fill="none" transform="scale(2.5) translate(10, -40)" className="path-animate-2" />
                     <path d="M0 20 Q 20 0, 40 20 T 80 20" stroke="url(#gradient-path)" strokeWidth="2" fill="none" transform="scale(4) translate(-10, 20)" className="path-animate-3" />
@@ -178,15 +159,13 @@ export default function HomePage({ onNavigate }) {
                 <div className="relative z-10 max-w-sm mx-auto px-4 sm:px-6 lg:px-8 text-center mb-8">
                     <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-4">Your Flight<span className='text-blue-600'>Log</span> Dashboard</h2>
                     <p className="text-lg text-gray-700 dark:text-gray-300">
-                        Welcome to your FlightLog dashboard! Here you can quickly see your disc golf stats at a glance,
-                        including your disc collection, courses played, and recent round scores.
+                        Welcome to your FlightLog dashboard! Here you can quickly see your disc golf stats at a glance.
                     </p>
                 </div>
             </div>
-            {/* END NEW: Hero Section */}
 
             <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 -mt-8 relative z-20">
-                {/* Summary Cards Section */}
+                {/* Summary Cards Section (Unchanged) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <SummaryCard
                         icon={<Circle size={24} className="text-blue-600 dark:text-blue-300" />}
@@ -202,7 +181,7 @@ export default function HomePage({ onNavigate }) {
                     />
                 </div>
 
-                {/* Recent Rounds Section */}
+                {/* Recent Rounds Section (Unchanged) */}
                 <div>
                     <h3 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300 flex items-center">
                         <ListChecks size={22} className="mr-3 text-blue-600 dark:text-blue-400" />

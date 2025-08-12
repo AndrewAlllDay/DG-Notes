@@ -2,15 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { db, appId } from '../firebase.js';
 import { doc, getDoc } from 'firebase/firestore';
 import { subscribeToRounds, deleteRound, updateRoundRating, updateRoundTournament, updateRoundNotes } from '../services/firestoreService.jsx';
-import { getCache, setCache } from '../utilities/cache.js'; // 👈 Import cache utilities
+import { getCache, setCache } from '../utilities/cache.js';
 import { format } from 'date-fns';
 import { FaTrash, FaSave, FaTimes, FaEdit } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 
-// ✨ 1. Accept `user` as a prop
 export default function ScoresPage({ user }) {
-    // ✨ 2. Get `userId` from the prop, remove `useFirebase` hook
     const { uid: userId } = user;
 
     const [rounds, setRounds] = useState([]);
@@ -29,7 +27,6 @@ export default function ScoresPage({ user }) {
 
     const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-score-analyzer/api/gemini-insight';
 
-    // ✨ 3. Implement caching for the rounds list
     useEffect(() => {
         if (!userId) {
             setIsLoading(false);
@@ -59,14 +56,13 @@ export default function ScoresPage({ user }) {
             deduplicatedRounds.sort((a, b) => (b.date?.toDate?.() || 0) - (a.date?.toDate?.() || 0));
 
             setRounds(deduplicatedRounds);
-            setCache(cacheKey, deduplicatedRounds); // Update cache
+            setCache(cacheKey, deduplicatedRounds);
             setIsLoading(false);
         });
 
         return () => unsubscribe();
     }, [userId]);
 
-    // ✨ 4. Implement caching for on-demand course details
     const handleToggleExpand = async (roundId) => {
         if (expandedRoundId === roundId) {
             setExpandedRoundId(null);
@@ -83,7 +79,6 @@ export default function ScoresPage({ user }) {
         setIsHolesLoading(true);
         setExpandedRoundId(roundId);
 
-        // Check for course details in the courses cache first
         const coursesCacheKey = `userCourses-${userId}`;
         const cachedCourses = getCache(coursesCacheKey);
         if (cachedCourses) {
@@ -91,11 +86,10 @@ export default function ScoresPage({ user }) {
             if (cachedCourse) {
                 setCourseHoles(cachedCourse.holes || []);
                 setIsHolesLoading(false);
-                return; // Found in cache, no need to fetch
+                return;
             }
         }
 
-        // If not in cache, fetch from Firestore as a fallback
         try {
             const courseDocRef = doc(db, `artifacts/${appId}/users/${userId}/courses`, round.courseId);
             const courseSnap = await getDoc(courseDocRef);
@@ -207,9 +201,6 @@ export default function ScoresPage({ user }) {
         // ... Gemini logic (unchanged)
     };
 
-    // ✨ 5. The top-level loading check is simplified.
-    // The component will display cached rounds immediately, so `isLoading`
-    // is now mainly for the initial, first-ever load.
     if (isLoading && rounds.length === 0) {
         return <div className="text-center p-8">Loading scores...</div>;
     }
@@ -232,12 +223,12 @@ export default function ScoresPage({ user }) {
                                 <div key={round.id} className={`bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-all duration-300 border ${isEditing ? 'border-blue-500' : 'border-transparent'}`}>
                                     <div onClick={() => handleToggleExpand(round.id)} className="cursor-pointer">
                                         <div className="flex justify-between items-start gap-4">
-                                            <div>
+                                            {/* ✨ --- LAYOUT FIX APPLIED HERE --- ✨ */}
+                                            <div className="flex-1 min-w-0">
                                                 {round.tournamentName && (
                                                     <p className="text-sm font-normal text-black dark:text-purple-400 mb-2 leading-none">{round.tournamentName}</p>
                                                 )}
                                                 <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-none">{round.courseName}</h3>
-
                                                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                                                     {round.date?.toDate ? format(round.date.toDate(), 'MMMM d, yyyy') : 'N/A Date'}
                                                 </p>
@@ -247,18 +238,20 @@ export default function ScoresPage({ user }) {
                                                     </p>
                                                 )}
                                             </div>
-                                            <div className="flex items-center space-x-2">
-                                                <div className="flex flex-col items-end">
-                                                    <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{round.totalScore}</p>
-                                                    <p className={`text-lg font-semibold ${getScoreColor(round.scoreToPar, 0)}`}>
-                                                        {formatScoreToPar(round.scoreToPar)}
-                                                    </p>
-                                                </div>
-                                                <button onClick={(e) => handleDeleteRound(e, round.id, round.courseName, round.layoutName)}
-                                                    className="p-2 self-start !bg-transparent text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10 relative"
-                                                    title={`Delete scorecard for ${round.courseName}`}>
-                                                    <FaTrash size={18} />
-                                                </button>
+                                            <div className="flex-shrink-0 w-20 flex flex-col items-end">
+                                                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{round.totalScore}</p>
+                                                <p className={`text-lg font-semibold ${getScoreColor(round.scoreToPar, 0)}`}>
+                                                    {formatScoreToPar(round.scoreToPar)}
+                                                </p>
+                                                {isExpanded && !isEditing && (
+                                                    <button
+                                                        onClick={(e) => handleEditClick(e, round)}
+                                                        className="mt-2 p-2 !bg-transparent text-blue-600 dark:text-blue-400 hover:text-blue-800 button-p-0 dark:hover:text-blue-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10 relative"
+                                                        title="Edit Details"
+                                                    >
+                                                        <FaEdit size={18} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -279,22 +272,25 @@ export default function ScoresPage({ user }) {
                                                         <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Round Notes</label>
                                                         <textarea name="notes" value={roundFormData.notes} onChange={handleFormChange} rows="4" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
                                                     </div>
-                                                    <div className="flex items-center space-x-2">
-                                                        <button onClick={handleSaveChanges} className="flex items-center gap-2 text-sm !bg-green-600 text-white px-3 py-1 rounded-md hover:!bg-green-700">
-                                                            <FaSave size={14} /> Save
-                                                        </button>
-                                                        <button onClick={handleCancelEdit} className="flex items-center gap-2 text-sm !bg-gray-500 text-white px-3 py-1 rounded-md hover:!bg-gray-600">
-                                                            <FaTimes size={14} /> Cancel
+                                                    <div className="flex items-center justify-between mt-4">
+                                                        <div className="flex items-center space-x-2">
+                                                            <button onClick={handleSaveChanges} className="flex items-center gap-2 text-sm !bg-green-600 text-white px-3 py-1 rounded-md hover:!bg-green-700">
+                                                                <FaSave size={14} /> Save
+                                                            </button>
+                                                            <button onClick={handleCancelEdit} className="flex items-center gap-2 text-sm !bg-gray-500 text-white px-3 py-1 rounded-md hover:!bg-gray-600">
+                                                                <FaTimes size={14} /> Cancel
+                                                            </button>
+                                                        </div>
+                                                        <button
+                                                            onClick={(e) => handleDeleteRound(e, round.id, round.courseName, round.layoutName)}
+                                                            className="flex items-center gap-2 text-sm !bg-red-600 text-white px-3 py-1 rounded-md hover:!bg-red-700"
+                                                        >
+                                                            <FaTrash size={14} /> Delete
                                                         </button>
                                                     </div>
                                                 </div>
                                             ) : (
                                                 <div>
-                                                    <div className="flex justify-end mb-4">
-                                                        <button onClick={(e) => handleEditClick(e, round)} className="flex items-center gap-2 text-sm !bg-blue-600 text-white px-3 py-1 rounded-md hover:!bg-blue-700">
-                                                            <FaEdit size={14} /> Edit Details
-                                                        </button>
-                                                    </div>
                                                     {round.notes && (
                                                         <div className="mb-6">
                                                             <h4 className="font-semibold text-md mb-2 text-gray-700 dark:text-gray-300">Round Notes</h4>

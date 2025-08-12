@@ -1,6 +1,6 @@
 // src/components/SettingsPage.jsx
-import React, { useState, useEffect } from 'react';
-import { Copy, ChevronDown, ChevronUp, PlusCircle, Trash2, UserPlus, UserMinus, LogOut, Save } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Copy, ChevronDown, ChevronUp, PlusCircle, Trash2, UserPlus, UserMinus, LogOut, Save, Check } from 'lucide-react';
 import Papa from 'papaparse';
 import {
     setUserProfile,
@@ -11,8 +11,8 @@ import {
     deleteTeam,
     addCourseWithHoles,
     getUserCourses,
-    addRound
-    // `subscribeToAllUserProfiles` is no longer needed here
+    addRound,
+    addEncouragementNote
 } from '../services/firestoreService';
 import { getCache, setCache } from '../utilities/cache.js';
 import ImportCSVModal from './ImportCSVModal';
@@ -21,7 +21,6 @@ import SelectCourseTypeModal from './SelectCourseTypeModal';
 import SelectPlayerModal from './SelectPlayerModal';
 import AddRoundNotesModal from './AddRoundNotesModal';
 
-// HELPER FUNCTIONS FOR INDEXEDDB (unchanged)
 function getDb() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open('dgnotes-shared-files', 1);
@@ -99,12 +98,11 @@ const Accordion = ({ title, children, defaultOpen = false }) => {
     );
 };
 
-// ✨ --- FINAL REFACTOR --- ✨
-// 1. Accept `allUserProfiles` as a prop.
+
 export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavigate, params = {} }) {
     const userId = user?.uid;
 
-    // Local state for this component
+    // Original SettingsPage State
     const [copyMessage, setCopyMessage] = useState('');
     const [displayNameInput, setDisplayNameInput] = useState('');
     const [saveMessage, setSaveMessage] = useState({ type: '', text: '' });
@@ -121,8 +119,14 @@ export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavig
     const [pendingCourse, setPendingCourse] = useState(null);
     const [pendingRoundData, setPendingRoundData] = useState(null);
 
-    // 2. The local state for `allUserProfiles` has been removed.
-    // 3. The `useEffect` to fetch all user profiles has been removed.
+    // State from SendEncouragement
+    const [noteText, setNoteText] = useState('');
+    const [recipients, setRecipients] = useState([]);
+    const [selectedRecipientId, setSelectedRecipientId] = useState('');
+    const [encouragementMessage, setEncouragementMessage] = useState({ type: '', text: '' });
+    const [isSendingNote, setIsSendingNote] = useState(false);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const encouragementDropdownRef = useRef(null);
 
     const APP_VERSION = 'v 0.1.56';
 
@@ -139,37 +143,22 @@ export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavig
                 await clearFiles();
             }
         };
-
         const runImport = async () => {
-            if (params.sharedFile) {
-                console.log("SettingsPage: Received sharedFile directly via params.");
-                processFile(params.sharedFile);
-            } else if (params.triggerImport) {
-                console.log("SettingsPage: Received triggerImport param. Getting file from IndexedDB.");
-                const file = await getFile();
-                processFile(file);
-            }
+            if (params.sharedFile) { processFile(params.sharedFile); }
+            else if (params.triggerImport) { const file = await getFile(); processFile(file); }
         };
-
-        if (userId) {
-            runImport();
-        }
+        if (userId) { runImport(); }
     }, [params, userId]);
 
     useEffect(() => {
-        if (user) {
-            setDisplayNameInput(user.displayName || '');
-        }
+        if (user) { setDisplayNameInput(user.displayName || ''); }
     }, [user]);
 
-    // This useEffect handles the Team data, which is still fetched locally.
     useEffect(() => {
         let unsubscribeTeams;
         if (user?.role === 'admin') {
             const cachedTeams = getCache('allTeams');
-            if (cachedTeams) {
-                setTeams(cachedTeams);
-            }
+            if (cachedTeams) { setTeams(cachedTeams); }
             unsubscribeTeams = subscribeToAllTeams((fetchedTeams) => {
                 setTeams(fetchedTeams);
                 setCache('allTeams', fetchedTeams);
@@ -177,6 +166,84 @@ export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavig
         }
         return () => unsubscribeTeams && unsubscribeTeams();
     }, [user?.role]);
+
+    useEffect(() => {
+        if (allUserProfiles && user) {
+            const currentUserId = user.uid;
+            const currentUserTeamIds = user.teamIds || [];
+            let filteredRecipients = allUserProfiles.filter(profile => profile.id !== currentUserId);
+            if (user.role !== 'admin') {
+                filteredRecipients = filteredRecipients.filter(profile => {
+                    const recipientTeamIds = profile.teamIds || [];
+                    return currentUserTeamIds.some(teamId => recipientTeamIds.includes(teamId));
+                });
+            }
+            setRecipients(filteredRecipients);
+            if (filteredRecipients.length > 0 && !filteredRecipients.some(r => r.id === selectedRecipientId)) {
+                setSelectedRecipientId(filteredRecipients[0].id);
+            } else if (filteredRecipients.length === 0) {
+                setSelectedRecipientId('');
+            }
+        }
+    }, [allUserProfiles, user]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (encouragementDropdownRef.current && !encouragementDropdownRef.current.contains(event.target)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (encouragementMessage.text) {
+            const timer = setTimeout(() => {
+                setEncouragementMessage({ type: '', text: '' });
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [encouragementMessage]);
+
+    const handleSendNoteSubmit = async (e) => {
+        e.preventDefault();
+        setEncouragementMessage({ type: '', text: '' });
+        if (!user || !user.uid) {
+            setEncouragementMessage({ type: 'error', text: 'You must be logged in.' });
+            return;
+        }
+        if (!selectedRecipientId) {
+            setEncouragementMessage({ type: 'error', text: 'Please select a recipient.' });
+            return;
+        }
+        if (noteText.trim() === '') {
+            setEncouragementMessage({ type: 'error', text: 'Please enter a message.' });
+            return;
+        }
+        setIsSendingNote(true);
+        try {
+            const recipientDisplayName = recipients.find(r => r.id === selectedRecipientId)?.displayName || 'user';
+            const senderDisplayName = user.displayName || 'Anonymous';
+            await addEncouragementNote(user.uid, selectedRecipientId, senderDisplayName, recipientDisplayName, noteText.trim());
+            setEncouragementMessage({ type: 'success', text: `Note sent to ${recipientDisplayName}!` });
+            setNoteText('');
+        } catch (error) {
+            setEncouragementMessage({ type: 'error', text: `Failed to send note: ${error.message}` });
+        } finally {
+            setIsSendingNote(false);
+        }
+    };
+
+    const getSelectedRecipientName = () => {
+        const selected = recipients.find(r => r.id === selectedRecipientId);
+        return selected ? (selected.displayName || selected.email) : "Select a recipient";
+    };
+
+    const handleSelectRecipient = (recipientId) => {
+        setSelectedRecipientId(recipientId);
+        setIsDropdownOpen(false);
+    };
 
     const handleCopyUserId = () => {
         if (userId) {
@@ -230,7 +297,6 @@ export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavig
             setPendingRoundData(null);
             return;
         }
-
         const scores = {};
         for (const header of headers) {
             const match = header.match(/^Hole(\w+)$/);
@@ -239,7 +305,6 @@ export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavig
                 scores[holeNumber] = parseInt(userRow[header], 10);
             }
         }
-
         const roundData = {
             courseId: course.id,
             courseName: course.name,
@@ -417,15 +482,12 @@ export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavig
     };
 
     const roleOrder = { 'admin': 0, 'player': 1, 'non-player': 2 };
-    // The component now uses the `allUserProfiles` prop directly
     const sortedUserProfiles = [...(allUserProfiles || [])].sort((a, b) => {
         const roleA = a.role || 'player';
         const roleB = b.role || 'player';
         const orderA = roleOrder[roleA];
         const orderB = roleOrder[roleB];
-        if (orderA !== orderB) {
-            return orderA - orderB;
-        }
+        if (orderA !== orderB) return orderA - orderB;
         return (a.displayName || 'Unnamed').localeCompare(b.displayName || 'Unnamed');
     });
 
@@ -434,6 +496,7 @@ export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavig
     return (
         <div className="max-h-screen !bg-gray-100 p-4 pb-48">
             <h2 className="text-2xl font-bold mb-6 text-center pt-5">Settings</h2>
+
             <Accordion title="Your Account">
                 <div className="mb-4">
                     <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-1">Set Your Display Name:</label>
@@ -464,8 +527,50 @@ export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavig
                     <LogOut size={20} />
                     Logout
                 </button>
-
             </Accordion>
+
+            <Accordion title="Send Encouragement">
+                {encouragementMessage.text && (
+                    <div className={`mb-4 p-3 rounded-md ${encouragementMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {encouragementMessage.text}
+                    </div>
+                )}
+                <form onSubmit={handleSendNoteSubmit} className="space-y-4">
+                    <div>
+                        <label htmlFor="recipient-select-button" className="block text-sm font-medium text-gray-700 mb-1">Send to:</label>
+                        <div className="relative" ref={encouragementDropdownRef}>
+                            <button type="button" id="recipient-select-button" onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 !bg-white flex justify-between items-center text-gray-700 hover:border-gray-400" disabled={isSendingNote || recipients.length === 0}>
+                                <span className="truncate">{getSelectedRecipientName()}</span>
+                                <ChevronDown size={20} className={`transform transition-transform ${isDropdownOpen ? 'rotate-180' : 'rotate-0'}`} />
+                            </button>
+                            {isDropdownOpen && (recipients.length > 0 ? (
+                                <ul className="absolute z-10 w-full !bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-auto">
+                                    {recipients.map(recipient => (
+                                        <li key={recipient.id} onClick={() => handleSelectRecipient(recipient.id)} className={`p-3 cursor-pointer hover:bg-blue-50 flex justify-between items-center ${recipient.id === selectedRecipientId ? 'bg-blue-100 font-semibold text-blue-700' : 'text-gray-900'}`}>
+                                            <span className="truncate">{recipient.displayName || recipient.email}</span>
+                                            {recipient.id === selectedRecipientId && <Check size={18} className="text-blue-700" />}
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 p-3 text-gray-500">
+                                    {user?.role === 'admin' ? "No other users available" : "No teammates found"}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <label htmlFor="note-text" className="block text-sm font-medium text-gray-700 mb-1">Your Message:</label>
+                        <textarea id="note-text" value={noteText} onChange={(e) => setNoteText(e.target.value)} rows="4" className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y !bg-white" placeholder="Type your encouragement here..." disabled={isSendingNote}></textarea>
+                    </div>
+                    <div className="flex justify-end">
+                        <button type="submit" className="px-4 py-2 !bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50" disabled={isSendingNote || !selectedRecipientId || noteText.trim() === ''}>
+                            {isSendingNote ? 'Sending...' : 'Send Note'}
+                        </button>
+                    </div>
+                </form>
+            </Accordion>
+
             <Accordion title="Manage Scorecards">
                 <h3 className="text-lg font-semibold text-gray-800">Import Scorecard</h3>
                 <p className="text-sm text-gray-600 mb-2">Upload a scorecard exported from Udisc.</p>
@@ -489,6 +594,7 @@ export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavig
                     </p>
                 )}
             </Accordion>
+
             {user.role === 'admin' && (
                 <Accordion title="User Role Management">
                     {roleSaveMessage.text && <p className={`mb-4 text-sm ${roleSaveMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{roleSaveMessage.text}</p>}
@@ -527,6 +633,7 @@ export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavig
                     </div>
                 </Accordion>
             )}
+
             {user.role === 'admin' && (
                 <Accordion title="Team Management">
                     {teamMessage.text && <p className={`mb-4 text-sm ${teamMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{teamMessage.text}</p>}
@@ -594,15 +701,12 @@ export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavig
             <div className="mt-8 text-center text-sm text-gray-500">
                 FlightLog: {APP_VERSION}
             </div>
+
             <ImportCSVModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onImport={handleCourseImport} />
             <ConfirmationModal isOpen={confirmationState.isOpen} onClose={() => setConfirmationState({ ...confirmationState, isOpen: false })} onConfirm={confirmationState.onConfirm} title={confirmationState.title} message={confirmationState.message} />
             <SelectCourseTypeModal isOpen={selectTypeState.isOpen} onClose={() => setSelectTypeState({ isOpen: false })} onSubmit={handleCreateFinal} />
             <SelectPlayerModal isOpen={selectPlayerState.isOpen} onClose={() => setSelectPlayerState({ isOpen: false, players: [], onSelect: () => { } })} onSelect={selectPlayerState.onSelect} players={selectPlayerState.players} />
-            <AddRoundNotesModal
-                isOpen={isNotesModalOpen}
-                onClose={() => handleFinalizeRoundImport('')}
-                onSubmit={handleFinalizeRoundImport}
-            />
+            <AddRoundNotesModal isOpen={isNotesModalOpen} onClose={() => handleFinalizeRoundImport('')} onSubmit={handleFinalizeRoundImport} />
         </div>
     );
 }

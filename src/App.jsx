@@ -15,7 +15,6 @@ import { getCache, setCache } from './utilities/cache.js';
 // Lazy load components
 const LazyHomePage = lazy(() => import('./components/HomePage.jsx'));
 const LazySettingsPage = lazy(() => import('./components/SettingsPage.jsx'));
-const LazySendEncouragement = lazy(() => import('./components/SendEncouragement.jsx'));
 const LazyWeatherDisplay = lazy(() => import('./components/WeatherDisplay.jsx'));
 const LazyInTheBagPage = lazy(() => import('./components/InTheBagPage.jsx'));
 const LazyNewsFeed = lazy(() => import('./components/Newsfeed.jsx'));
@@ -159,10 +158,10 @@ function App() {
     }
   }, [unreadNotesFromFirestore, allPublicUserProfiles]);
 
-
   useEffect(() => {
     if (isAuthReady && user && user.role === 'non-player' && !hasInitialNonPlayerRedirected) {
-      setCurrentPage('send-note');
+      // If a non-player logs in, send them to settings where the 'Send Note' accordion is
+      handleNavigate('settings');
       setHasInitialNonPlayerRedirected(true);
     }
   }, [user, isAuthReady, hasInitialNonPlayerRedirected]);
@@ -202,11 +201,6 @@ function App() {
         showAppMessage('error', `Failed to sign out: ${error.message}`);
       }
     }
-  };
-
-  const handleSendNoteSuccess = (message) => {
-    showAppMessage('success', message);
-    handleNavigate('home');
   };
 
   const handleNotificationRead = async (noteId) => {
@@ -250,15 +244,12 @@ function App() {
     );
   }
 
-  const showSendNoteBackButton = user.role !== 'non-player';
-
   return (
     <div className="App min-h-screen flex flex-col bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100">
       <Header
         onNavigate={handleNavigate}
         onOpenEncouragement={() => setIsEncouragementModalOpen(true)}
         user={user}
-        onOpenSendEncouragement={() => handleNavigate('send-note')}
         canSendEncouragement={canSendEncouragement}
         currentPage={currentPage}
         isDarkMode={isDarkMode}
@@ -305,15 +296,6 @@ function App() {
         {currentPage === 'scores' && (
           <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Scores...</div>}>
             <LazyScoresPage user={user} onNavigate={handleNavigate} params={pageParams} />
-          </Suspense>
-        )}
-        {currentPage === 'send-note' && (
-          <Suspense fallback={<div className="flex justify-center items-center h-full text-md text-gray-700 dark:text-gray-300">Loading Send Note page...</div>}>
-            <LazySendEncouragement
-              onSendSuccess={handleSendNoteSuccess}
-              onClose={() => handleNavigate('home')}
-              showBackButton={showSendNoteBackButton}
-            />
           </Suspense>
         )}
         {currentPage === 'weather' && (
