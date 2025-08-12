@@ -1,16 +1,84 @@
-import React, { useState, useEffect } from 'react';
-import { db, appId } from '../firebase.js';
+import React, { useState, useEffect, useMemo } from 'react';
+import { db, appId, auth } from '../firebase.js';
 import { doc, getDoc } from 'firebase/firestore';
-import { subscribeToRounds, deleteRound, updateRoundRating, updateRoundTournament, updateRoundNotes } from '../services/firestoreService.jsx';
+import {
+    subscribeToRounds,
+    deleteRound,
+    updateRoundRating,
+    updateRoundTournament,
+    updateRoundNotes,
+    updateRoundType
+} from '../services/firestoreService.jsx';
 import { getCache, setCache } from '../utilities/cache.js';
 import { format } from 'date-fns';
-import { FaTrash, FaSave, FaTimes, FaEdit } from 'react-icons/fa';
+import { FaTrash, FaSave, FaTimes, FaEdit, FaTrophy, FaUsers } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 
+const RoundTypeBadge = ({ type }) => {
+    if (!type) return null;
+    const styles = {
+        tournament: {
+            icon: <FaTrophy size={12} />,
+            text: 'Tournament',
+            className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+        },
+        league: {
+            icon: <FaUsers size={12} />,
+            text: 'League',
+            className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+        }
+    };
+    const style = styles[type];
+    if (!style) return null;
+    return (
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium ${style.className}`}>
+            {style.icon}
+            {style.text}
+        </span>
+    );
+};
+
+const ScoreFilter = ({ currentFilter, onFilterChange }) => {
+    const filters = [
+        { key: 'all', label: 'All' },
+        { key: 'tournament', label: 'Tournaments' },
+        { key: 'league', label: 'Leagues' }
+    ];
+
+    const getActiveClasses = (filterKey) => {
+        const baseActiveClasses = 'bg-white dark:bg-gray-900 shadow ring-2';
+        switch (filterKey) {
+            case 'tournament':
+                return `${baseActiveClasses} ring-yellow-500 text-yellow-800 dark:text-yellow-400`;
+            case 'league':
+                return `${baseActiveClasses} ring-green-500 text-green-800 dark:text-green-400`;
+            default: // 'all'
+                return `${baseActiveClasses} ring-blue-500 text-blue-600 dark:text-blue-400`;
+        }
+    };
+
+    return (
+        <div className="flex justify-center bg-gray-200 dark:bg-gray-700 p-1 rounded-lg mb-6 max-w-sm mx-auto">
+            {filters.map(filter => (
+                <button
+                    key={filter.key}
+                    onClick={() => onFilterChange(filter.key)}
+                    className={`w-full px-3 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 focus:outline-none ${currentFilter === filter.key
+                        ? getActiveClasses(filter.key)
+                        : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        }`}
+                >
+                    {filter.label}
+                </button>
+            ))}
+        </div>
+    );
+};
+
+
 export default function ScoresPage({ user }) {
     const { uid: userId } = user;
-
     const [rounds, setRounds] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [expandedRoundId, setExpandedRoundId] = useState(null);
@@ -24,6 +92,7 @@ export default function ScoresPage({ user }) {
     const [geminiError, setGeminiError] = useState(null);
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [roundToDelete, setRoundToDelete] = useState(null);
+    const [filterType, setFilterType] = useState('all');
 
     const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-score-analyzer/api/gemini-insight';
 
@@ -33,7 +102,6 @@ export default function ScoresPage({ user }) {
             setRounds([]);
             return;
         }
-
         const cacheKey = `userRounds-${userId}`;
         const cachedRounds = getCache(cacheKey);
         if (cachedRounds) {
@@ -42,7 +110,6 @@ export default function ScoresPage({ user }) {
         } else {
             setIsLoading(true);
         }
-
         const unsubscribe = subscribeToRounds(userId, (fetchedRounds) => {
             const uniqueRoundsMap = new Map();
             fetchedRounds.forEach(round => {
@@ -54,50 +121,37 @@ export default function ScoresPage({ user }) {
             });
             const deduplicatedRounds = Array.from(uniqueRoundsMap.values());
             deduplicatedRounds.sort((a, b) => (b.date?.toDate?.() || 0) - (a.date?.toDate?.() || 0));
-
             setRounds(deduplicatedRounds);
             setCache(cacheKey, deduplicatedRounds);
             setIsLoading(false);
         });
-
         return () => unsubscribe();
     }, [userId]);
 
+    const filteredRounds = useMemo(() => {
+        if (filterType === 'all') {
+            return rounds;
+        }
+        return rounds.filter(round => round.roundType === filterType);
+    }, [rounds, filterType]);
+
+
     const handleToggleExpand = async (roundId) => {
         if (expandedRoundId === roundId) {
-            setExpandedRoundId(null);
-            setEditingRoundId(null);
-            return;
+            setExpandedRoundId(null); setEditingRoundId(null); return;
         }
-
         const round = rounds.find(r => r.id === roundId);
         if (!round || !round.courseId) {
-            toast.error("Could not find course data for this round.");
-            return;
+            toast.error("Could not find course data for this round."); return;
         }
-
-        setIsHolesLoading(true);
-        setExpandedRoundId(roundId);
-
-        const coursesCacheKey = `userCourses-${userId}`;
-        const cachedCourses = getCache(coursesCacheKey);
-        if (cachedCourses) {
-            const cachedCourse = cachedCourses.find(c => c.id === round.courseId);
-            if (cachedCourse) {
-                setCourseHoles(cachedCourse.holes || []);
-                setIsHolesLoading(false);
-                return;
-            }
-        }
-
+        setIsHolesLoading(true); setExpandedRoundId(roundId);
         try {
             const courseDocRef = doc(db, `artifacts/${appId}/users/${userId}/courses`, round.courseId);
             const courseSnap = await getDoc(courseDocRef);
             if (courseSnap.exists()) {
                 setCourseHoles(courseSnap.data().holes || []);
             } else {
-                toast.error("Course details not found.");
-                setCourseHoles([]);
+                toast.error("Course details not found."); setCourseHoles([]);
             }
         } catch (error) {
             console.error("Error fetching course details:", error);
@@ -106,80 +160,69 @@ export default function ScoresPage({ user }) {
             setIsHolesLoading(false);
         }
     };
-
     const handleEditClick = (e, round) => {
         e.stopPropagation();
         setEditingRoundId(round.id);
         setRoundFormData({
             tournamentName: round.tournamentName || '',
             rating: round.rating || '',
-            notes: round.notes || ''
+            notes: round.notes || '',
+            roundType: round.roundType || ''
         });
     };
-
     const handleCancelEdit = (e) => {
-        e.stopPropagation();
-        setEditingRoundId(null);
-        setRoundFormData({});
+        e.stopPropagation(); setEditingRoundId(null); setRoundFormData({});
     };
-
     const handleFormChange = (e) => {
         const { name, value } = e.target;
         setRoundFormData(prev => ({ ...prev, [name]: value }));
     };
-
     const handleSaveChanges = async (e) => {
         e.stopPropagation();
         if (!editingRoundId) return;
-
         const originalRound = rounds.find(r => r.id === editingRoundId);
         const updatePromises = [];
-
-        if (originalRound.tournamentName !== roundFormData.tournamentName && (originalRound.tournamentName || roundFormData.tournamentName)) {
+        if (originalRound.tournamentName !== roundFormData.tournamentName) {
             updatePromises.push(updateRoundTournament(userId, editingRoundId, roundFormData.tournamentName));
         }
-        if (Number(originalRound.rating) !== Number(roundFormData.rating) && (originalRound.rating || roundFormData.rating)) {
+        if (Number(originalRound.rating) !== Number(roundFormData.rating)) {
             updatePromises.push(updateRoundRating(userId, editingRoundId, roundFormData.rating));
         }
-        if (originalRound.notes !== roundFormData.notes && (originalRound.notes || roundFormData.notes)) {
+        if (originalRound.notes !== roundFormData.notes) {
             updatePromises.push(updateRoundNotes(userId, editingRoundId, roundFormData.notes));
         }
-
+        if (originalRound.roundType !== roundFormData.roundType) {
+            updatePromises.push(updateRoundType(userId, editingRoundId, roundFormData.roundType));
+        }
         if (updatePromises.length === 0) {
             toast.info("No changes were made.");
             setEditingRoundId(null);
+            setExpandedRoundId(null);
             return;
         }
-
         try {
             await Promise.all(updatePromises);
             toast.success("Round details updated successfully!");
             setEditingRoundId(null);
+            setExpandedRoundId(null);
         } catch (error) {
             toast.error(`Failed to save changes: ${error.message}`);
         }
     };
-
     const formatScoreToPar = (score) => {
-        if (score === 0) return 'E';
-        if (score > 0) return `+${score}`;
-        return score;
+        if (score === 0) return 'E'; if (score > 0) return `+${score}`; return score;
     };
-
     const getScoreColor = (score, par) => {
         if (par === null || score === null) return 'text-gray-800 dark:text-gray-100';
         const difference = score - par;
-        if (difference < 0) return 'text-green-500';
-        if (difference > 0) return 'text-red-500';
+        if (difference < 0) return 'text-green-500'; if (difference > 0) return 'text-red-500';
         return 'text-gray-500 dark:text-gray-400';
     };
-
     const handleDeleteRound = (e, roundId, courseName, layoutName) => {
         e.stopPropagation();
         setRoundToDelete({ id: roundId, courseName, layoutName });
         setShowDeleteConfirmModal(true);
     };
-
     const confirmDelete = async () => {
         if (!roundToDelete || !userId) return;
         setShowDeleteConfirmModal(false);
@@ -191,14 +234,73 @@ export default function ScoresPage({ user }) {
         }
         setRoundToDelete(null);
     };
-
     const cancelDelete = () => {
-        setShowDeleteConfirmModal(false);
-        setRoundToDelete(null);
+        setShowDeleteConfirmModal(false); setRoundToDelete(null);
     };
 
     const runGeminiAnalysis = async () => {
-        // ... Gemini logic (unchanged)
+        if (!geminiPrompt.trim()) {
+            toast.error("Please enter a question or prompt for Gemini.");
+            return;
+        }
+
+        setIsGeminiLoading(true);
+        setGeminiError(null);
+        setGeminiResponse('');
+
+        try {
+            if (!user) {
+                throw new Error("User is not authenticated.");
+            }
+            const idToken = await user.getIdToken();
+
+            // This is the key change: fetch the course data for all rounds
+            const enhancedRounds = await Promise.all(rounds.map(async (round) => {
+                if (!round.courseId) {
+                    return { ...round, courseDetails: null };
+                }
+                try {
+                    const courseDocRef = doc(db, `artifacts/${appId}/users/${userId}/courses`, round.courseId);
+                    const courseSnap = await getDoc(courseDocRef);
+                    if (courseSnap.exists()) {
+                        // Return the original round data merged with the course details
+                        return { ...round, courseDetails: courseSnap.data() };
+                    }
+                } catch (error) {
+                    console.error(`Error fetching course for round ${round.id}:`, error);
+                }
+                return { ...round, courseDetails: null };
+            }));
+
+            const response = await fetch(BACKEND_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`
+                },
+                body: JSON.stringify({
+                    userId: userId,
+                    prompt: geminiPrompt,
+                    // Send the new enhanced array with the par data
+                    rounds: enhancedRounds
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'The server responded with an error.');
+            }
+
+            const data = await response.json();
+
+            setGeminiResponse(data.response);
+
+        } catch (error) {
+            console.error("Error calling Gemini API:", error);
+            setGeminiError(error.message || "An unexpected error occurred.");
+        } finally {
+            setIsGeminiLoading(false);
+        }
     };
 
     if (isLoading && rounds.length === 0) {
@@ -207,59 +309,76 @@ export default function ScoresPage({ user }) {
 
     return (
         <div className="min-h-screen bg-gray-100 dark:bg-black p-4 pb-36">
-            <div className="max-h-screen overflow-y-auto">
-                <h2 className="text-2xl font-bold mb-6 text-center pt-5 text-gray-800 dark:text-gray-100">My Scores</h2>
+            <div>
+                <h2 className="text-2xl font-bold mb-4 text-center pt-5 text-gray-800 dark:text-gray-100">My Scores</h2>
                 <p className="text-md text-gray-600 dark:text-gray-400 text-center mb-6">Click on your scorecard for the hole breakdown.</p>
-                {rounds.length === 0 ? (
-                    <p className="text-center text-gray-600 dark:text-gray-400">You haven't imported any scores yet.</p>
+
+                <ScoreFilter currentFilter={filterType} onFilterChange={setFilterType} />
+
+                {filteredRounds.length === 0 && !isLoading ? (
+                    <div className="text-center text-gray-600 dark:text-gray-400 mt-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md max-w-md mx-auto">
+                        <p>No scores match the selected filter.</p>
+                        {filterType !== 'all' && (
+                            <p className="text-sm mt-2">Try selecting a different filter or adding a type to your existing rounds.</p>
+                        )}
+                    </div>
                 ) : (
                     <div className="max-w-2xl mx-auto space-y-4">
-                        {rounds.map(round => {
+                        {filteredRounds.map(round => {
                             const isExpanded = expandedRoundId === round.id;
                             const isEditing = editingRoundId === round.id;
                             const sortedHoles = round.scores ? Object.keys(round.scores).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)) : [];
-
                             return (
                                 <div key={round.id} className={`bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-all duration-300 border ${isEditing ? 'border-blue-500' : 'border-transparent'}`}>
                                     <div onClick={() => handleToggleExpand(round.id)} className="cursor-pointer">
                                         <div className="flex justify-between items-start gap-4">
-                                            {/* ✨ --- LAYOUT FIX APPLIED HERE --- ✨ */}
                                             <div className="flex-1 min-w-0">
-                                                {round.tournamentName && (
-                                                    <p className="text-sm font-normal text-black dark:text-purple-400 mb-2 leading-none">{round.tournamentName}</p>
-                                                )}
+                                                <div className="flex items-center flex-wrap gap-2 mb-1">
+                                                    <RoundTypeBadge type={round.roundType} />
+                                                    {round.tournamentName && (
+                                                        <p className="text-sm font-semibold text-gray-600 dark:text-yellow-400 leading-none">{round.tournamentName}</p>
+                                                    )}
+                                                </div>
                                                 <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-none">{round.courseName}</h3>
                                                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                                                     {round.date?.toDate ? format(round.date.toDate(), 'MMMM d, yyyy') : 'N/A Date'}
                                                 </p>
                                                 {typeof round.rating === 'number' && (
-                                                    <p className="text-xs font-semibold spec-sec mt-1">
-                                                        {round.rating} Rated
-                                                    </p>
+                                                    <p className="text-xs font-semibold spec-sec mt-1">{round.rating} Rated</p>
                                                 )}
                                             </div>
                                             <div className="flex-shrink-0 w-20 flex flex-col items-end">
                                                 <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{round.totalScore}</p>
-                                                <p className={`text-lg font-semibold ${getScoreColor(round.scoreToPar, 0)}`}>
-                                                    {formatScoreToPar(round.scoreToPar)}
-                                                </p>
+                                                <p className={`text-lg font-semibold ${getScoreColor(round.scoreToPar, 0)}`}>{formatScoreToPar(round.scoreToPar)}</p>
                                                 {isExpanded && !isEditing && (
-                                                    <button
-                                                        onClick={(e) => handleEditClick(e, round)}
-                                                        className="mt-2 p-2 !bg-transparent text-blue-600 dark:text-blue-400 hover:text-blue-800 button-p-0 dark:hover:text-blue-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10 relative"
-                                                        title="Edit Details"
-                                                    >
+                                                    <button onClick={(e) => handleEditClick(e, round)} className="mt-2 p-2 !bg-transparent text-blue-600 dark:text-blue-400 hover:text-blue-800 button-p-0 dark:hover:text-blue-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10 relative" title="Edit Details">
                                                         <FaEdit size={18} />
                                                     </button>
                                                 )}
                                             </div>
                                         </div>
                                     </div>
-
                                     {isExpanded && (
                                         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                                             {isEditing ? (
                                                 <div className="space-y-4" onClick={e => e.stopPropagation()}>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Round Type</label>
+                                                        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
+                                                            <div className="flex items-center">
+                                                                <input type="radio" id={`roundTypeNone-${round.id}`} name="roundType" value="" checked={!roundFormData.roundType} onChange={handleFormChange} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                                                                <label htmlFor={`roundTypeNone-${round.id}`} className="ml-2 block text-sm text-gray-900 dark:text-gray-300">None</label>
+                                                            </div>
+                                                            <div className="flex items-center">
+                                                                <input type="radio" id={`roundTypeTournament-${round.id}`} name="roundType" value="tournament" checked={roundFormData.roundType === 'tournament'} onChange={handleFormChange} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                                                                <label htmlFor={`roundTypeTournament-${round.id}`} className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Tournament</label>
+                                                            </div>
+                                                            <div className="flex items-center">
+                                                                <input type="radio" id={`roundTypeLeague-${round.id}`} name="roundType" value="league" checked={roundFormData.roundType === 'league'} onChange={handleFormChange} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                                                                <label htmlFor={`roundTypeLeague-${round.id}`} className="ml-2 block text-sm text-gray-900 dark:text-gray-300">League</label>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                     <div>
                                                         <label htmlFor="tournamentName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tournament Name</label>
                                                         <input type="text" name="tournamentName" value={roundFormData.tournamentName} onChange={handleFormChange} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
@@ -274,19 +393,10 @@ export default function ScoresPage({ user }) {
                                                     </div>
                                                     <div className="flex items-center justify-between mt-4">
                                                         <div className="flex items-center space-x-2">
-                                                            <button onClick={handleSaveChanges} className="flex items-center gap-2 text-sm !bg-green-600 text-white px-3 py-1 rounded-md hover:!bg-green-700">
-                                                                <FaSave size={14} /> Save
-                                                            </button>
-                                                            <button onClick={handleCancelEdit} className="flex items-center gap-2 text-sm !bg-gray-500 text-white px-3 py-1 rounded-md hover:!bg-gray-600">
-                                                                <FaTimes size={14} /> Cancel
-                                                            </button>
+                                                            <button onClick={handleSaveChanges} className="flex items-center gap-2 text-sm !bg-green-600 text-white px-3 py-1 rounded-md hover:!bg-green-700"><FaSave size={14} /> Save</button>
+                                                            <button onClick={handleCancelEdit} className="flex items-center gap-2 text-sm !bg-gray-500 text-white px-3 py-1 rounded-md hover:!bg-gray-600"><FaTimes size={14} /> Cancel</button>
                                                         </div>
-                                                        <button
-                                                            onClick={(e) => handleDeleteRound(e, round.id, round.courseName, round.layoutName)}
-                                                            className="flex items-center gap-2 text-sm !bg-red-600 text-white px-3 py-1 rounded-md hover:!bg-red-700"
-                                                        >
-                                                            <FaTrash size={14} /> Delete
-                                                        </button>
+                                                        <button onClick={(e) => handleDeleteRound(e, round.id, round.courseName, round.layoutName)} className="flex items-center gap-2 text-sm !bg-red-600 text-white px-3 py-1 rounded-md hover:!bg-red-700"><FaTrash size={14} /> Delete</button>
                                                     </div>
                                                 </div>
                                             ) : (
@@ -299,9 +409,7 @@ export default function ScoresPage({ user }) {
                                                     )}
                                                     <h4 className="font-semibold text-md text-gray-700 dark:text-gray-300">Hole Breakdown</h4>
                                                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{round.layoutName}</p>
-                                                    {isHolesLoading ? (
-                                                        <p className="text-center text-gray-500">Loading hole details...</p>
-                                                    ) : (
+                                                    {isHolesLoading ? <p className="text-center text-gray-500">Loading hole details...</p> : (
                                                         <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-9 gap-2 text-center">
                                                             {sortedHoles.map(holeNumber => {
                                                                 const score = round.scores[holeNumber];
@@ -328,24 +436,11 @@ export default function ScoresPage({ user }) {
                 )}
                 <div className="max-w-2xl mx-auto mt-8 mb-8 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md">
                     <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Ask Gemini about your scores</h3>
-                    <textarea
-                        value={geminiPrompt}
-                        onChange={(e) => setGeminiPrompt(e.target.value)}
-                        placeholder="E.g., 'What was my best round?' or 'Summarize my performance.'"
-                        rows="3"
-                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-blue-500 focus:border-blue-500"
-                        disabled={isGeminiLoading}
-                    />
-                    <button
-                        onClick={runGeminiAnalysis}
-                        className="mt-3 w-full !bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50"
-                        disabled={isGeminiLoading || !userId}
-                    >
+                    <textarea value={geminiPrompt} onChange={(e) => setGeminiPrompt(e.target.value)} placeholder="E.g., 'What was my best round?' or 'Summarize my performance.'" rows="3" className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-blue-500 focus:border-blue-500" disabled={isGeminiLoading} />
+                    <button onClick={runGeminiAnalysis} className="mt-3 w-full !bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50" disabled={isGeminiLoading || !userId}>
                         {isGeminiLoading ? 'Analyzing...' : 'Get Score Insights from Gemini'}
                     </button>
-                    {geminiError && (
-                        <p className="text-red-500 text-sm mt-3">Error: {geminiError}</p>
-                    )}
+                    {geminiError && (<p className="text-red-500 text-sm mt-3">Error: {geminiError}</p>)}
                     {geminiResponse && (
                         <div className="mt-5 p-4 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600">
                             <h4 className="font-semibold text-gray-700 dark:text-gray-200 mb-2">Gemini's Insights:</h4>
@@ -353,15 +448,7 @@ export default function ScoresPage({ user }) {
                         </div>
                     )}
                 </div>
-                {roundToDelete && (
-                    <DeleteConfirmationModal
-                        key={roundToDelete.id}
-                        isOpen={showDeleteConfirmModal}
-                        onClose={cancelDelete}
-                        onConfirm={confirmDelete}
-                        message={`Are you sure you want to delete the scorecard for ${roundToDelete.courseName} (${roundToDelete.layoutName})? This cannot be undone.`}
-                    />
-                )}
+                {roundToDelete && (<DeleteConfirmationModal key={roundToDelete.id} isOpen={showDeleteConfirmModal} onClose={cancelDelete} onConfirm={confirmDelete} message={`Are you sure you want to delete the scorecard for ${roundToDelete.courseName} (${roundToDelete.layoutName})? This cannot be undone.`} />)}
             </div>
         </div>
     );

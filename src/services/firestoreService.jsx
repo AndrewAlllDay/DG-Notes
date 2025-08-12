@@ -771,3 +771,24 @@ export const updateRoundNotes = async (userId, roundId, notes) => {
         throw new Error("Failed to save the new notes.");
     }
 };
+
+/**
+ * Updates the type for a specific round (e.g., 'tournament', 'league').
+ * @param {string} userId - The ID of the current user.
+ * @param {string} roundId - The ID of the round document to update.
+ * @param {string} roundType - The new type to set for the round. Can be 'tournament', 'league', or an empty string.
+ */
+export const updateRoundType = async (userId, roundId, roundType) => {
+    if (!userId || !roundId) {
+        throw new Error("User ID and Round ID must be provided to update the round type.");
+    }
+    const roundDocRef = doc(db, `artifacts/${appId}/users/${userId}/rounds`, roundId);
+    try {
+        await updateDoc(roundDocRef, {
+            roundType: roundType,
+        });
+    } catch (error) {
+        console.error("Error updating round type in Firestore: ", error);
+        throw new Error("Failed to save the new round type.");
+    }
+};
