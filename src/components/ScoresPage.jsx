@@ -11,7 +11,7 @@ import {
 } from '../services/firestoreService.jsx';
 import { getCache, setCache } from '../utilities/cache.js';
 import { format } from 'date-fns';
-import { FaTrash, FaSave, FaTimes, FaEdit, FaTrophy, FaUsers } from 'react-icons/fa';
+import { FaTrash, FaSave, FaTimes, FaEdit, FaTrophy, FaUsers, FaUndo } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 
@@ -39,39 +39,57 @@ const RoundTypeBadge = ({ type }) => {
     );
 };
 
-const ScoreFilter = ({ currentFilter, onFilterChange }) => {
-    const filters = [
-        { key: 'all', label: 'All' },
-        { key: 'tournament', label: 'Tournaments' },
-        { key: 'league', label: 'Leagues' }
-    ];
+// Configuration for filter pills.
+const filterConfig = {
+    tournament: {
+        label: 'Tournament',
+        styles: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+    },
+    league: {
+        label: 'League',
+        styles: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+    }
+};
 
-    const getActiveClasses = (filterKey) => {
-        const baseActiveClasses = 'bg-white dark:bg-gray-900 shadow ring-2';
-        switch (filterKey) {
-            case 'tournament':
-                return `${baseActiveClasses} ring-yellow-500 text-yellow-800 dark:text-yellow-400`;
-            case 'league':
-                return `${baseActiveClasses} ring-green-500 text-green-800 dark:text-green-400`;
-            default: // 'all'
-                return `${baseActiveClasses} ring-blue-500 text-blue-600 dark:text-blue-400`;
-        }
-    };
+// All possible filter keys, derived from the config object.
+const ALL_FILTER_TYPES = Object.keys(filterConfig);
+
+const FilterControls = ({ activeFilters, onRemoveFilter, onResetFilters }) => {
+    const allFiltersActive = activeFilters.length === ALL_FILTER_TYPES.length;
 
     return (
-        <div className="flex justify-center bg-gray-200 dark:bg-gray-700 p-1 rounded-lg mb-6 max-w-sm mx-auto">
-            {filters.map(filter => (
+        <div className="flex justify-center items-center gap-3 mb-6 max-w-2xl mx-auto min-h-[34px]">
+            {/* Container for the pills to allow them to wrap if needed */}
+            <div className="flex flex-wrap justify-center gap-2">
+                {activeFilters.map(filterKey => (
+                    <span
+                        key={filterKey}
+                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium transition-all duration-300 ${filterConfig[filterKey].styles}`}
+                    >
+                        {filterConfig[filterKey].label}
+                        <button
+                            onClick={() => onRemoveFilter(filterKey)}
+                            className="p-0.5 -mr-1 rounded-full !bg-transparent focus:outline-none"
+                            aria-label={`Remove ${filterConfig[filterKey].label} filter`}
+                        >
+                            <FaTimes size={12} />
+                        </button>
+                    </span>
+                ))}
+            </div>
+
+            {/* Reset button is now an icon, placed on the same row. */}
+            {/* It's only rendered if a filter has been removed. */}
+            {!allFiltersActive && (
                 <button
-                    key={filter.key}
-                    onClick={() => onFilterChange(filter.key)}
-                    className={`w-full px-3 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 focus:outline-none ${currentFilter === filter.key
-                        ? getActiveClasses(filter.key)
-                        : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                        }`}
+                    onClick={onResetFilters}
+                    className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    aria-label="Reset filters"
+                    title="Reset filters"
                 >
-                    {filter.label}
+                    <FaUndo size={14} />
                 </button>
-            ))}
+            )}
         </div>
     );
 };
@@ -92,7 +110,7 @@ export default function ScoresPage({ user }) {
     const [geminiError, setGeminiError] = useState(null);
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [roundToDelete, setRoundToDelete] = useState(null);
-    const [filterType, setFilterType] = useState('all');
+    const [activeFilters, setActiveFilters] = useState(ALL_FILTER_TYPES);
 
     const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-proxy-backend/api/gemini-insight';
 
@@ -128,12 +146,21 @@ export default function ScoresPage({ user }) {
         return () => unsubscribe();
     }, [userId]);
 
+    const handleRemoveFilter = (filterToRemove) => {
+        setActiveFilters(prevFilters => prevFilters.filter(f => f !== filterToRemove));
+    };
+    const handleResetFilters = () => {
+        setActiveFilters(ALL_FILTER_TYPES);
+    };
+
     const filteredRounds = useMemo(() => {
-        if (filterType === 'all') {
-            return rounds;
-        }
-        return rounds.filter(round => round.roundType === filterType);
-    }, [rounds, filterType]);
+        return rounds.filter(round => {
+            if (!round.roundType) {
+                return true;
+            }
+            return activeFilters.includes(round.roundType);
+        });
+    }, [rounds, activeFilters]);
 
 
     const handleToggleExpand = async (roundId) => {
@@ -254,7 +281,6 @@ export default function ScoresPage({ user }) {
             }
             const idToken = await user.getIdToken();
 
-            // This is the key change: fetch the course data for all rounds
             const enhancedRounds = await Promise.all(rounds.map(async (round) => {
                 if (!round.courseId) {
                     return { ...round, courseDetails: null };
@@ -263,7 +289,6 @@ export default function ScoresPage({ user }) {
                     const courseDocRef = doc(db, `artifacts/${appId}/users/${userId}/courses`, round.courseId);
                     const courseSnap = await getDoc(courseDocRef);
                     if (courseSnap.exists()) {
-                        // Return the original round data merged with the course details
                         return { ...round, courseDetails: courseSnap.data() };
                     }
                 } catch (error) {
@@ -281,7 +306,6 @@ export default function ScoresPage({ user }) {
                 body: JSON.stringify({
                     userId: userId,
                     prompt: geminiPrompt,
-                    // Send the new enhanced array with the par data
                     rounds: enhancedRounds
                 })
             });
@@ -311,16 +335,18 @@ export default function ScoresPage({ user }) {
         <div className="min-h-screen bg-gray-100 dark:bg-black p-4 pb-36">
             <div>
                 <h2 className="text-2xl font-bold mb-4 text-center pt-5 text-gray-800 dark:text-gray-100">My Scores</h2>
-                <p className="text-md text-gray-600 dark:text-gray-400 text-center mb-6">Click on your scorecard for the hole breakdown.</p>
+                <p className="text-md text-gray-600 dark:text-gray-400 text-center mb-6">Click a scorecard for more round details.</p>
 
-                <ScoreFilter currentFilter={filterType} onFilterChange={setFilterType} />
+                <FilterControls
+                    activeFilters={activeFilters}
+                    onRemoveFilter={handleRemoveFilter}
+                    onResetFilters={handleResetFilters}
+                />
 
                 {filteredRounds.length === 0 && !isLoading ? (
                     <div className="text-center text-gray-600 dark:text-gray-400 mt-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md max-w-md mx-auto">
-                        <p>No scores match the selected filter.</p>
-                        {filterType !== 'all' && (
-                            <p className="text-sm mt-2">Try selecting a different filter or adding a type to your existing rounds.</p>
-                        )}
+                        <p>No scores match the selected filters.</p>
+                        <p className="text-sm mt-2">Try clicking the reset icon to see all your rounds.</p>
                     </div>
                 ) : (
                     <div className="max-w-2xl mx-auto space-y-4">
@@ -366,8 +392,8 @@ export default function ScoresPage({ user }) {
                                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Round Type</label>
                                                         <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
                                                             <div className="flex items-center">
-                                                                <input type="radio" id={`roundTypeNone-${round.id}`} name="roundType" value="" checked={!roundFormData.roundType} onChange={handleFormChange} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
-                                                                <label htmlFor={`roundTypeNone-${round.id}`} className="ml-2 block text-sm text-gray-900 dark:text-gray-300">None</label>
+                                                                <input type="radio" id={`roundTypeNone-${round.id}`} name="roundType" value="" checked={roundFormData.roundType === ''} onChange={handleFormChange} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                                                                <label htmlFor={`roundTypeNone-${round.id}`} className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Casual</label>
                                                             </div>
                                                             <div className="flex items-center">
                                                                 <input type="radio" id={`roundTypeTournament-${round.id}`} name="roundType" value="tournament" checked={roundFormData.roundType === 'tournament'} onChange={handleFormChange} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
