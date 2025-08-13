@@ -350,7 +350,7 @@ export default function InTheBagPage({ user: currentUser }) {
                         <h4 className={`text-lg font-normal ${type === 'active' ? 'text-gray-800 dark:text-white' : 'text-gray-700 dark:text-gray-200'}`}>
                             <span className='font-bold'>{disc.manufacturer}</span> {disc.name}
                         </h4>
-                        <div className="pl-6 mt-1">
+                        <div className="mt-1">
                             <p className={`text-sm ${type === 'active' ? 'text-gray-600 dark:text-gray-400' : 'text-gray-500 dark:text-gray-400'}`}>
                                 {disc.notes || <span className="italic text-gray-400 dark:text-gray-500">No notes for this disc.</span>}
                             </p>
