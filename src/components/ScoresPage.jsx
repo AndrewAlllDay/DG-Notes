@@ -94,7 +94,7 @@ export default function ScoresPage({ user }) {
     const [roundToDelete, setRoundToDelete] = useState(null);
     const [filterType, setFilterType] = useState('all');
 
-    const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-score-analyzer/api/gemini-insight';
+    const BACKEND_API_URL = 'https://us-central1-disc-golf-notes.cloudfunctions.net/gemini-proxy-backend/api/gemini-insight';
 
     useEffect(() => {
         if (!userId) {
