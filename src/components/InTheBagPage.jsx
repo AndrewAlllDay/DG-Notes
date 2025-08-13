@@ -340,7 +340,7 @@ export default function InTheBagPage({ user: currentUser }) {
                     aria-expanded={isExpanded}
                     className={`
                         w-full flex border rounded-t-lg shadow-sm overflow-hidden text-left
-                        transition-shadow hover:shadow-md
+                        transition-shadow hover:shadow-md button-p-0
                         ${isExpanded ? 'rounded-b-none' : 'rounded-b-lg'}
                         ${type === 'active' ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'}
                     `}
