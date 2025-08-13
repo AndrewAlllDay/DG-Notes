@@ -15,71 +15,95 @@ import { FaTrash, FaSave, FaTimes, FaEdit, FaTrophy, FaUsers, FaUndo } from 'rea
 import { toast } from 'react-toastify';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 
-const RoundTypeBadge = ({ type }) => {
-    if (!type) return null;
-    const styles = {
-        tournament: {
-            icon: <FaTrophy size={12} />,
-            text: 'Tournament',
-            className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-        },
-        league: {
-            icon: <FaUsers size={12} />,
-            text: 'League',
-            className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-        }
-    };
-    const style = styles[type];
-    if (!style) return null;
-    return (
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium ${style.className}`}>
-            {style.icon}
-            {style.text}
-        </span>
-    );
-};
-
-// Configuration for filter pills.
-const filterConfig = {
+// --- Centralized Configuration for Round Types ---
+const ROUND_TYPE_CONFIG = {
     tournament: {
         label: 'Tournament',
+        icon: <FaTrophy size={14} />,
         styles: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
     },
     league: {
         label: 'League',
+        icon: <FaUsers size={14} />,
         styles: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
     }
 };
 
-// All possible filter keys, derived from the config object.
-const ALL_FILTER_TYPES = Object.keys(filterConfig);
+const ALL_FILTER_TYPES = Object.keys(ROUND_TYPE_CONFIG);
+
+// --- NEW ---
+// Safely converts Firestore Timestamps or date strings from cache into JS Date objects.
+const normalizeDate = (dateValue) => {
+    if (!dateValue) return null;
+    // Handles Firestore Timestamps
+    if (typeof dateValue.toDate === 'function') {
+        return dateValue.toDate();
+    }
+    // Handles ISO strings from cache
+    const date = new Date(dateValue);
+    // Check for invalid dates
+    if (!isNaN(date.getTime())) {
+        return date;
+    }
+    return null;
+};
+
+const ScorecardHeader = ({ type, rating }) => {
+    // Render nothing only if there's no type AND no rating to display.
+    if (!type && typeof rating !== 'number') {
+        return null;
+    }
+
+    const config = type ? ROUND_TYPE_CONFIG[type] : null;
+
+    const baseClasses = 'flex items-center justify-between gap-4 px-4 py-2 text-sm';
+
+    const colorClasses = config
+        ? `${config.styles} font-semibold`
+        : 'bg-transparent';
+
+    return (
+        <div className={`${baseClasses} ${colorClasses}`}>
+            <div className="flex items-center gap-2">
+                {config?.icon}
+                {config && <span>{config.label} Round</span>}
+            </div>
+
+            {typeof rating === 'number' && (
+                <span className={!config ? 'text-xs text-gray-500 dark:text-gray-400 font-semibold spec-sec' : ''}>
+                    {rating} Rated
+                </span>
+            )}
+        </div>
+    );
+};
 
 const FilterControls = ({ activeFilters, onRemoveFilter, onResetFilters }) => {
     const allFiltersActive = activeFilters.length === ALL_FILTER_TYPES.length;
 
     return (
         <div className="flex justify-center items-center gap-3 mb-6 max-w-2xl mx-auto min-h-[34px]">
-            {/* Container for the pills to allow them to wrap if needed */}
             <div className="flex flex-wrap justify-center gap-2">
-                {activeFilters.map(filterKey => (
-                    <span
-                        key={filterKey}
-                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium transition-all duration-300 ${filterConfig[filterKey].styles}`}
-                    >
-                        {filterConfig[filterKey].label}
-                        <button
-                            onClick={() => onRemoveFilter(filterKey)}
-                            className="p-0.5 -mr-1 rounded-full !bg-transparent focus:outline-none"
-                            aria-label={`Remove ${filterConfig[filterKey].label} filter`}
+                {activeFilters.map(filterKey => {
+                    const config = ROUND_TYPE_CONFIG[filterKey];
+                    return (
+                        <span
+                            key={filterKey}
+                            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium transition-all duration-300 ${config.styles}`}
                         >
-                            <FaTimes size={12} />
-                        </button>
-                    </span>
-                ))}
+                            {config.label}
+                            <button
+                                onClick={() => onRemoveFilter(filterKey)}
+                                className="p-0.5 -mr-1 rounded-full hover:bg-black/10 dark:hover:bg-white/20 focus:outline-none"
+                                aria-label={`Remove ${config.label} filter`}
+                            >
+                                <FaTimes size={12} />
+                            </button>
+                        </span>
+                    );
+                })}
             </div>
 
-            {/* Reset button is now an icon, placed on the same row. */}
-            {/* It's only rendered if a filter has been removed. */}
             {!allFiltersActive && (
                 <button
                     onClick={onResetFilters}
@@ -131,20 +155,44 @@ export default function ScoresPage({ user }) {
         const unsubscribe = subscribeToRounds(userId, (fetchedRounds) => {
             const uniqueRoundsMap = new Map();
             fetchedRounds.forEach(round => {
-                const roundDate = round.date?.toDate ? round.date.toDate() : null;
-                const key = round.id || `${round.courseName}-${roundDate}`;
+                const roundDate = normalizeDate(round.date);
+                const key = round.id || `${round.courseName}-${roundDate?.getTime()}`;
                 if (!uniqueRoundsMap.has(key)) {
                     uniqueRoundsMap.set(key, round);
                 }
             });
             const deduplicatedRounds = Array.from(uniqueRoundsMap.values());
-            deduplicatedRounds.sort((a, b) => (b.date?.toDate?.() || 0) - (a.date?.toDate?.() || 0));
+            // --- FIX --- Use the robust normalizeDate function for sorting
+            deduplicatedRounds.sort((a, b) => {
+                const dateB = normalizeDate(b.date)?.getTime() || 0;
+                const dateA = normalizeDate(a.date)?.getTime() || 0;
+                return dateB - dateA;
+            });
             setRounds(deduplicatedRounds);
             setCache(cacheKey, deduplicatedRounds);
             setIsLoading(false);
         });
         return () => unsubscribe();
     }, [userId]);
+
+    const averageRatingThisYear = useMemo(() => {
+        const currentYear = new Date().getFullYear();
+
+        const ratedRoundsThisYear = rounds.filter(round => {
+            // --- FIX --- Use the robust normalizeDate function
+            const roundDate = normalizeDate(round.date);
+            return typeof round.rating === 'number' &&
+                roundDate &&
+                roundDate.getFullYear() === currentYear;
+        });
+
+        if (ratedRoundsThisYear.length === 0) {
+            return null;
+        }
+
+        const totalRating = ratedRoundsThisYear.reduce((sum, round) => sum + round.rating, 0);
+        return Math.round(totalRating / ratedRoundsThisYear.length);
+    }, [rounds]);
 
     const handleRemoveFilter = (filterToRemove) => {
         setActiveFilters(prevFilters => prevFilters.filter(f => f !== filterToRemove));
@@ -335,7 +383,16 @@ export default function ScoresPage({ user }) {
         <div className="min-h-screen bg-gray-100 dark:bg-black p-4 pb-36">
             <div>
                 <h2 className="text-2xl font-bold mb-4 text-center pt-5 text-gray-800 dark:text-gray-100">My Scores</h2>
-                <p className="text-md text-gray-600 dark:text-gray-400 text-center mb-6">Click a scorecard for more round details.</p>
+                <p className="text-md text-gray-600 dark:text-gray-400 text-center mb-4">Click a scorecard for more round details.</p>
+
+                {averageRatingThisYear !== null && (
+                    <div className="text-center mb-6">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {new Date().getFullYear()} Average Rating:
+                            <span className="font-bold text-lg text-gray-700 dark:text-gray-200 ml-2">{averageRatingThisYear}</span>
+                        </p>
+                    </div>
+                )}
 
                 <FilterControls
                     activeFilters={activeFilters}
@@ -355,106 +412,108 @@ export default function ScoresPage({ user }) {
                             const isEditing = editingRoundId === round.id;
                             const sortedHoles = round.scores ? Object.keys(round.scores).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)) : [];
                             return (
-                                <div key={round.id} className={`bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-all duration-300 border ${isEditing ? 'border-blue-500' : 'border-transparent'}`}>
-                                    <div onClick={() => handleToggleExpand(round.id)} className="cursor-pointer">
-                                        <div className="flex justify-between items-start gap-4">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center flex-wrap gap-2 mb-1">
-                                                    <RoundTypeBadge type={round.roundType} />
+                                <div key={round.id} className={`bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-300 border ${isEditing ? 'border-blue-500' : 'border-transparent'}`}>
+                                    <ScorecardHeader type={round.roundType} rating={round.rating} />
+
+                                    <div className="p-4">
+                                        <div onClick={() => handleToggleExpand(round.id)} className="cursor-pointer">
+                                            <div className="flex justify-between items-start gap-4">
+                                                <div className="flex-1 min-w-0">
                                                     {round.tournamentName && (
-                                                        <p className="text-sm font-semibold text-gray-600 dark:text-yellow-400 leading-none">{round.tournamentName}</p>
+                                                        <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 leading-none mb-1.5">{round.tournamentName}</p>
+                                                    )}
+                                                    <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-none">{round.courseName}</h3>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                                        {(() => {
+                                                            // --- FIX --- Use the robust normalizeDate function for display
+                                                            const displayDate = normalizeDate(round.date);
+                                                            return displayDate ? format(displayDate, 'MMMM d, yyyy') : 'N/A Date';
+                                                        })()}
+                                                    </p>
+                                                </div>
+                                                <div className="flex-shrink-0 w-20 flex flex-col items-end">
+                                                    <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{round.totalScore}</p>
+                                                    <p className={`text-lg font-semibold ${getScoreColor(round.scoreToPar, 0)}`}>{formatScoreToPar(round.scoreToPar)}</p>
+                                                    {isExpanded && !isEditing && (
+                                                        <button onClick={(e) => handleEditClick(e, round)} className="mt-2 p-2 !bg-transparent text-blue-600 dark:text-blue-400 hover:text-blue-800 button-p-0 dark:hover:text-blue-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10 relative" title="Edit Details">
+                                                            <FaEdit size={18} />
+                                                        </button>
                                                     )}
                                                 </div>
-                                                <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-none">{round.courseName}</h3>
-                                                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                                    {round.date?.toDate ? format(round.date.toDate(), 'MMMM d, yyyy') : 'N/A Date'}
-                                                </p>
-                                                {typeof round.rating === 'number' && (
-                                                    <p className="text-xs font-semibold spec-sec mt-1">{round.rating} Rated</p>
-                                                )}
-                                            </div>
-                                            <div className="flex-shrink-0 w-20 flex flex-col items-end">
-                                                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{round.totalScore}</p>
-                                                <p className={`text-lg font-semibold ${getScoreColor(round.scoreToPar, 0)}`}>{formatScoreToPar(round.scoreToPar)}</p>
-                                                {isExpanded && !isEditing && (
-                                                    <button onClick={(e) => handleEditClick(e, round)} className="mt-2 p-2 !bg-transparent text-blue-600 dark:text-blue-400 hover:text-blue-800 button-p-0 dark:hover:text-blue-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10 relative" title="Edit Details">
-                                                        <FaEdit size={18} />
-                                                    </button>
-                                                )}
                                             </div>
                                         </div>
+                                        {isExpanded && (
+                                            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                                {isEditing ? (
+                                                    <div className="space-y-4" onClick={e => e.stopPropagation()}>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Round Type</label>
+                                                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
+                                                                <div className="flex items-center">
+                                                                    <input type="radio" id={`roundTypeNone-${round.id}`} name="roundType" value="" checked={roundFormData.roundType === ''} onChange={handleFormChange} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                                                                    <label htmlFor={`roundTypeNone-${round.id}`} className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Casual</label>
+                                                                </div>
+                                                                <div className="flex items-center">
+                                                                    <input type="radio" id={`roundTypeTournament-${round.id}`} name="roundType" value="tournament" checked={roundFormData.roundType === 'tournament'} onChange={handleFormChange} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                                                                    <label htmlFor={`roundTypeTournament-${round.id}`} className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Tournament</label>
+                                                                </div>
+                                                                <div className="flex items-center">
+                                                                    <input type="radio" id={`roundTypeLeague-${round.id}`} name="roundType" value="league" checked={roundFormData.roundType === 'league'} onChange={handleFormChange} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                                                                    <label htmlFor={`roundTypeLeague-${round.id}`} className="ml-2 block text-sm text-gray-900 dark:text-gray-300">League</label>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label htmlFor="tournamentName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tournament Name</label>
+                                                            <input type="text" name="tournamentName" value={roundFormData.tournamentName} onChange={handleFormChange} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
+                                                        </div>
+                                                        <div>
+                                                            <label htmlFor="rating" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Round Rating</label>
+                                                            <input type="number" name="rating" value={roundFormData.rating} onChange={handleFormChange} placeholder="e.g., 950" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
+                                                        </div>
+                                                        <div>
+                                                            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Round Notes</label>
+                                                            <textarea name="notes" value={roundFormData.notes} onChange={handleFormChange} rows="4" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
+                                                        </div>
+                                                        <div className="flex items-center justify-between mt-4">
+                                                            <div className="flex items-center space-x-2">
+                                                                <button onClick={handleSaveChanges} className="flex items-center gap-2 text-sm !bg-green-600 text-white px-3 py-1 rounded-md hover:!bg-green-700"><FaSave size={14} /> Save</button>
+                                                                <button onClick={handleCancelEdit} className="flex items-center gap-2 text-sm !bg-gray-500 text-white px-3 py-1 rounded-md hover:!bg-gray-600"><FaTimes size={14} /> Cancel</button>
+                                                            </div>
+                                                            <button onClick={(e) => handleDeleteRound(e, round.id, round.courseName, round.layoutName)} className="flex items-center gap-2 text-sm !bg-red-600 text-white px-3 py-1 rounded-md hover:!bg-red-700"><FaTrash size={14} /> Delete</button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div>
+                                                        {round.notes && (
+                                                            <div className="mb-6">
+                                                                <h4 className="font-semibold text-md mb-2 text-gray-700 dark:text-gray-300">Round Notes</h4>
+                                                                <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap bg-gray-50 dark:bg-gray-900 p-3 rounded-md">{round.notes}</p>
+                                                            </div>
+                                                        )}
+                                                        <h4 className="font-semibold text-md text-gray-700 dark:text-gray-300">Hole Breakdown</h4>
+                                                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{round.layoutName}</p>
+                                                        {isHolesLoading ? <p className="text-center text-gray-500">Loading hole details...</p> : (
+                                                            <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-9 gap-2 text-center">
+                                                                {sortedHoles.map(holeNumber => {
+                                                                    const score = round.scores[holeNumber];
+                                                                    const holeDetail = courseHoles.find(h => h.number.toString() === holeNumber);
+                                                                    const par = holeDetail ? parseInt(holeDetail.par, 10) : null;
+                                                                    return (
+                                                                        <div key={holeNumber} className="p-2 bg-gray-100 dark:bg-gray-700 rounded-md">
+                                                                            <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Hole {holeNumber}</div>
+                                                                            <div className={`text-xl font-bold ${getScoreColor(score, par)}`}>{score}</div>
+                                                                            {par !== null && <div className="text-xs text-gray-500 dark:text-gray-400">Par {par}</div>}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
-                                    {isExpanded && (
-                                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                                            {isEditing ? (
-                                                <div className="space-y-4" onClick={e => e.stopPropagation()}>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Round Type</label>
-                                                        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
-                                                            <div className="flex items-center">
-                                                                <input type="radio" id={`roundTypeNone-${round.id}`} name="roundType" value="" checked={roundFormData.roundType === ''} onChange={handleFormChange} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
-                                                                <label htmlFor={`roundTypeNone-${round.id}`} className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Casual</label>
-                                                            </div>
-                                                            <div className="flex items-center">
-                                                                <input type="radio" id={`roundTypeTournament-${round.id}`} name="roundType" value="tournament" checked={roundFormData.roundType === 'tournament'} onChange={handleFormChange} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
-                                                                <label htmlFor={`roundTypeTournament-${round.id}`} className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Tournament</label>
-                                                            </div>
-                                                            <div className="flex items-center">
-                                                                <input type="radio" id={`roundTypeLeague-${round.id}`} name="roundType" value="league" checked={roundFormData.roundType === 'league'} onChange={handleFormChange} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
-                                                                <label htmlFor={`roundTypeLeague-${round.id}`} className="ml-2 block text-sm text-gray-900 dark:text-gray-300">League</label>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <label htmlFor="tournamentName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tournament Name</label>
-                                                        <input type="text" name="tournamentName" value={roundFormData.tournamentName} onChange={handleFormChange} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
-                                                    </div>
-                                                    <div>
-                                                        <label htmlFor="rating" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Round Rating</label>
-                                                        <input type="number" name="rating" value={roundFormData.rating} onChange={handleFormChange} placeholder="e.g., 950" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
-                                                    </div>
-                                                    <div>
-                                                        <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Round Notes</label>
-                                                        <textarea name="notes" value={roundFormData.notes} onChange={handleFormChange} rows="4" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
-                                                    </div>
-                                                    <div className="flex items-center justify-between mt-4">
-                                                        <div className="flex items-center space-x-2">
-                                                            <button onClick={handleSaveChanges} className="flex items-center gap-2 text-sm !bg-green-600 text-white px-3 py-1 rounded-md hover:!bg-green-700"><FaSave size={14} /> Save</button>
-                                                            <button onClick={handleCancelEdit} className="flex items-center gap-2 text-sm !bg-gray-500 text-white px-3 py-1 rounded-md hover:!bg-gray-600"><FaTimes size={14} /> Cancel</button>
-                                                        </div>
-                                                        <button onClick={(e) => handleDeleteRound(e, round.id, round.courseName, round.layoutName)} className="flex items-center gap-2 text-sm !bg-red-600 text-white px-3 py-1 rounded-md hover:!bg-red-700"><FaTrash size={14} /> Delete</button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div>
-                                                    {round.notes && (
-                                                        <div className="mb-6">
-                                                            <h4 className="font-semibold text-md mb-2 text-gray-700 dark:text-gray-300">Round Notes</h4>
-                                                            <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap bg-gray-50 dark:bg-gray-900 p-3 rounded-md">{round.notes}</p>
-                                                        </div>
-                                                    )}
-                                                    <h4 className="font-semibold text-md text-gray-700 dark:text-gray-300">Hole Breakdown</h4>
-                                                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{round.layoutName}</p>
-                                                    {isHolesLoading ? <p className="text-center text-gray-500">Loading hole details...</p> : (
-                                                        <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-9 gap-2 text-center">
-                                                            {sortedHoles.map(holeNumber => {
-                                                                const score = round.scores[holeNumber];
-                                                                const holeDetail = courseHoles.find(h => h.number.toString() === holeNumber);
-                                                                const par = holeDetail ? parseInt(holeDetail.par, 10) : null;
-                                                                return (
-                                                                    <div key={holeNumber} className="p-2 bg-gray-100 dark:bg-gray-700 rounded-md">
-                                                                        <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Hole {holeNumber}</div>
-                                                                        <div className={`text-xl font-bold ${getScoreColor(score, par)}`}>{score}</div>
-                                                                        {par !== null && <div className="text-xs text-gray-500 dark:text-gray-400">Par {par}</div>}
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
                                 </div>
                             );
                         })}
