@@ -94,7 +94,7 @@ const FilterControls = ({ activeFilters, onRemoveFilter, onResetFilters }) => {
                             {config.label}
                             <button
                                 onClick={() => onRemoveFilter(filterKey)}
-                                className="p-0.5 -mr-1 rounded-full hover:bg-black/10 dark:hover:bg-white/20 focus:outline-none"
+                                className="p-0.5 -mr-1 rounded-full !bg-transparent focus:outline-none"
                                 aria-label={`Remove ${config.label} filter`}
                             >
                                 <FaTimes size={12} />
