@@ -14,17 +14,6 @@ import { toast } from 'react-toastify';
 import { FaTrash } from 'react-icons/fa';
 import { Archive, FolderOpen, ChevronDown, ChevronUp, Pencil, MoreVertical } from 'lucide-react';
 
-const ColorSwatch = ({ color }) => {
-    if (!color) return null;
-    return (
-        <span
-            className="inline-block w-4 h-4 rounded-full border-2 border-white dark:border-gray-600 shadow-sm flex-shrink-0"
-            style={{ backgroundColor: color }}
-            title={color}
-        />
-    );
-};
-
 const Accordion = ({ title, children, isOpen, onToggle }) => {
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md max-w-full mx-auto mb-6">
@@ -277,62 +266,69 @@ export default function InTheBagPage({ user: currentUser }) {
         return <div className="flex justify-center items-center h-screen bg-gray-100 dark:bg-black"><p className="text-lg text-gray-700 dark:text-gray-300">Please log in to view and manage your disc bag.</p></div>;
     }
 
+    // --- UPDATED RENDER FUNCTION ---
     const renderDiscItem = (disc, type) => (
         <li
             key={disc.id}
-            className={`disc-item border rounded-lg shadow-sm p-4 flex justify-between items-center relative ${type === 'active' ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'} ${openDiscActionsId === disc.id ? 'z-30' : ''}`}
+            className={`disc-item border rounded-lg shadow-sm flex relative overflow-hidden ${type === 'active' ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'} ${openDiscActionsId === disc.id ? 'z-30' : ''}`}
         >
-            <div className="flex-1 min-w-0">
-                <h4 className={`text-lg font-normal flex items-center gap-2 ${type === 'active' ? 'text-gray-800 dark:text-white' : 'text-gray-700 dark:text-gray-200'}`}>
-                    <ColorSwatch color={disc.color} />
-                    <span>
+            {/* New Color Bar */}
+            <div
+                className="w-2 flex-shrink-0"
+                style={{ backgroundColor: disc.color || 'transparent' }}
+            />
+
+            {/* Wrapper for all other content to maintain padding */}
+            <div className="p-4 flex flex-1 justify-between items-center min-w-0">
+                <div className="flex-1 min-w-0">
+                    <h4 className={`text-lg font-normal ${type === 'active' ? 'text-gray-800 dark:text-white' : 'text-gray-700 dark:text-gray-200'}`}>
                         <span className='font-bold'>{disc.manufacturer}</span> {disc.name}
-                    </span>
-                </h4>
+                    </h4>
 
-                <div className="pl-6 mt-1">
-                    <p className={`text-sm ${type === 'active' ? 'text-gray-600 dark:text-gray-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                        {disc.notes || <span className="italic text-gray-400 dark:text-gray-500">No notes for this disc.</span>}
-                    </p>
-
-                    {disc.weight && (
-                        <p className={`text-xs mt-1 ${type === 'active' ? 'text-gray-500 dark:text-gray-500' : 'text-gray-500 dark:text-gray-500'}`}>
-                            Weight: {disc.weight}g
+                    <div className="mt-1">
+                        <p className={`text-sm ${type === 'active' ? 'text-gray-600 dark:text-gray-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                            {disc.notes || <span className="italic text-gray-400 dark:text-gray-500">No notes for this disc.</span>}
                         </p>
-                    )}
-                </div>
-            </div>
 
-            <div className="relative">
-                <button onClick={() => handleToggleDiscActions(disc.id)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-2 rounded-full !bg-transparent transition-colors" title="Disc Options">
-                    <MoreVertical size={20} />
-                </button>
-                {openDiscActionsId === disc.id && (
-                    <div ref={dropdownRef} className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg z-20 border border-gray-200 dark:border-gray-600">
-                        {type === 'active' ? (
-                            <>
-                                <button onClick={() => openEditDiscModal(disc)} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-t-md">
-                                    <Pencil size={16} className="mr-2" /> Edit
-                                </button>
-                                <button onClick={() => handleArchiveDisc(disc.id, disc.name)} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">
-                                    <Archive size={16} className="mr-2" /> Move to Shelf
-                                </button>
-                                <button onClick={() => handleDeleteDisc(disc.id, disc.name)} className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded-b-md">
-                                    <FaTrash size={16} className="mr-2" /> Delete
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <button onClick={() => handleRestoreDisc(disc.id, disc.name)} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-t-md">
-                                    <FolderOpen size={16} className="mr-2" /> Restore to Bag
-                                </button>
-                                <button onClick={() => handleDeleteDisc(disc.id, disc.name)} className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded-b-md">
-                                    <FaTrash size={16} className="mr-2" /> Delete
-                                </button>
-                            </>
+                        {disc.weight && (
+                            <p className={`text-xs mt-1 ${type === 'active' ? 'text-gray-500 dark:text-gray-500' : 'text-gray-500 dark:text-gray-500'}`}>
+                                Weight: {disc.weight}g
+                            </p>
                         )}
                     </div>
-                )}
+                </div>
+
+                <div className="relative pl-4">
+                    <button onClick={() => handleToggleDiscActions(disc.id)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-2 rounded-full !bg-transparent transition-colors" title="Disc Options">
+                        <MoreVertical size={20} />
+                    </button>
+                    {openDiscActionsId === disc.id && (
+                        <div ref={dropdownRef} className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg z-20 border border-gray-200 dark:border-gray-600">
+                            {type === 'active' ? (
+                                <>
+                                    <button onClick={() => openEditDiscModal(disc)} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-t-md">
+                                        <Pencil size={16} className="mr-2" /> Edit
+                                    </button>
+                                    <button onClick={() => handleArchiveDisc(disc.id, disc.name)} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">
+                                        <Archive size={16} className="mr-2" /> Move to Shelf
+                                    </button>
+                                    <button onClick={() => handleDeleteDisc(disc.id, disc.name)} className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded-b-md">
+                                        <FaTrash size={16} className="mr-2" /> Delete
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <button onClick={() => handleRestoreDisc(disc.id, disc.name)} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-t-md">
+                                        <FolderOpen size={16} className="mr-2" /> Restore to Bag
+                                    </button>
+                                    <button onClick={() => handleDeleteDisc(disc.id, disc.name)} className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded-b-md">
+                                        <FaTrash size={16} className="mr-2" /> Delete
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         </li>
     );
