@@ -9,14 +9,23 @@ import {
     updateDiscInBag,
     deleteDiscFromBag
 } from '../services/firestoreService';
-// ✨ 1. Import all cache utilities
 import { getCache, setCache, getTtlCache, setTtlCache } from '../utilities/cache.js';
 import { toast } from 'react-toastify';
 import { FaTrash } from 'react-icons/fa';
 import { Archive, FolderOpen, ChevronDown, ChevronUp, Pencil, MoreVertical } from 'lucide-react';
 
+const ColorSwatch = ({ color }) => {
+    if (!color) return null;
+    return (
+        <span
+            className="inline-block w-4 h-4 rounded-full border-2 border-white dark:border-gray-600 shadow-sm flex-shrink-0"
+            style={{ backgroundColor: color }}
+            title={color}
+        />
+    );
+};
+
 const Accordion = ({ title, children, isOpen, onToggle }) => {
-    // ... Accordion component code (unchanged)
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md max-w-full mx-auto mb-6">
             <button
@@ -51,28 +60,25 @@ export default function InTheBagPage({ user: currentUser }) {
     const [deleteModalState, setDeleteModalState] = useState({ isOpen: false, disc: null });
     const [openAccordions, setOpenAccordions] = useState({});
 
-    // ✨ 2. API fetch now uses TTL caching
     useEffect(() => {
         const fetchDiscsFromApi = async () => {
             const cacheKey = 'apiDiscs';
-            // Try to get data from cache, valid for 24 hours (1440 minutes)
             const cachedData = getTtlCache(cacheKey, 1440);
 
             if (cachedData) {
                 setApiDiscs(cachedData);
                 setIsApiLoading(false);
                 setApiFetchError(null);
-                return; // Found fresh data in cache, no need to fetch
+                return;
             }
 
-            // If no valid cache, fetch from the network
             try {
                 const response = await fetch('https://discit-api.fly.dev/disc');
                 if (!response.ok) {
                     throw new Error(`API error! Status: ${response.status}`);
                 }
                 const data = await response.json();
-                setTtlCache(cacheKey, data); // Save new data to cache
+                setTtlCache(cacheKey, data);
                 setApiDiscs(data);
                 setApiFetchError(null);
             } catch (error) {
@@ -272,19 +278,31 @@ export default function InTheBagPage({ user: currentUser }) {
     }
 
     const renderDiscItem = (disc, type) => (
-        // ... renderDiscItem code (unchanged)
         <li
             key={disc.id}
             className={`disc-item border rounded-lg shadow-sm p-4 flex justify-between items-center relative ${type === 'active' ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'} ${openDiscActionsId === disc.id ? 'z-30' : ''}`}
         >
-            <div>
-                <h4 className={`text-lg font-normal ${type === 'active' ? 'text-gray-800 dark:text-white' : 'text-gray-700 dark:text-gray-200'}`}>
-                    <span className='font-bold'>{disc.manufacturer}</span> {disc.plastic ? `${disc.plastic}` : ''} {disc.name}
+            <div className="flex-1 min-w-0">
+                <h4 className={`text-lg font-normal flex items-center gap-2 ${type === 'active' ? 'text-gray-800 dark:text-white' : 'text-gray-700 dark:text-gray-200'}`}>
+                    <ColorSwatch color={disc.color} />
+                    <span>
+                        <span className='font-bold'>{disc.manufacturer}</span> {disc.name}
+                    </span>
                 </h4>
-                <p className={`text-sm ${type === 'active' ? 'text-gray-600 dark:text-gray-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                    {disc.speed !== undefined ? `Speed: ${disc.speed} | Glide: ${disc.glide} | Turn: ${disc.turn} | Fade: ${disc.fade}` : `Color: ${disc.color || ''}`}
-                </p>
+
+                <div className="pl-6 mt-1">
+                    <p className={`text-sm ${type === 'active' ? 'text-gray-600 dark:text-gray-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                        {disc.notes || <span className="italic text-gray-400 dark:text-gray-500">No notes for this disc.</span>}
+                    </p>
+
+                    {disc.weight && (
+                        <p className={`text-xs mt-1 ${type === 'active' ? 'text-gray-500 dark:text-gray-500' : 'text-gray-500 dark:text-gray-500'}`}>
+                            Weight: {disc.weight}g
+                        </p>
+                    )}
+                </div>
             </div>
+
             <div className="relative">
                 <button onClick={() => handleToggleDiscActions(disc.id)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-2 rounded-full !bg-transparent transition-colors" title="Disc Options">
                     <MoreVertical size={20} />
