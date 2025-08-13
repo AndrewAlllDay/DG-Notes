@@ -438,7 +438,7 @@ export default function InTheBagPage({ user: currentUser }) {
                             <Accordion
                                 key={type}
                                 title={
-                                    <span className='text-blue-700 dark:text-blue-400 text-xl'>
+                                    <span className='text-black dark:text-blue-400 text-xl'>
                                         {type} <span className='text-black dark:text-white text-base font-light'>({groupedActiveDiscs[type].length} discs)</span>
                                     </span>
                                 }
