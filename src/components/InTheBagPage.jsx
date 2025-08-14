@@ -43,7 +43,7 @@ const FlightPath = React.memo(({ speed, glide, turn, fade, isExpanded }) => {
     return (
         <div className="w-20 h-24" title={`Flight: ${speed} | ${glide} | ${turn} | ${fade}`}>
             <svg viewBox="0 0 100 120" className="w-full h-full">
-                <line x1="50" y1="10" x2="50" y2="110" strokeDasharray="3,3" className="text-gray-300 dark:text-gray-600" strokeWidth="1" />
+                <line x1="50" y1="10" x2="50" y2="110" strokeDashDasharray="3,3" className="text-gray-300 dark:text-gray-600" strokeWidth="1" />
                 <motion.path
                     ref={pathRef}
                     d={pathData}
@@ -73,10 +73,8 @@ const FlightPath = React.memo(({ speed, glide, turn, fade, isExpanded }) => {
 });
 
 const Accordion = React.memo(({ title, children, isOpen, onToggle }) => {
-    // State to track if the opening animation is done
     const [isAnimationComplete, setIsAnimationComplete] = useState(false);
 
-    // When the accordion is told to close, reset the animation state
     useEffect(() => {
         if (!isOpen) {
             setIsAnimationComplete(false);
@@ -103,9 +101,7 @@ const Accordion = React.memo(({ title, children, isOpen, onToggle }) => {
                             collapsed: { opacity: 0, height: 0 }
                         }}
                         transition={{ duration: 0.4, ease: [0.04, 0.62, 0.23, 0.98] }}
-                        // Conditionally apply `overflow-hidden`. Once open, overflow becomes visible.
                         className={isAnimationComplete ? "" : "overflow-hidden"}
-                        // Set state to true when the opening animation finishes
                         onAnimationComplete={() => setIsAnimationComplete(true)}
                     >
                         <div className="px-6 pb-6 pt-2 border-t border-gray-200 dark:border-gray-700">
@@ -118,7 +114,6 @@ const Accordion = React.memo(({ title, children, isOpen, onToggle }) => {
     );
 });
 
-// ✨ REFACTORED: DiscItem is now just a clickable card
 const DiscItem = React.memo(({ disc, type, onOpenDetails }) => {
     return (
         <div className="relative h-full">
@@ -139,13 +134,11 @@ const DiscItem = React.memo(({ disc, type, onOpenDetails }) => {
 });
 
 
-// ✨ NEW: DiscDetailModal component
 const DiscDetailModal = React.memo(({ disc, isOpen, onClose, onEdit, onArchive, onRestore, onDelete }) => {
     if (!isOpen || !disc) return null;
 
     const modalRef = useRef(null);
 
-    // ✨ CORRECTED: Separate, dedicated handlers for each button
     const handleArchive = useCallback(() => { onArchive(disc); onClose(); }, [disc, onArchive, onClose]);
     const handleRestore = useCallback(() => { onRestore(disc); onClose(); }, [disc, onRestore, onClose]);
     const handleEdit = useCallback(() => { onEdit(disc); onClose(); }, [onEdit, disc, onClose]);
@@ -224,7 +217,6 @@ const DISC_TYPE_CONFIG = {
 const ALL_DISC_TYPES = Object.keys(DISC_TYPE_CONFIG);
 
 const FilterControls = React.memo(({ activeFilter, onFilterChange }) => {
-    // Tailwind classes for the pill styles
     const activePillClasses = 'border-blue-500 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200';
     const inactivePillClasses = 'border-transparent text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600';
 
@@ -284,14 +276,12 @@ export default function InTheBagPage({ user: currentUser }) {
     const [apiFetchError, setApiFetchError] = useState(null);
     const [pendingApiDisc, setPendingApiDisc] = useState(null);
     const [deleteModalState, setDeleteModalState] = useState({ isOpen: false, disc: null });
-    // ✨ REFACTORED: We no longer need expandedDiscId state.
-    // We will use a single state to hold the selected disc for our new modal.
     const [selectedDiscForModal, setSelectedDiscForModal] = useState(null);
     const [isArchivedAccordionOpen, setIsArchivedAccordionOpen] = useState(false);
 
-    // ✨ NEW: State for disc type filtering
     const [activeFilter, setActiveFilter] = useState('all');
-
+    const addDiscButtonRef = useRef(null);
+    const [apiModalOrigin, setApiModalOrigin] = useState(null);
 
     useEffect(() => {
         const fetchDiscsFromApi = async () => {
@@ -328,19 +318,27 @@ export default function InTheBagPage({ user: currentUser }) {
         return () => { unsubscribeActive(); unsubscribeArchived(); };
     }, [currentUser]);
 
-    // ✨ NEW: Handler to open the modal with the disc's data
     const handleOpenDiscModal = useCallback((disc) => {
         setSelectedDiscForModal(disc);
     }, []);
 
-    // ✨ REFACTORED: Handler to close the new modal
     const handleCloseDiscModal = useCallback(() => {
         setSelectedDiscForModal(null);
     }, []);
 
-    const openAddDiscModal = useCallback(() => setIsApiModalOpen(true), []);
+    const handleOpenApiModal = useCallback(() => {
+        if (addDiscButtonRef.current) {
+            const rect = addDiscButtonRef.current.getBoundingClientRect();
+            setApiModalOrigin({
+                top: rect.top,
+                left: rect.left,
+                width: rect.width,
+                height: rect.height,
+            });
+            setIsApiModalOpen(true);
+        }
+    }, []);
 
-    // ✨ REFACTORED: This handler is now for the form modal, not the new detail modal
     const openEditDiscModal = useCallback((disc) => {
         setCurrentDiscToEdit(disc);
         setPendingApiDisc(null);
@@ -351,7 +349,6 @@ export default function InTheBagPage({ user: currentUser }) {
     const handleDeleteDisc = useCallback((disc) => setDeleteModalState({ isOpen: true, disc }), []);
 
     const collapseAll = useCallback(() => {
-        // ✨ REFACTORED: We no longer need to collapse discs individually
         setIsArchivedAccordionOpen(false);
     }, []);
 
@@ -384,19 +381,15 @@ export default function InTheBagPage({ user: currentUser }) {
         }
     }, [currentUser, currentDiscToEdit, closeModalAndReset]);
 
-    // Logic for archiving, restoring, and confirming deletion is omitted for brevity as it remains the same.
     const handleArchiveDisc = useCallback(async (disc) => { /* ... */ }, [currentUser]);
     const handleRestoreDisc = useCallback(async (disc) => { /* ... */ }, [currentUser]);
     const confirmDeleteDisc = useCallback(async () => { /* ... */ }, [currentUser, deleteModalState.disc]);
 
-    // ✨ NEW: Filtered discs logic using the new activeFilter state
     const sortedAndFilteredDiscs = useMemo(() => {
-        let discs = [...activeDiscs]; // Clone the array
-        if (activeFilter && activeFilter !== 'all') {
+        let discs = [...activeDiscs];
+        if (activeFilter !== 'all') { // Corrected filtering condition
             discs = discs.filter(disc => (disc.type || 'Other') === activeFilter);
         }
-
-        // Sort remaining discs by speed descending, then name ascending
         discs.sort((a, b) => {
             const speedA = parseInt(a.speed, 10) || 0;
             const speedB = parseInt(b.speed, 10) || 0;
@@ -405,7 +398,6 @@ export default function InTheBagPage({ user: currentUser }) {
         });
         return discs;
     }, [activeDiscs, activeFilter]);
-
 
     const listVariants = { visible: { transition: { staggerChildren: 0.07 } }, hidden: {} };
     const itemVariants = { visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }, hidden: { opacity: 0, y: 20, transition: { duration: 0.2 } } };
@@ -436,7 +428,6 @@ export default function InTheBagPage({ user: currentUser }) {
                     {sortedAndFilteredDiscs.map(disc => (
                         <motion.li key={disc.id} variants={itemVariants} className="self-stretch relative focus-within:z-10">
                             <Tilt glareEnable={true} glareMaxOpacity={0.05} glarePosition="all" tiltMaxAngleX={8} tiltMaxAngleY={8} scale={1.03} className="h-full">
-                                {/* ✨ REFACTORED: DiscItem now just a clickable card that opens the modal */}
                                 <DiscItem
                                     disc={disc}
                                     type="active"
@@ -459,7 +450,6 @@ export default function InTheBagPage({ user: currentUser }) {
                             {archivedDiscs.sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(disc => (
                                 <motion.li key={disc.id} variants={itemVariants} className="self-stretch relative focus-within:z-10">
                                     <Tilt glareEnable={true} glareMaxOpacity={0.05} glarePosition="all" tiltMaxAngleX={8} tiltMaxAngleY={8} scale={1.03} className="h-full">
-                                        {/* ✨ REFACTORED: Archived discs also open the modal */}
                                         <DiscItem
                                             disc={disc}
                                             type="archived"
@@ -473,7 +463,6 @@ export default function InTheBagPage({ user: currentUser }) {
                 </>
             )}
 
-            {/* ✨ REFACTORED: The new detail modal is now rendered conditionally */}
             <DiscDetailModal
                 disc={selectedDiscForModal}
                 isOpen={!!selectedDiscForModal}
@@ -484,8 +473,18 @@ export default function InTheBagPage({ user: currentUser }) {
                 onDelete={handleDeleteDisc}
             />
 
-            <button onClick={openAddDiscModal} className="fab-fix fixed bottom-24 right-4 !bg-blue-600 hover:!bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50" title="Add New Disc"><span className="text-2xl">＋</span></button>
-            <AddDiscFromAPImodal isOpen={isApiModalOpen} onClose={() => setIsApiModalOpen(false)} onSubmit={handleSelectDiscFromApi} apiDiscs={apiDiscs} isLoading={isApiLoading} fetchError={apiFetchError} />
+            <button ref={addDiscButtonRef} onClick={handleOpenApiModal} className="fab-fix fixed bottom-24 right-4 !bg-blue-600 hover:!bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50" title="Add New Disc"><span className="text-2xl">＋</span></button>
+            {apiModalOrigin && (
+                <AddDiscFromAPImodal
+                    isOpen={isApiModalOpen}
+                    onClose={() => setIsApiModalOpen(false)}
+                    onSubmit={handleSelectDiscFromApi}
+                    apiDiscs={apiDiscs}
+                    isLoading={isApiLoading}
+                    fetchError={apiFetchError}
+                    modalOrigin={apiModalOrigin}
+                />
+            )}
             <DiscFormModal
                 isOpen={isDetailsModalOpen}
                 onClose={closeModalAndReset}

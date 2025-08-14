@@ -47,6 +47,8 @@ export default function Courses({ user }) {
         deleteConfirmation: false
     });
 
+    const [modalOrigin, setModalOrigin] = useState({ top: 0, left: 0, width: 0, height: 0 });
+
     const [courseForm, setCourseForm] = useState({
         name: '',
         tournamentName: '',
@@ -64,6 +66,7 @@ export default function Courses({ user }) {
     const swipeRefs = useRef({});
     const holeListRef = useRef(null);
     const messageTimeoutRef = useRef(null);
+    const addCourseButtonRef = useRef(null);
 
     // Memoized computations
     const sortedCourses = useMemo(() =>
@@ -94,6 +97,41 @@ export default function Courses({ user }) {
     const toggleModal = useCallback((modalName, isOpen) => {
         setModals(prev => ({ ...prev, [modalName]: isOpen }));
     }, []);
+
+    const animateModalOpen = useCallback(() => {
+        if (addCourseButtonRef.current) {
+            const rect = addCourseButtonRef.current.getBoundingClientRect();
+            setModalOrigin({
+                top: rect.top,
+                left: rect.left,
+                width: rect.width,
+                height: rect.height,
+            });
+            toggleModal('addCourse', true);
+        }
+    }, [toggleModal]);
+
+    const animateModalClose = useCallback(() => {
+        toggleModal('addCourse', false);
+    }, [toggleModal]);
+
+
+    const handleAddCourse = useCallback(async (courseName, tournamentName, classification) => {
+        if (!userId) {
+            showAppMessage('error', "User not authenticated.");
+            return;
+        }
+
+        try {
+            await addCourse(courseName, tournamentName, classification, userId);
+            toggleModal('addCourse', false);
+            setCourseForm({ name: '', tournamentName: '', classification: '' });
+            showAppMessage('success', `Course "${courseName}" added successfully!`);
+        } catch (error) {
+            console.error("Failed to add course:", error);
+            showAppMessage('error', `Failed to add course: ${error.message}`);
+        }
+    }, [userId, showAppMessage, toggleModal]);
 
     const updateCourseForm = useCallback((field, value) => {
         setCourseForm(prev => ({ ...prev, [field]: value }));
@@ -138,7 +176,6 @@ export default function Courses({ user }) {
             return;
         }
 
-        // Courses subscription
         const cachedCourses = getCache(`userCourses-${userId}`);
         if (cachedCourses) {
             setCourses(cachedCourses);
@@ -146,7 +183,6 @@ export default function Courses({ user }) {
 
         const unsubscribeCourses = subscribeToCourses(userId, (fetchedCourses) => {
             setCourses(prevCourses => {
-                // Only update if courses actually changed
                 const coursesEqual = JSON.stringify(prevCourses) === JSON.stringify(fetchedCourses);
                 if (coursesEqual) return prevCourses;
 
@@ -155,7 +191,6 @@ export default function Courses({ user }) {
             });
         });
 
-        // Discs subscription
         const cachedDiscs = getCache(`userDiscs-${userId}`);
         if (cachedDiscs) {
             setDiscs(cachedDiscs);
@@ -163,7 +198,6 @@ export default function Courses({ user }) {
 
         const unsubscribeDiscs = subscribeToUserDiscs(userId, (fetchedDiscs) => {
             setDiscs(prevDiscs => {
-                // Only update if discs actually changed
                 const discsEqual = JSON.stringify(prevDiscs) === JSON.stringify(fetchedDiscs);
                 if (discsEqual) return prevDiscs;
 
@@ -188,7 +222,6 @@ export default function Courses({ user }) {
             setSelectedCourse(prevSelected => {
                 if (!prevSelected?.holes) return updatedSelectedCourse;
 
-                // Preserve editing state efficiently
                 const mergedHoles = updatedSelectedCourse.holes.map(fetchedHole => {
                     const prevHole = prevSelected.holes.find(h => h.id === fetchedHole.id);
                     return prevHole?.editing ? { ...fetchedHole, editing: true } : fetchedHole;
@@ -197,7 +230,6 @@ export default function Courses({ user }) {
                 return { ...updatedSelectedCourse, holes: mergedHoles };
             });
         } else {
-            // Course was deleted
             setSelectedCourse(null);
         }
     }, [courses, selectedCourse?.id]);
@@ -224,7 +256,6 @@ export default function Courses({ user }) {
     const handleTouchStart = useCallback((e, id) => {
         swipeRefs.current[id] = { startX: e.touches[0].clientX, currentX: 0 };
 
-        // Reset previously swiped course
         if (uiState.swipedCourseId && uiState.swipedCourseId !== id) {
             const prevEl = document.getElementById(`course-${uiState.swipedCourseId}`);
             if (prevEl) {
@@ -270,23 +301,6 @@ export default function Courses({ user }) {
     }, []);
 
     // Course operations - memoized
-    const handleAddCourse = useCallback(async (courseName, tournamentName, classification) => {
-        if (!userId) {
-            showAppMessage('error', "User not authenticated.");
-            return;
-        }
-
-        try {
-            await addCourse(courseName, tournamentName, classification, userId);
-            toggleModal('addCourse', false);
-            resetCourseForm();
-            showAppMessage('success', `Course "${courseName}" added successfully!`);
-        } catch (error) {
-            console.error("Failed to add course:", error);
-            showAppMessage('error', `Failed to add course: ${error.message}`);
-        }
-    }, [userId, showAppMessage, toggleModal, resetCourseForm]);
-
     const handleDeleteCourse = useCallback(async (id) => {
         if (!userId) {
             showAppMessage('error', "User not authenticated.");
@@ -355,7 +369,7 @@ export default function Courses({ user }) {
 
         try {
             await addHoleToCourse(selectedCourse.id, newHole, userId);
-            toggleModal('addHole', false);
+            toggleModal('addHole', false); // Simple close to trigger animation
             showAppMessage('success', `Hole ${newHole.number} added successfully!`);
         } catch (error) {
             console.error("Failed to add hole:", error);
@@ -489,19 +503,19 @@ export default function Courses({ user }) {
                     <div ref={holeListRef}>
                         <HoleList {...holeListProps} />
                     </div>
-
                     <button
-                        onClick={() => toggleModal('addHole', true)}
+                        ref={addCourseButtonRef}
+                        onClick={animateModalOpen}
                         className="fixed bottom-24 right-4 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-40"
                         aria-label="Add Hole">
                         <span className="text-2xl">＋</span>
                     </button>
-
                     <AddHoleModal
                         isOpen={modals.addHole}
                         onClose={() => toggleModal('addHole', false)}
                         onAddHole={handleAddHole}
                         discs={discs}
+                        modalOrigin={modalOrigin}
                     />
 
                     <DeleteConfirmationModal
@@ -516,17 +530,16 @@ export default function Courses({ user }) {
                     <h2 className="text-2xl font-bold mb-3 text-center pt-5 dark:text-white">Your Courses</h2>
                     <p className='text-center text-gray-600 dark:text-gray-400'>Beyond the scorecard, this is your tactical journal. </p>
                     <p className='text-center text-gray-600 dark:text-gray-400 mb-6'>Break down every hole and craft the strategy to shave strokes off your game.</p>
-
                     <button
-                        onClick={() => toggleModal('addCourse', true)}
+                        ref={addCourseButtonRef}
+                        onClick={animateModalOpen}
                         className="fixed bottom-24 right-4 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-40"
                         aria-label="Add Course">
                         <span className="text-2xl">＋</span>
                     </button>
-
                     <AddCourseModal
                         isOpen={modals.addCourse}
-                        onClose={() => toggleModal('addCourse', false)}
+                        onClose={animateModalClose}
                         onSubmit={handleAddCourse}
                         newCourseName={courseForm.name}
                         setNewCourseName={(value) => updateCourseForm('name', value)}
@@ -534,8 +547,8 @@ export default function Courses({ user }) {
                         setNewCourseTournamentName={(value) => updateCourseForm('tournamentName', value)}
                         newCourseClassification={courseForm.classification}
                         setNewCourseClassification={(value) => updateCourseForm('classification', value)}
+                        modalOrigin={modalOrigin}
                     />
-
                     <CourseList {...courseListProps} />
                 </>
             )}

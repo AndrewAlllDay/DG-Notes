@@ -18,8 +18,8 @@ const ColorPalette = ({ selectedColor, onSelectColor }) => (
                 type="button"
                 onClick={() => onSelectColor(preset)}
                 className={`w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 transition-transform hover:scale-110 focus:outline-none ${selectedColor.toLowerCase() === preset.toLowerCase()
-                        ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-gray-800'
-                        : ''
+                    ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-gray-800'
+                    : ''
                     }`}
                 style={{ backgroundColor: preset }}
                 aria-label={`Select color ${preset}`}
