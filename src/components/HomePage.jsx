@@ -1,15 +1,14 @@
 // src/components/HomePage.jsx
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useFirebase } from '../firebase';
 import { subscribeToUserDiscs, subscribeToCourses, subscribeToRounds } from '../services/firestoreService';
-// ✨ NEW: Import the TTL cache functions
 import { getTtlCache, setTtlCache } from '../utilities/cache';
 import { format } from 'date-fns';
 import { Circle, Map, ListChecks } from 'lucide-react';
 
-// A reusable summary card component for the dashboard
-const SummaryCard = ({ icon, title, value, unit }) => (
+// Memoized summary card component to prevent unnecessary re-renders
+const SummaryCard = React.memo(({ icon, title, value, unit }) => (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md flex items-center space-x-4">
         <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-full">
             {icon}
@@ -21,88 +20,158 @@ const SummaryCard = ({ icon, title, value, unit }) => (
             </p>
         </div>
     </div>
-);
+));
 
-// Custom hook for the count-up animation (Unchanged)
+// Optimized count-up hook with better performance
 const useCountUp = (endValue, duration = 1500) => {
     const [count, setCount] = useState(0);
     const animationFrameRef = useRef();
+    const startTimeRef = useRef(null);
 
     useEffect(() => {
-        let startTime = null;
+        // Reset animation when endValue changes
+        startTimeRef.current = null;
+        setCount(0);
+
+        if (endValue === 0) {
+            setCount(0);
+            return;
+        }
+
         const animate = (timestamp) => {
-            if (!startTime) startTime = timestamp;
-            const progress = timestamp - startTime;
+            if (!startTimeRef.current) startTimeRef.current = timestamp;
+
+            const progress = timestamp - startTimeRef.current;
             const percentage = Math.min(progress / duration, 1);
+
+            // Use easeOutCubic for smoother animation
             const easedPercentage = 1 - Math.pow(1 - percentage, 3);
             const currentCount = Math.floor(easedPercentage * endValue);
+
             setCount(currentCount);
 
             if (progress < duration) {
                 animationFrameRef.current = requestAnimationFrame(animate);
             }
         };
+
         animationFrameRef.current = requestAnimationFrame(animate);
-        return () => cancelAnimationFrame(animationFrameRef.current);
+
+        return () => {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
+        };
     }, [endValue, duration]);
 
     return count;
 };
 
-
 export default function HomePage({ onNavigate }) {
-    const { user } = useFirebase(); // ✨ Changed from userId to user for consistency
-    const [discCount, setDiscCount] = useState(0);
-    const [courseCount, setCourseCount] = useState(0);
-    const [lastTwoRounds, setLastTwoRounds] = useState([]);
+    const { user } = useFirebase();
+
+    // Consolidated state for better performance
+    const [dashboardData, setDashboardData] = useState({
+        discCount: 0,
+        courseCount: 0,
+        lastTwoRounds: []
+    });
+
     const [isLoading, setIsLoading] = useState(true);
 
-    const animatedDiscCount = useCountUp(discCount);
-    const animatedCourseCount = useCountUp(courseCount);
+    // Memoize user ID to prevent unnecessary effect re-runs
+    const userId = useMemo(() => user?.uid, [user?.uid]);
 
+    // Memoize cache key
+    const cacheKey = useMemo(() =>
+        userId ? `dashboardData_${userId}` : null,
+        [userId]
+    );
+
+    // Optimized count animations
+    const animatedDiscCount = useCountUp(dashboardData.discCount);
+    const animatedCourseCount = useCountUp(dashboardData.courseCount);
+
+    // Memoized format function
+    const formatScoreToPar = useCallback((score) => {
+        if (score === 0) return 'E';
+        if (score > 0) return `+${score}`;
+        return score;
+    }, []);
+
+    // Optimized cache update function
+    const updateCache = useCallback((key, updates) => {
+        if (!key) return;
+
+        const currentCache = getTtlCache(key) || {};
+        const newCache = { ...currentCache, ...updates };
+
+        // Only update cache if data actually changed
+        if (JSON.stringify(currentCache) !== JSON.stringify(newCache)) {
+            setTtlCache(key, newCache);
+        }
+    }, []);
+
+    // Optimized data update functions
+    const updateDiscCount = useCallback((newCount) => {
+        setDashboardData(prev => {
+            if (prev.discCount === newCount) return prev;
+            return { ...prev, discCount: newCount };
+        });
+        updateCache(cacheKey, { discCount: newCount });
+    }, [cacheKey, updateCache]);
+
+    const updateCourseCount = useCallback((newCount) => {
+        setDashboardData(prev => {
+            if (prev.courseCount === newCount) return prev;
+            return { ...prev, courseCount: newCount };
+        });
+        updateCache(cacheKey, { courseCount: newCount });
+    }, [cacheKey, updateCache]);
+
+    const updateLastTwoRounds = useCallback((newRounds) => {
+        const roundsToStore = newRounds.slice(0, 2);
+        setDashboardData(prev => {
+            if (JSON.stringify(prev.lastTwoRounds) === JSON.stringify(roundsToStore)) {
+                return prev;
+            }
+            return { ...prev, lastTwoRounds: roundsToStore };
+        });
+        updateCache(cacheKey, { lastTwoRounds: roundsToStore });
+    }, [cacheKey, updateCache]);
+
+    // Main data subscription effect
     useEffect(() => {
-        // ✨ Use the user's UID to create a unique cache key
-        const CACHE_KEY = `dashboardData_${user?.uid}`;
-
-        if (!user?.uid) {
+        if (!userId || !cacheKey) {
             setIsLoading(false);
             return;
         }
 
-        // ✨ 1. Try to load data from the cache first
-        const cachedData = getTtlCache(CACHE_KEY); // Default TTL is 15 minutes
+        // Load cached data first
+        const cachedData = getTtlCache(cacheKey);
         if (cachedData) {
-            setDiscCount(cachedData.discCount || 0);
-            setCourseCount(cachedData.courseCount || 0);
-            setLastTwoRounds(cachedData.lastTwoRounds || []);
-            setIsLoading(false); // We have data, so we're not "loading" anymore
+            setDashboardData({
+                discCount: cachedData.discCount || 0,
+                courseCount: cachedData.courseCount || 0,
+                lastTwoRounds: cachedData.lastTwoRounds || []
+            });
+            setIsLoading(false);
         }
 
-        // ✨ 2. Subscribe to live data to get updates and prime the cache
-        const unsubscribeDiscs = subscribeToUserDiscs(user.uid, (discs) => {
-            const newDiscCount = discs.length;
-            setDiscCount(newDiscCount);
-            // Update cache when new data arrives
-            setTtlCache(CACHE_KEY, { ...getTtlCache(CACHE_KEY), discCount: newDiscCount });
+        // Set up subscriptions with optimized callbacks
+        const unsubscribeDiscs = subscribeToUserDiscs(userId, (discs) => {
+            updateDiscCount(discs.length);
+            if (!cachedData) setIsLoading(false);
         });
 
-        const unsubscribeCourses = subscribeToCourses(user.uid, (courses) => {
-            const newCourseCount = courses.length;
-            setCourseCount(newCourseCount);
-            // Update cache when new data arrives
-            setTtlCache(CACHE_KEY, { ...getTtlCache(CACHE_KEY), courseCount: newCourseCount });
+        const unsubscribeCourses = subscribeToCourses(userId, (courses) => {
+            updateCourseCount(courses.length);
+            if (!cachedData) setIsLoading(false);
         });
 
-        const unsubscribeRounds = subscribeToRounds(user.uid, (rounds) => {
-            const newLastTwoRounds = rounds.slice(0, 2);
-            setLastTwoRounds(newLastTwoRounds);
-            // Update cache when new data arrives
-            setTtlCache(CACHE_KEY, { ...getTtlCache(CACHE_KEY), lastTwoRounds: newLastTwoRounds });
-
-            // ✨ Only set loading to false here if there was no initial cache
-            if (!cachedData) {
-                setIsLoading(false);
-            }
+        const unsubscribeRounds = subscribeToRounds(userId, (rounds) => {
+            updateLastTwoRounds(rounds);
+            if (!cachedData) setIsLoading(false);
         });
 
         return () => {
@@ -110,31 +179,95 @@ export default function HomePage({ onNavigate }) {
             unsubscribeCourses();
             unsubscribeRounds();
         };
-    }, [user?.uid]);
+    }, [userId, cacheKey, updateDiscCount, updateCourseCount, updateLastTwoRounds]);
 
-
-    const formatScoreToPar = (score) => {
-        if (score === 0) return 'E';
-        if (score > 0) return `+${score}`;
-        return score;
-    };
-
-    const handleRoundClick = (roundId) => {
+    // Memoized round click handler
+    const handleRoundClick = useCallback((roundId) => {
         if (onNavigate) {
-            onNavigate('scores', { roundId: roundId });
+            onNavigate('scores', { roundId });
         } else {
             console.warn("onNavigate prop not provided to HomePage.");
         }
-    };
+    }, [onNavigate]);
 
-    // ✨ Show loading screen only on the very first load when no cache exists
+    // Memoized summary card props to prevent re-renders
+    const summaryCards = useMemo(() => [
+        {
+            icon: <Circle size={24} className="text-blue-600 dark:text-blue-300" />,
+            title: "In Your Bag",
+            value: animatedDiscCount,
+            unit: "Discs"
+        },
+        {
+            icon: <Map size={24} className="text-blue-600 dark:text-blue-300" />,
+            title: "Courses Created",
+            value: animatedCourseCount,
+            unit: "Courses"
+        }
+    ], [animatedDiscCount, animatedCourseCount]);
+
+    // Memoized recent rounds section
+    const recentRoundsSection = useMemo(() => {
+        if (dashboardData.lastTwoRounds.length === 0) {
+            return (
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 text-center">
+                    <p className="text-gray-600 dark:text-gray-400">
+                        You haven't played any rounds yet. Go import a scorecard!
+                    </p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-4">
+                {dashboardData.lastTwoRounds.map(round => (
+                    <div
+                        key={round.id}
+                        className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                        onClick={() => handleRoundClick(round.id)}
+                    >
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h4 className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                                    {round.courseName}
+                                </h4>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    {round.layoutName}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                    {round.date?.toDate ? format(round.date.toDate(), 'MMMM d, yyyy') : 'N/A'}
+                                </p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <div className="text-right">
+                                    <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                                        {round.totalScore}
+                                    </p>
+                                    <p className={`text-lg font-semibold ${round.scoreToPar >= 0 ? 'text-red-500' : 'text-green-500'
+                                        }`}>
+                                        {formatScoreToPar(round.scoreToPar)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    }, [dashboardData.lastTwoRounds, handleRoundClick, formatScoreToPar]);
+
+    // Early return for loading state
     if (isLoading) {
-        return <div className="text-center p-8 text-gray-700 dark:text-gray-300">Loading dashboard...</div>;
+        return (
+            <div className="text-center p-8 text-gray-700 dark:text-gray-300">
+                Loading dashboard...
+            </div>
+        );
     }
 
     return (
         <div className="min-h-screen bg-gray-100 dark:bg-black pb-48">
-            {/* Hero Section (Unchanged) */}
+            {/* Hero Section */}
             <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-green-50 dark:from-gray-900 dark:to-black py-10 sm:py-12 lg:py-16">
                 <style>{`
                     @keyframes drawPath1 { from { stroke-dashoffset: 300; } to { stroke-dashoffset: 0; } }
@@ -157,7 +290,9 @@ export default function HomePage({ onNavigate }) {
                 </svg>
 
                 <div className="relative z-10 max-w-sm mx-auto px-4 sm:px-6 lg:px-8 text-center mb-8">
-                    <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-4">Your Flight<span className='text-blue-600'>Log</span> Dashboard</h2>
+                    <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-4">
+                        Your Flight<span className='text-blue-600'>Log</span> Dashboard
+                    </h2>
                     <p className="text-lg text-gray-700 dark:text-gray-300">
                         Welcome to your FlightLog dashboard! Here you can quickly see your disc golf stats at a glance.
                     </p>
@@ -165,61 +300,26 @@ export default function HomePage({ onNavigate }) {
             </div>
 
             <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 -mt-8 relative z-20">
-                {/* Summary Cards Section (Unchanged) */}
+                {/* Summary Cards Section */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <SummaryCard
-                        icon={<Circle size={24} className="text-blue-600 dark:text-blue-300" />}
-                        title="In Your Bag"
-                        value={animatedDiscCount}
-                        unit="Discs"
-                    />
-                    <SummaryCard
-                        icon={<Map size={24} className="text-blue-600 dark:text-blue-300" />}
-                        title="Courses Created"
-                        value={animatedCourseCount}
-                        unit="Courses"
-                    />
+                    {summaryCards.map((card, index) => (
+                        <SummaryCard
+                            key={index}
+                            icon={card.icon}
+                            title={card.title}
+                            value={card.value}
+                            unit={card.unit}
+                        />
+                    ))}
                 </div>
 
-                {/* Recent Rounds Section (Unchanged) */}
+                {/* Recent Rounds Section */}
                 <div>
                     <h3 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300 flex items-center">
                         <ListChecks size={22} className="mr-3 text-blue-600 dark:text-blue-400" />
                         Recent Rounds
                     </h3>
-                    {lastTwoRounds.length > 0 ? (
-                        <div className="space-y-4">
-                            {lastTwoRounds.map(round => (
-                                <div
-                                    key={round.id}
-                                    className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
-                                    onClick={() => handleRoundClick(round.id)}
-                                >
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <h4 className="text-lg font-bold text-blue-600 dark:text-blue-400">{round.courseName}</h4>
-                                            <p className="text-sm text-gray-600 dark:text-gray-400">{round.layoutName}</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                                {round.date?.toDate ? format(round.date.toDate(), 'MMMM d, yyyy') : 'N/A'}
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                            <div className="text-right">
-                                                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{round.totalScore}</p>
-                                                <p className={`text-lg font-semibold ${round.scoreToPar >= 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                                    {formatScoreToPar(round.scoreToPar)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 text-center">
-                            <p className="text-gray-600 dark:text-gray-400">You haven't played any rounds yet. Go import a scorecard!</p>
-                        </div>
-                    )}
+                    {recentRoundsSection}
                 </div>
             </div>
         </div>

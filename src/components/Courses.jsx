@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import CourseList from '../components/CourseList';
 import HoleList from '../components/HoleList';
 import AddCourseModal from '../components/AddCourseModal';
@@ -18,39 +18,93 @@ import {
 
 import { getCache, setCache } from '../utilities/cache.js';
 
+// Debounce utility
+const debounce = (func, wait) => {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+};
+
 export default function Courses({ user }) {
     const { uid: userId } = user;
 
-    // Component State
+    // Consolidated State
     const [courses, setCourses] = useState([]);
     const [discs, setDiscs] = useState([]);
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [editingHoleData, setEditingHoleData] = useState({});
 
-    // UI State
-    const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
-    const [newCourseName, setNewCourseName] = useState('');
-    const [newCourseTournamentName, setNewCourseTournamentName] = useState('');
-    const [newCourseClassification, setNewCourseClassification] = useState('');
-    const [swipedCourseId, setSwipedCourseId] = useState(null);
-    const [isAddHoleModalOpen, setIsAddHoleModalOpen] = useState(false);
-    const [isDeleteConfirmationModalOpen, setIsDeleteConfirmationModalOpen] = useState(false);
-    const [holeToDeleteId, setHoleToDeleteId] = useState(null);
-    const [appMessage, setAppMessage] = useState({ type: '', text: '' });
+    // UI State - consolidated where possible
+    const [modals, setModals] = useState({
+        addCourse: false,
+        addHole: false,
+        deleteConfirmation: false
+    });
+
+    const [courseForm, setCourseForm] = useState({
+        name: '',
+        tournamentName: '',
+        classification: ''
+    });
+
+    const [uiState, setUiState] = useState({
+        swipedCourseId: null,
+        holeToDeleteId: null,
+        appMessage: { type: '', text: '' }
+    });
 
     // Refs
     const scrollContainerRef = useRef(null);
     const swipeRefs = useRef({});
     const holeListRef = useRef(null);
+    const messageTimeoutRef = useRef(null);
 
-    const showAppMessage = (type, text) => {
-        setAppMessage({ type, text });
-        setTimeout(() => {
-            setAppMessage({ type: '', text: '' });
-        }, 5000);
-    };
+    // Memoized computations
+    const sortedCourses = useMemo(() =>
+        [...courses].sort((a, b) => a.name.localeCompare(b.name)),
+        [courses]
+    );
 
-    const handleToggleEditingHole = (holeId, currentHoleData) => {
+    const selectedCourseHoles = useMemo(() =>
+        selectedCourse?.holes || [],
+        [selectedCourse?.holes]
+    );
+
+    // Debounced message clear
+    const debouncedClearMessage = useMemo(
+        () => debounce(() => {
+            setUiState(prev => ({ ...prev, appMessage: { type: '', text: '' } }));
+        }, 5000),
+        []
+    );
+
+    // Optimized message handler
+    const showAppMessage = useCallback((type, text) => {
+        setUiState(prev => ({ ...prev, appMessage: { type, text } }));
+        debouncedClearMessage();
+    }, [debouncedClearMessage]);
+
+    // Memoized modal handlers
+    const toggleModal = useCallback((modalName, isOpen) => {
+        setModals(prev => ({ ...prev, [modalName]: isOpen }));
+    }, []);
+
+    const updateCourseForm = useCallback((field, value) => {
+        setCourseForm(prev => ({ ...prev, [field]: value }));
+    }, []);
+
+    const resetCourseForm = useCallback(() => {
+        setCourseForm({ name: '', tournamentName: '', classification: '' });
+    }, []);
+
+    // Optimized editing handler
+    const handleToggleEditingHole = useCallback((holeId, currentHoleData) => {
         setSelectedCourse(prevCourse => {
             if (!prevCourse) return null;
             return {
@@ -61,86 +115,10 @@ export default function Courses({ user }) {
             };
         });
         setEditingHoleData(currentHoleData);
-    };
+    }, []);
 
-    // ✨ --- REFACTOR COMPLETE --- ✨
-
-    // Hook 1: Fetches and caches data. Runs only when the user changes.
-    useEffect(() => {
-        if (!userId) {
-            setCourses([]);
-            setDiscs([]);
-            return;
-        }
-
-        // --- Cache and fetch Courses ---
-        const cachedCourses = getCache(`userCourses-${userId}`);
-        if (cachedCourses) {
-            setCourses(cachedCourses);
-        }
-        const unsubscribeCourses = subscribeToCourses(userId, (fetchedCourses) => {
-            const sortedCourses = [...fetchedCourses].sort((a, b) => a.name.localeCompare(b.name));
-            setCourses(sortedCourses);
-            setCache(`userCourses-${userId}`, sortedCourses);
-        });
-
-        // --- Cache and fetch Discs ---
-        const cachedDiscs = getCache(`userDiscs-${userId}`);
-        if (cachedDiscs) {
-            setDiscs(cachedDiscs);
-        }
-        const unsubscribeDiscs = subscribeToUserDiscs(userId, (fetchedDiscs) => {
-            setDiscs(fetchedDiscs);
-            setCache(`userDiscs-${userId}`, fetchedDiscs);
-        });
-
-        return () => {
-            unsubscribeCourses();
-            unsubscribeDiscs();
-        };
-    }, [userId]);
-
-    // Hook 2: Handles the logic for the selected course view.
-    // Runs only when the master `courses` list updates or a different course is selected.
-    useEffect(() => {
-        if (selectedCourse) {
-            const updatedSelectedCourse = courses.find(c => c.id === selectedCourse.id);
-            if (updatedSelectedCourse) {
-                // This logic preserves the "editing" state of holes when the master course list is updated in the background.
-                setSelectedCourse(prevSelected => {
-                    if (!prevSelected || !prevSelected.holes) return updatedSelectedCourse;
-                    const mergedHoles = updatedSelectedCourse.holes.map(fetchedHole => {
-                        const prevHole = prevSelected.holes.find(h => h.id === fetchedHole.id);
-                        return { ...fetchedHole, editing: !!prevHole?.editing };
-                    });
-                    return { ...updatedSelectedCourse, holes: mergedHoles };
-                });
-            } else {
-                // If the selected course was deleted (e.g., on another device), clear the selection.
-                setSelectedCourse(null);
-            }
-        }
-    }, [courses, selectedCourse?.id]);
-
-    useEffect(() => {
-        function handleClickOutside(event) {
-            if (selectedCourse && holeListRef.current && !holeListRef.current.contains(event.target)) {
-                const isClickOnModal = event.target.closest('.modal-overlay') || event.target.closest('.modal-content');
-                const isClickOnHoleItem = event.target.closest('.HoleItem') || event.target.closest('li.mb-4');
-                if (!isClickOnModal && !isClickOnHoleItem) {
-                    closeAllHoleEdits();
-                }
-            }
-        }
-        if (selectedCourse) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [selectedCourse]);
-
-    const closeAllHoleEdits = () => {
+    // Close all hole edits - memoized
+    const closeAllHoleEdits = useCallback(() => {
         if (!selectedCourse) return;
         setSelectedCourse(prev => {
             if (!prev) return null;
@@ -150,122 +128,222 @@ export default function Courses({ user }) {
             };
         });
         setEditingHoleData({});
-    };
+    }, [selectedCourse]);
 
-    const handleTouchStart = (e, id) => {
+    // Data fetching effect - optimized
+    useEffect(() => {
+        if (!userId) {
+            setCourses([]);
+            setDiscs([]);
+            return;
+        }
+
+        // Courses subscription
+        const cachedCourses = getCache(`userCourses-${userId}`);
+        if (cachedCourses) {
+            setCourses(cachedCourses);
+        }
+
+        const unsubscribeCourses = subscribeToCourses(userId, (fetchedCourses) => {
+            setCourses(prevCourses => {
+                // Only update if courses actually changed
+                const coursesEqual = JSON.stringify(prevCourses) === JSON.stringify(fetchedCourses);
+                if (coursesEqual) return prevCourses;
+
+                setCache(`userCourses-${userId}`, fetchedCourses);
+                return fetchedCourses;
+            });
+        });
+
+        // Discs subscription
+        const cachedDiscs = getCache(`userDiscs-${userId}`);
+        if (cachedDiscs) {
+            setDiscs(cachedDiscs);
+        }
+
+        const unsubscribeDiscs = subscribeToUserDiscs(userId, (fetchedDiscs) => {
+            setDiscs(prevDiscs => {
+                // Only update if discs actually changed
+                const discsEqual = JSON.stringify(prevDiscs) === JSON.stringify(fetchedDiscs);
+                if (discsEqual) return prevDiscs;
+
+                setCache(`userDiscs-${userId}`, fetchedDiscs);
+                return fetchedDiscs;
+            });
+        });
+
+        return () => {
+            unsubscribeCourses();
+            unsubscribeDiscs();
+        };
+    }, [userId]);
+
+    // Selected course update effect - optimized
+    useEffect(() => {
+        if (!selectedCourse) return;
+
+        const updatedSelectedCourse = courses.find(c => c.id === selectedCourse.id);
+
+        if (updatedSelectedCourse) {
+            setSelectedCourse(prevSelected => {
+                if (!prevSelected?.holes) return updatedSelectedCourse;
+
+                // Preserve editing state efficiently
+                const mergedHoles = updatedSelectedCourse.holes.map(fetchedHole => {
+                    const prevHole = prevSelected.holes.find(h => h.id === fetchedHole.id);
+                    return prevHole?.editing ? { ...fetchedHole, editing: true } : fetchedHole;
+                });
+
+                return { ...updatedSelectedCourse, holes: mergedHoles };
+            });
+        } else {
+            // Course was deleted
+            setSelectedCourse(null);
+        }
+    }, [courses, selectedCourse?.id]);
+
+    // Click outside handler - optimized
+    useEffect(() => {
+        if (!selectedCourse) return;
+
+        const handleClickOutside = (event) => {
+            if (!holeListRef.current?.contains(event.target)) {
+                const isClickOnModal = event.target.closest('.modal-overlay, .modal-content');
+                const isClickOnHoleItem = event.target.closest('.HoleItem, li.mb-4');
+                if (!isClickOnModal && !isClickOnHoleItem) {
+                    closeAllHoleEdits();
+                }
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [selectedCourse, closeAllHoleEdits]);
+
+    // Optimized touch handlers
+    const handleTouchStart = useCallback((e, id) => {
         swipeRefs.current[id] = { startX: e.touches[0].clientX, currentX: 0 };
-        if (swipedCourseId && swipedCourseId !== id) {
-            const prevEl = document.getElementById(`course-${swipedCourseId}`);
+
+        // Reset previously swiped course
+        if (uiState.swipedCourseId && uiState.swipedCourseId !== id) {
+            const prevEl = document.getElementById(`course-${uiState.swipedCourseId}`);
             if (prevEl) {
                 prevEl.style.transition = 'transform 0.3s ease';
                 prevEl.style.transform = 'translateX(0)';
             }
-            setSwipedCourseId(null);
+            setUiState(prev => ({ ...prev, swipedCourseId: null }));
         }
-        const el = document.getElementById(`course-${id}`);
-        if (el) {
-            el.style.transition = 'transform 0.0s ease';
-        }
-    };
 
-    const handleTouchMove = (e, id) => {
+        const el = document.getElementById(`course-${id}`);
+        if (el) el.style.transition = 'transform 0.0s ease';
+    }, [uiState.swipedCourseId]);
+
+    const handleTouchMove = useCallback((e, id) => {
         const swipeRef = swipeRefs.current[id];
         if (!swipeRef) return;
+
         const deltaX = e.touches[0].clientX - swipeRef.startX;
         const el = document.getElementById(`course-${id}`);
         if (!el) return;
+
         const transformX = Math.max(-80, Math.min(0, deltaX));
         el.style.transform = `translateX(${transformX}px)`;
         swipeRef.currentX = transformX;
-    };
+    }, []);
 
-    const handleTouchEnd = (id) => {
+    const handleTouchEnd = useCallback((id) => {
         const swipeRef = swipeRefs.current[id];
         if (!swipeRef) return;
-        const el = document.getElementById(`course-${id}`);
-        if (el) {
-            el.style.transition = 'transform 0.3s ease';
-        }
-        if (swipeRef.currentX <= -40) {
-            if (el) el.style.transform = `translateX(-80px)`;
-            setSwipedCourseId(id);
-        } else {
-            if (el) el.style.transform = `translateX(0)`;
-            setSwipedCourseId(null);
-        }
-        swipeRefs.current[id] = null;
-    };
 
-    const handleAddCourse = async (courseName, tournamentName, classification) => {
+        const el = document.getElementById(`course-${id}`);
+        if (el) el.style.transition = 'transform 0.3s ease';
+
+        if (swipeRef.currentX <= -40) {
+            if (el) el.style.transform = 'translateX(-80px)';
+            setUiState(prev => ({ ...prev, swipedCourseId: id }));
+        } else {
+            if (el) el.style.transform = 'translateX(0)';
+            setUiState(prev => ({ ...prev, swipedCourseId: null }));
+        }
+
+        swipeRefs.current[id] = null;
+    }, []);
+
+    // Course operations - memoized
+    const handleAddCourse = useCallback(async (courseName, tournamentName, classification) => {
         if (!userId) {
             showAppMessage('error', "User not authenticated.");
             return;
         }
+
         try {
             await addCourse(courseName, tournamentName, classification, userId);
-            setIsAddCourseModalOpen(false);
-            setNewCourseName('');
-            setNewCourseTournamentName('');
-            setNewCourseClassification('');
+            toggleModal('addCourse', false);
+            resetCourseForm();
             showAppMessage('success', `Course "${courseName}" added successfully!`);
         } catch (error) {
             console.error("Failed to add course:", error);
             showAppMessage('error', `Failed to add course: ${error.message}`);
         }
-    };
+    }, [userId, showAppMessage, toggleModal, resetCourseForm]);
 
-    const handleDeleteCourse = async (id) => {
+    const handleDeleteCourse = useCallback(async (id) => {
         if (!userId) {
             showAppMessage('error', "User not authenticated.");
             return;
         }
+
         try {
             const courseName = courses.find(c => c.id === id)?.name || 'selected course';
             await deleteCourse(id, userId);
-            if (swipedCourseId === id) setSwipedCourseId(null);
-            if (selectedCourse?.id === id) setSelectedCourse(null);
+
+            if (uiState.swipedCourseId === id) {
+                setUiState(prev => ({ ...prev, swipedCourseId: null }));
+            }
+            if (selectedCourse?.id === id) {
+                setSelectedCourse(null);
+            }
+
             showAppMessage('success', `Course "${courseName}" deleted successfully!`);
         } catch (error) {
             console.error("Failed to delete course:", error);
             showAppMessage('error', `Failed to delete course: ${error.message}`);
         }
-    };
+    }, [userId, courses, uiState.swipedCourseId, selectedCourse?.id, showAppMessage]);
 
-    const deleteHoleConfirmed = async (holeIdToDelete) => {
-        if (!selectedCourse || !userId) {
+    // Hole operations - memoized
+    const handleDeleteHoleClick = useCallback((holeId) => {
+        setUiState(prev => ({ ...prev, holeToDeleteId: holeId }));
+        toggleModal('deleteConfirmation', true);
+    }, [toggleModal]);
+
+    const handleConfirmDeleteHole = useCallback(async () => {
+        const { holeToDeleteId } = uiState;
+        if (!selectedCourse || !userId || !holeToDeleteId) {
             showAppMessage('error', "User not authenticated or course not selected.");
             return;
         }
+
         try {
-            const holeNumber = selectedCourse.holes.find(h => h.id === holeIdToDelete)?.number || '';
-            await deleteHoleFromCourse(selectedCourse.id, holeIdToDelete, userId);
+            const holeNumber = selectedCourse.holes.find(h => h.id === holeToDeleteId)?.number || '';
+            await deleteHoleFromCourse(selectedCourse.id, holeToDeleteId, userId);
+
+            toggleModal('deleteConfirmation', false);
+            setUiState(prev => ({ ...prev, holeToDeleteId: null }));
+            closeAllHoleEdits();
             showAppMessage('success', `Hole ${holeNumber} deleted successfully!`);
         } catch (error) {
             console.error("Failed to delete hole:", error);
             showAppMessage('error', `Failed to delete hole: ${error.message}`);
         }
-    };
+    }, [selectedCourse, userId, uiState.holeToDeleteId, showAppMessage, toggleModal, closeAllHoleEdits]);
 
-    const handleDeleteHoleClick = (holeId) => {
-        setHoleToDeleteId(holeId);
-        setIsDeleteConfirmationModalOpen(true);
-    };
+    const handleCancelDeleteHole = useCallback(() => {
+        toggleModal('deleteConfirmation', false);
+        setUiState(prev => ({ ...prev, holeToDeleteId: null }));
+    }, [toggleModal]);
 
-    const handleConfirmDeleteHole = () => {
-        if (holeToDeleteId) {
-            deleteHoleConfirmed(holeToDeleteId);
-            setIsDeleteConfirmationModalOpen(false);
-            setHoleToDeleteId(null);
-            closeAllHoleEdits();
-        }
-    };
-
-    const handleCancelDeleteHole = () => {
-        setIsDeleteConfirmationModalOpen(false);
-        setHoleToDeleteId(null);
-    };
-
-    const handleAddHole = async (holeNumber, holePar, holeDistance, holeNote, discId = null) => {
+    const handleAddHole = useCallback(async (holeNumber, holePar, holeDistance, holeNote, discId = null) => {
         const newHole = {
             id: `${selectedCourse.id}-${Date.now()}`,
             number: holeNumber,
@@ -274,17 +352,18 @@ export default function Courses({ user }) {
             note: holeNote || '',
             discId: discId,
         };
+
         try {
             await addHoleToCourse(selectedCourse.id, newHole, userId);
-            setIsAddHoleModalOpen(false);
+            toggleModal('addHole', false);
             showAppMessage('success', `Hole ${newHole.number} added successfully!`);
         } catch (error) {
             console.error("Failed to add hole:", error);
             showAppMessage('error', `Failed to add hole: ${error.message}`);
         }
-    };
+    }, [selectedCourse, userId, toggleModal, showAppMessage]);
 
-    const handleSaveHoleChanges = async (holeId) => {
+    const handleSaveHoleChanges = useCallback(async (holeId) => {
         const updatedHole = {
             id: holeId,
             number: editingHoleData.number,
@@ -293,6 +372,7 @@ export default function Courses({ user }) {
             note: editingHoleData.note || '',
             discId: editingHoleData.discId || null,
         };
+
         try {
             await updateHoleInCourse(selectedCourse.id, holeId, updatedHole, userId);
             setEditingHoleData({});
@@ -302,22 +382,25 @@ export default function Courses({ user }) {
             console.error("Failed to save hole changes:", error);
             showAppMessage('error', `Failed to save hole changes: ${error.message}`);
         }
-    };
+    }, [editingHoleData, selectedCourse, userId, closeAllHoleEdits, showAppMessage]);
 
-    const backToList = () => {
+    const backToList = useCallback(() => {
         closeAllHoleEdits();
         setSelectedCourse(null);
-    };
+    }, [closeAllHoleEdits]);
 
-    const onDragEnd = async (result) => {
+    const onDragEnd = useCallback(async (result) => {
         const { source, destination } = result;
         if (!destination || source.index === destination.index || !selectedCourse || !userId) {
             return;
         }
+
         const currentHoles = Array.from(selectedCourse.holes);
         const [reorderedHole] = currentHoles.splice(source.index, 1);
         currentHoles.splice(destination.index, 0, reorderedHole);
+
         const holesToSave = currentHoles.map(({ editing, ...rest }) => rest);
+
         try {
             await reorderHolesInCourse(selectedCourse.id, holesToSave, userId);
             showAppMessage('success', 'Holes reordered successfully!');
@@ -325,15 +408,65 @@ export default function Courses({ user }) {
             console.error("Failed to reorder holes:", error);
             showAppMessage('error', `Failed to reorder holes: ${error.message}`);
         }
-    };
+    }, [selectedCourse, userId, showAppMessage]);
+
+    // Memoized props objects to prevent unnecessary re-renders
+    const holeListProps = useMemo(() => ({
+        holes: selectedCourseHoles,
+        editingHoleData,
+        setEditingHoleData,
+        toggleEditing: handleToggleEditingHole,
+        saveHoleChanges: handleSaveHoleChanges,
+        deleteHole: handleDeleteHoleClick,
+        onDragEnd,
+        discs,
+        backToList
+    }), [
+        selectedCourseHoles,
+        editingHoleData,
+        handleToggleEditingHole,
+        handleSaveHoleChanges,
+        handleDeleteHoleClick,
+        onDragEnd,
+        discs,
+        backToList
+    ]);
+
+    const courseListProps = useMemo(() => ({
+        courses: sortedCourses,
+        onSelectCourse: setSelectedCourse,
+        onDeleteCourse: handleDeleteCourse,
+        swipedCourseId: uiState.swipedCourseId,
+        onTouchStart: handleTouchStart,
+        onTouchMove: handleTouchMove,
+        onTouchEnd: handleTouchEnd
+    }), [
+        sortedCourses,
+        handleDeleteCourse,
+        uiState.swipedCourseId,
+        handleTouchStart,
+        handleTouchMove,
+        handleTouchEnd
+    ]);
+
+    // Cleanup effect
+    useEffect(() => {
+        return () => {
+            if (messageTimeoutRef.current) {
+                clearTimeout(messageTimeoutRef.current);
+            }
+        };
+    }, []);
 
     return (
         <div ref={scrollContainerRef} className="max-h-screen bg-gray-100 dark:bg-gray-900 p-4 overflow-y-auto pb-48">
-            {appMessage.text && (
+            {uiState.appMessage.text && (
                 <div className={`px-4 py-3 rounded relative mb-4
-                    ${appMessage.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700 dark:bg-green-900 dark:border-green-700 dark:text-green-300' : 'bg-red-100 border border-red-400 text-red-700 dark:bg-red-900 dark:border-red-700 dark:text-red-300'}`}
+                    ${uiState.appMessage.type === 'success'
+                        ? 'bg-green-100 border border-green-400 text-green-700 dark:bg-green-900 dark:border-green-700 dark:text-green-300'
+                        : 'bg-red-100 border border-red-400 text-red-700 dark:bg-red-900 dark:border-red-700 dark:text-red-300'}`}
                     role="alert">
-                    <span className="block sm:inline">{appMessage.text}</span>
+                    <span className="block sm:inline">{uiState.appMessage.text}</span>
                 </div>
             )}
 
@@ -352,39 +485,30 @@ export default function Courses({ user }) {
                             </p>
                         )}
                     </div>
+
                     <div ref={holeListRef}>
-                        <HoleList
-                            holes={selectedCourse.holes || []}
-                            editingHoleData={editingHoleData}
-                            setEditingHoleData={setEditingHoleData}
-                            toggleEditing={(holeId, currentHoleData) => handleToggleEditingHole(holeId, currentHoleData)}
-                            saveHoleChanges={handleSaveHoleChanges}
-                            deleteHole={handleDeleteHoleClick}
-                            onDragEnd={onDragEnd}
-                            discs={discs}
-                            backToList={backToList}
-                        />
+                        <HoleList {...holeListProps} />
                     </div>
 
                     <button
-                        onClick={() => setIsAddHoleModalOpen(true)}
-                        className={`fixed bottom-24 right-4 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-40`}
+                        onClick={() => toggleModal('addHole', true)}
+                        className="fixed bottom-24 right-4 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-40"
                         aria-label="Add Hole">
                         <span className="text-2xl">＋</span>
                     </button>
 
                     <AddHoleModal
-                        isOpen={isAddHoleModalOpen}
-                        onClose={() => setIsAddHoleModalOpen(false)}
+                        isOpen={modals.addHole}
+                        onClose={() => toggleModal('addHole', false)}
                         onAddHole={handleAddHole}
                         discs={discs}
                     />
 
                     <DeleteConfirmationModal
-                        isOpen={isDeleteConfirmationModalOpen}
+                        isOpen={modals.deleteConfirmation}
                         onClose={handleCancelDeleteHole}
                         onConfirm={handleConfirmDeleteHole}
-                        message={`Are you sure you want to delete Hole ${selectedCourse.holes.find(h => h.id === holeToDeleteId)?.number || ''}? This cannot be undone.`}
+                        message={`Are you sure you want to delete Hole ${selectedCourse.holes.find(h => h.id === uiState.holeToDeleteId)?.number || ''}? This cannot be undone.`}
                     />
                 </div>
             ) : (
@@ -394,32 +518,25 @@ export default function Courses({ user }) {
                     <p className='text-center text-gray-600 dark:text-gray-400 mb-6'>Break down every hole and craft the strategy to shave strokes off your game.</p>
 
                     <button
-                        onClick={() => setIsAddCourseModalOpen(true)}
-                        className={`fixed bottom-24 right-4 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-40`}
+                        onClick={() => toggleModal('addCourse', true)}
+                        className="fixed bottom-24 right-4 !bg-blue-600 hover:bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-40"
                         aria-label="Add Course">
                         <span className="text-2xl">＋</span>
                     </button>
 
                     <AddCourseModal
-                        isOpen={isAddCourseModalOpen}
-                        onClose={() => setIsAddCourseModalOpen(false)}
+                        isOpen={modals.addCourse}
+                        onClose={() => toggleModal('addCourse', false)}
                         onSubmit={handleAddCourse}
-                        newCourseName={newCourseName}
-                        setNewCourseName={setNewCourseName}
-                        newCourseTournamentName={newCourseTournamentName}
-                        setNewCourseTournamentName={setNewCourseTournamentName}
-                        newCourseClassification={newCourseClassification}
-                        setNewCourseClassification={setNewCourseClassification}
+                        newCourseName={courseForm.name}
+                        setNewCourseName={(value) => updateCourseForm('name', value)}
+                        newCourseTournamentName={courseForm.tournamentName}
+                        setNewCourseTournamentName={(value) => updateCourseForm('tournamentName', value)}
+                        newCourseClassification={courseForm.classification}
+                        setNewCourseClassification={(value) => updateCourseForm('classification', value)}
                     />
-                    <CourseList
-                        courses={courses}
-                        onSelectCourse={setSelectedCourse}
-                        onDeleteCourse={handleDeleteCourse}
-                        swipedCourseId={swipedCourseId}
-                        onTouchStart={handleTouchStart}
-                        onTouchMove={handleTouchMove}
-                        onTouchEnd={handleTouchEnd}
-                    />
+
+                    <CourseList {...courseListProps} />
                 </>
             )}
         </div>
