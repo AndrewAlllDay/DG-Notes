@@ -369,7 +369,7 @@ export default function InTheBagPage({ user: currentUser }) {
                     </Accordion>
                 </>
             )}
-            <button onClick={openAddDiscModal} className="fab-fix fixed bottom-20 right-6 !bg-blue-600 hover:!bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50" title="Add New Disc"><span className="text-2xl">＋</span></button>
+            <button onClick={openAddDiscModal} className="fab-fix fixed bottom-24 right-4 !bg-blue-600 hover:!bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50" title="Add New Disc"><span className="text-2xl">＋</span></button>
             <AddDiscFromAPImodal isOpen={isApiModalOpen} onClose={() => setIsApiModalOpen(false)} onSubmit={handleSelectDiscFromApi} apiDiscs={apiDiscs} isLoading={isApiLoading} fetchError={apiFetchError} />
             <DiscFormModal
                 isOpen={isDetailsModalOpen}
