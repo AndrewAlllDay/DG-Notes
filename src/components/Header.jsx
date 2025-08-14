@@ -51,8 +51,7 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
     };
 
     return (
-        // ✨ Height reduced to h-10 (40px)
-        <div className="fixed bottom-0 left-0 right-0 h-10 z-50 flex items-center justify-center bg-white" style={{ filter: "drop-shadow(0 -2px 5px rgba(0,0,0,0.07))" }}>
+        <div className="fixed bottom-0 left-0 right-0 h-12 z-50 flex items-center justify-center bg-white" style={{ filter: "drop-shadow(0 -2px 5px rgba(0,0,0,0.07))" }}>
             <div className="absolute w-0 h-0">
                 <svg>
                     <clipPath id="menu" clipPathUnits="objectBoundingBox" transform="scale(0.0049285362247413 0.021978021978022)">
@@ -71,13 +70,12 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
                             ref={el => itemsRef.current[index] = el}
                             onClick={() => handleClick(index, item)}
                             data-active={isActive}
-                            // ✨ Reduced the "rise up" amount
-                            className="group relative flex h-full flex-col cursor-pointer justify-center items-center transition-transform duration-700 focus:outline-none [-webkit-tap-highlight-color:transparent]
-                                       data-[active=true]:translate-y-[-0.5em]"
+                            // ✨ Added explicit focus:ring-0 to definitively remove any outline/border on all states
+                            className="group relative flex h-full flex-col cursor-pointer justify-center items-center transition-transform duration-700 focus:outline-none focus:ring-0 [-webkit-tap-highlight-color:transparent]
+                                       data-[active=true]:translate-y-[-0.6em]"
                             title={item.label}
                         >
-                            {/* ✨ Reduced the icon container size */}
-                            <div className={`w-[2.2em] h-[2.2em] fill-transparent stroke-[1.5pt] flex items-center justify-center transition-colors duration-500 text-gray-700 group-data-[active=true]:text-gray-900`}>
+                            <div className={`w-[2.4em] h-[2.4em] fill-transparent stroke-[1.5pt] flex items-center justify-center transition-colors duration-500 text-gray-700 group-data-[active=true]:text-gray-900`}>
                                 <IconComponent size={item.size} stroke="currentColor" />
                             </div>
                             <span className={`text-xs mt-1 transition-colors duration-500 group-data-[active=true]:font-bold group-data-[active=true]:text-gray-900 text-gray-600`}>
@@ -86,9 +84,8 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
                         </button>
                     );
                 })}
-                {/* ✨ Made the gooey border shorter */}
                 <div
-                    className="absolute left-0 bottom-[90%] w-[10.9em] h-[1.8em] bg-[#f9f9f9] transition-transform duration-700"
+                    className="absolute left-0 bottom-[90%] w-[10.9em] h-[2.0em] bg-[#f9f9f9] transition-transform duration-700"
                     style={{ ...borderStyle, clipPath: 'url(#menu)' }}
                 ></div>
             </menu>
@@ -116,14 +113,14 @@ const Header = React.memo(({ onNavigate, onOpenEncouragement, user, currentPage 
             <header className="w-full bg-white shadow-md sticky top-0 z-40">
                 <div className="relative flex items-center justify-between px-4 h-20">
                     <div
-                        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+                        className="absolute left-12 top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
                         onClick={() => onNavigate(isNonPlayer ? 'send-note' : 'home')}
                     >
                         <img src={LogoImage} alt="FlightLog Logo" className="h-24 md:h-20 lg:h-16 w-auto" />
                     </div>
                     {user && (
                         <button
-                            className={`absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center p-2 rounded-full cursor-pointer hover:bg-gray-100 focus:outline-none [-webkit-tap-highlight-color:transparent] ${currentPage === 'settings' ? 'bg-gray-200' : ''}`}
+                            className={`absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center p-2 rounded-full cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-0 [-webkit-tap-highlight-color:transparent] ${currentPage === 'settings' ? 'bg-gray-200' : ''}`}
                             onClick={() => onNavigate('settings')}
                             aria-label="Settings"
                         >
