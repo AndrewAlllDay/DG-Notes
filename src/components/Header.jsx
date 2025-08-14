@@ -95,7 +95,6 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
             </div>
 
             <menu ref={menuRef} className="relative grid grid-cols-5 w-full max-w-md items-stretch text-[12px]">
-                {/* ✨ FIX: Moved the gooey indicator div here so it's rendered underneath the icons. */}
                 <div
                     className={`absolute left-0 bottom-[95%] w-[10.9em] h-[2.4em] bg-white transition-transform ${isResizing ? 'duration-0' : 'duration-500'}`}
                     style={{ ...borderStyle, clipPath: 'url(#menu)' }}
@@ -116,18 +115,25 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
                             className="group relative flex h-full flex-col cursor-pointer rad-0 justify-center items-center focus:outline-none [-webkit-tap-highlight-color:transparent]"
                             title={item.label}
                         >
-                            <div className="flex flex-col items-center justify-center transition-transform duration-500 delay-150 group-data-[active=true]:translate-y-[-0.6em]">
-                                <div className={`icon-wrapper w-[2.4em] h-[2.4em] fill-transparent stroke-[1.5pt] flex items-center justify-center transition duration-500 delay-150 text-gray-700 group-data-[active=true]:text-gray-900`}>
+                            <div className="flex flex-col items-center justify-center transition-transform duration-500 group-data-[active=true]:delay-150 group-data-[active=true]:translate-y-[-0.6em]">
+                                {/* ✨ TEST: Using an inline style to apply a bright color on active state. */}
+                                <div
+                                    className={`icon-wrapper w-[2.4em] h-[2.4em] fill-transparent stroke-[1.5pt] flex items-center justify-center transition duration-500 group-data-[active=true]:delay-150 text-gray-700 group-data-[active=true]:text-gray-900`}
+                                    style={isActive ? { color: 'var(--secondary-special)' } : {}}
+                                >
                                     <IconComponent size={item.size} stroke="currentColor" />
                                 </div>
-                                <span className={`text-xs mt-1 transition duration-500 delay-150 group-data-[active=true]:font-bold group-data-[active=true]:text-gray-900 text-gray-600`}>
+                                {/* ✨ TEST: Using an inline style to apply a bright color on active state. */}
+                                <span
+                                    className={`text-xs mt-1 transition duration-500 group-data-[active=true]:delay-150 group-data-[active=true]:font-bold group-data-[active=true]:text-gray-900 text-gray-600`}
+                                    style={isActive ? { color: 'var(--secondary-special)' } : {}}
+                                >
                                     {item.label}
                                 </span>
                             </div>
                         </div>
                     );
                 })}
-                {/* ✨ FIX: The gooey indicator div was removed from here. */}
             </menu>
         </div>
     );
@@ -174,7 +180,7 @@ const Header = React.memo(({ onNavigate, onOpenEncouragement, user, currentPage 
                     </div>
                     {user && (
                         <button
-                            className={`absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center p-2 rounded-full cursor-pointer !bg-transparent focus:outline-none [-webkit-tap-highlight-color:transparent] ${currentPage === 'settings' ? 'bg-gray-200' : ''}`}
+                            className={`absolute right-4 top-1/2 -translate-y-1.5 flex items-center justify-center p-2 rounded-full cursor-pointer !bg-transparent focus:outline-none [-webkit-tap-highlight-color:transparent] ${currentPage === 'settings' ? 'bg-gray-200' : ''}`}
                             onClick={() => onNavigate('settings')}
                             aria-label="Settings"
                         >
