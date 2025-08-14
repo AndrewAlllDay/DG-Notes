@@ -3,12 +3,14 @@ import { Settings, ThumbsUp, Flag, Backpack, Newspaper, ClipboardList } from "lu
 import LogoImage from '../assets/DG Logo.svg';
 
 const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
+    const isHomePage = currentPage === 'home';
     const initialIndex = useMemo(() => {
         const index = items.findIndex(item => item.pageName === currentPage);
         return index > -1 ? index : 2;
     }, [currentPage, items]);
 
     const [activeIndex, setActiveIndex] = useState(initialIndex);
+    const [isNavActive, setIsNavActive] = useState(!isHomePage);
     const menuRef = useRef(null);
     const itemsRef = useRef([]);
     const [borderStyle, setBorderStyle] = useState({});
@@ -27,8 +29,12 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
         }
     }, [activeIndex]);
 
-
     const updateBorderPosition = useCallback(() => {
+        if (isHomePage) {
+            setBorderStyle({ opacity: 0 });
+            return;
+        }
+
         const activeItem = itemsRef.current[activeIndex];
         const menu = menuRef.current;
         if (activeItem && menu) {
@@ -39,16 +45,30 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
             const baseFontSize = parseFloat(getComputedStyle(menu).fontSize) || 12;
             const borderWidthInPx = 10.9 * baseFontSize;
             const left = Math.floor(itemCenter - (borderWidthInPx / 2));
-            setBorderStyle({ transform: `translate3d(${left}px, 0, 0)` });
+            setBorderStyle({
+                transform: `translate3d(${left}px, 0, 0)`,
+                opacity: 1
+            });
         }
-    }, [activeIndex]);
+    }, [activeIndex, isHomePage]);
 
     useEffect(() => {
         const newIndex = items.findIndex(item => item.pageName === currentPage);
-        if (newIndex > -1 && newIndex !== activeIndex) {
-            setActiveIndex(newIndex);
+
+        if (isHomePage) {
+            setIsNavActive(false);
+            setActiveIndex(-1);
+        } else {
+            if (!isNavActive) {
+                setTimeout(() => {
+                    setIsNavActive(true);
+                }, 100);
+            }
+            if (newIndex > -1 && newIndex !== activeIndex) {
+                setActiveIndex(newIndex);
+            }
         }
-    }, [currentPage, items, activeIndex]);
+    }, [currentPage, items, activeIndex, isHomePage, isNavActive]);
 
     useEffect(() => {
         const handleResize = () => {
@@ -96,7 +116,7 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
 
             <menu ref={menuRef} className="relative grid grid-cols-5 w-full max-w-md items-stretch text-[12px]">
                 <div
-                    className={`absolute left-0 bottom-[95%] w-[10.9em] h-[2.4em] bg-white transition-transform ${isResizing ? 'duration-0' : 'duration-500'}`}
+                    className={`absolute left-0 bottom-[95%] w-[10.9em] h-[2.4em] bg-white transition-transform ${isResizing ? 'duration-0' : 'duration-500'} ${isNavActive ? '' : 'translate-y-full'}`}
                     style={{ ...borderStyle, clipPath: 'url(#menu)' }}
                 ></div>
 

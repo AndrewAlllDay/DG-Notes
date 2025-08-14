@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
-// ✨ Import the new, single-responsibility components and hooks
+// Import the new, single-responsibility components and hooks
 import Accordion from '../components/settings/Accordion';
 import AccountSettings from '../components/settings/AccountSettings';
 import EncouragementSender from '../components/settings/EncouragementSender';
@@ -8,9 +8,8 @@ import ScorecardManager from '../components/settings/ScorecardManager';
 import AdminUserManagement from '../components/settings/AdminUserManagement';
 import AdminTeamManagement from '../components/settings/AdminTeamManagement';
 
-// ✨ Import utilities that were previously inside this file
+// Import utilities that were previously inside this file
 import { getFile, clearFiles } from '../utilities/fileCache';
-// PapaParse is still needed if the page component itself triggers the import
 import Papa from 'papaparse';
 
 /**
@@ -19,10 +18,11 @@ import Papa from 'papaparse';
  * All complex state and logic is now delegated to the child components.
  */
 export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavigate, params = {} }) {
-    const APP_VERSION = 'v 0.1.56'; // This could be imported from package.json
+    const APP_VERSION = 'v 0.1.56';
 
-    // This effect for handling shared files can remain, as it's triggered by URL params
-    // which are a page-level concern.
+    // State to track if the page is loading
+    const [isLoading, setIsLoading] = useState(true);
+
     useEffect(() => {
         const processSharedFile = async (fileToProcess) => {
             if (!fileToProcess) return;
@@ -40,20 +40,48 @@ export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavig
 
         const checkForImportTrigger = async () => {
             if (params.sharedFile) {
-                processSharedFile(params.sharedFile);
+                await processSharedFile(params.sharedFile);
             } else if (params.triggerImport) {
                 const file = await getFile();
-                processSharedFile(file);
+                await processSharedFile(file);
             }
         };
 
         if (user?.uid) {
-            checkForImportTrigger();
+            checkForImportTrigger().then(() => {
+                setIsLoading(false); // Set loading to false after the check is complete
+            });
+        } else {
+            setIsLoading(false); // If there's no user, we're not loading anything
         }
     }, [params, user?.uid]);
 
     if (!user) {
         return <div className="text-center p-4">Please log in to view settings.</div>;
+    }
+
+    // Conditionally render the loader or the content
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+                <style jsx>{`
+          .loader {
+            border-top-color: #3498db;
+            -webkit-animation: spin 1s linear infinite;
+            animation: spin 1s linear infinite;
+          }
+          @-webkit-keyframes spin {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+          }
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+            </div>
+        );
     }
 
     return (
@@ -90,10 +118,6 @@ export default function SettingsPage({ user, allUserProfiles, onSignOut, onNavig
                 FlightLog: {APP_VERSION}
             </div>
 
-            {/* All modals (ImportCSVModal, ConfirmationModal, etc.) should now be rendered
-              and managed inside the component that needs them (e.g., ScorecardManager).
-              This completes the encapsulation and removes them from the page level. 
-            */}
         </div>
     );
 }
