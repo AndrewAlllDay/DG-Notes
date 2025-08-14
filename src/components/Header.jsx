@@ -12,9 +12,21 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
     const menuRef = useRef(null);
     const itemsRef = useRef([]);
     const [borderStyle, setBorderStyle] = useState({});
-    // ✨ State to track if the window is being resized
     const [isResizing, setIsResizing] = useState(false);
     const resizeTimeoutRef = useRef(null);
+
+    useEffect(() => {
+        const activeItem = itemsRef.current[activeIndex];
+        if (activeItem) {
+            const iconWrapper = activeItem.querySelector('.icon-wrapper');
+            if (iconWrapper) {
+                iconWrapper.classList.remove('animate-jiggle-active');
+                void iconWrapper.offsetWidth;
+                iconWrapper.classList.add('animate-jiggle-active');
+            }
+        }
+    }, [activeIndex]);
+
 
     const updateBorderPosition = useCallback(() => {
         const activeItem = itemsRef.current[activeIndex];
@@ -38,7 +50,6 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
         }
     }, [currentPage, items, activeIndex]);
 
-    // ✨ This effect now handles resize events to make the border movement instant
     useEffect(() => {
         const handleResize = () => {
             setIsResizing(true);
@@ -46,14 +57,13 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
             clearTimeout(resizeTimeoutRef.current);
             resizeTimeoutRef.current = setTimeout(() => {
                 setIsResizing(false);
-            }, 100); // Stop resizing state 100ms after the last resize event
+            }, 100);
         };
 
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, [updateBorderPosition]);
 
-    // Effect to position the border on initial load and when active index changes
     useEffect(() => {
         updateBorderPosition();
     }, [updateBorderPosition]);
@@ -64,6 +74,13 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
         } else {
             setActiveIndex(index);
             onNavigate(item.pageName);
+        }
+    };
+
+    const handleKeyDown = (e, index, item) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleClick(index, item);
         }
     };
 
@@ -78,35 +95,39 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
             </div>
 
             <menu ref={menuRef} className="relative grid grid-cols-5 w-full max-w-md items-stretch text-[12px]">
+                {/* ✨ FIX: Moved the gooey indicator div here so it's rendered underneath the icons. */}
+                <div
+                    className={`absolute left-0 bottom-[95%] w-[10.9em] h-[2.4em] bg-white transition-transform ${isResizing ? 'duration-0' : 'duration-500'}`}
+                    style={{ ...borderStyle, clipPath: 'url(#menu)' }}
+                ></div>
+
                 {items.map((item, index) => {
                     const IconComponent = item.icon;
                     const isActive = index === activeIndex;
                     return (
-                        <button
+                        <div
                             key={item.pageName}
                             ref={el => itemsRef.current[index] = el}
                             onClick={() => handleClick(index, item)}
+                            onKeyDown={(e) => handleKeyDown(e, index, item)}
+                            role="button"
+                            tabIndex="0"
                             data-active={isActive}
                             className="group relative flex h-full flex-col cursor-pointer rad-0 justify-center items-center focus:outline-none [-webkit-tap-highlight-color:transparent]"
                             title={item.label}
                         >
-                            {/* ✨ This wrapper now handles the animation, leaving the button static */}
-                            <div className="flex flex-col items-center justify-center transition-transform duration-700 group-data-[active=true]:translate-y-[-0.6em]">
-                                <div className={`w-[2.4em] h-[2.4em] fill-transparent stroke-[1.5pt] flex items-center justify-center transition-colors duration-500 text-gray-700 group-data-[active=true]:text-gray-900`}>
+                            <div className="flex flex-col items-center justify-center transition-transform duration-500 delay-150 group-data-[active=true]:translate-y-[-0.6em]">
+                                <div className={`icon-wrapper w-[2.4em] h-[2.4em] fill-transparent stroke-[1.5pt] flex items-center justify-center transition duration-500 delay-150 text-gray-700 group-data-[active=true]:text-gray-900`}>
                                     <IconComponent size={item.size} stroke="currentColor" />
                                 </div>
-                                <span className={`text-xs mt-1 transition-colors duration-500 group-data-[active=true]:font-bold group-data-[active=true]:text-gray-900 text-gray-600`}>
+                                <span className={`text-xs mt-1 transition duration-500 delay-150 group-data-[active=true]:font-bold group-data-[active=true]:text-gray-900 text-gray-600`}>
                                     {item.label}
                                 </span>
                             </div>
-                        </button>
+                        </div>
                     );
                 })}
-                <div
-                    // ✨ Transition duration is now conditional to be instant during resize
-                    className={`absolute left-0 bottom-[95%] w-[10.9em] h-[2.4em] bg-[#f9f9f9] transition-transform ${isResizing ? 'duration-0' : 'duration-700'}`}
-                    style={{ ...borderStyle, clipPath: 'url(#menu)' }}
-                ></div>
+                {/* ✨ FIX: The gooey indicator div was removed from here. */}
             </menu>
         </div>
     );
@@ -129,6 +150,20 @@ const Header = React.memo(({ onNavigate, onOpenEncouragement, user, currentPage 
 
     return (
         <>
+            <style>
+                {`
+                    @keyframes jiggle {
+                        0% { transform: scale(1.0); }
+                        30% { transform: scale(1.25); }
+                        50% { transform: scale(0.9); }
+                        70% { transform: scale(1.1); }
+                        100% { transform: scale(1.0); }
+                    }
+                    .animate-jiggle-active {
+                        animation: jiggle 0.6s ease-in-out;
+                    }
+                `}
+            </style>
             <header className="w-full bg-white shadow-md sticky top-0 z-40">
                 <div className="relative flex items-center justify-between px-4 h-20">
                     <div
