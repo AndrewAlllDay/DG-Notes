@@ -180,7 +180,7 @@ const Header = React.memo(({ onNavigate, onOpenEncouragement, user, currentPage 
                     </div>
                     {user && (
                         <button
-                            className={`absolute right-4 top-1/2 -translate-y-1.5 flex items-center justify-center p-2 rounded-full cursor-pointer !bg-transparent focus:outline-none [-webkit-tap-highlight-color:transparent] ${currentPage === 'settings' ? 'bg-gray-200' : ''}`}
+                            className={`absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center p-2 rounded-full cursor-pointer !bg-transparent focus:outline-none [-webkit-tap-highlight-color:transparent] ${currentPage === 'settings' ? 'bg-gray-200' : ''}`}
                             onClick={() => onNavigate('settings')}
                             aria-label="Settings"
                         >
