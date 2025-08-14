@@ -12,6 +12,9 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
     const menuRef = useRef(null);
     const itemsRef = useRef([]);
     const [borderStyle, setBorderStyle] = useState({});
+    // ✨ State to track if the window is being resized
+    const [isResizing, setIsResizing] = useState(false);
+    const resizeTimeoutRef = useRef(null);
 
     const updateBorderPosition = useCallback(() => {
         const activeItem = itemsRef.current[activeIndex];
@@ -35,10 +38,24 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
         }
     }, [currentPage, items, activeIndex]);
 
+    // ✨ This effect now handles resize events to make the border movement instant
+    useEffect(() => {
+        const handleResize = () => {
+            setIsResizing(true);
+            updateBorderPosition();
+            clearTimeout(resizeTimeoutRef.current);
+            resizeTimeoutRef.current = setTimeout(() => {
+                setIsResizing(false);
+            }, 100); // Stop resizing state 100ms after the last resize event
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [updateBorderPosition]);
+
+    // Effect to position the border on initial load and when active index changes
     useEffect(() => {
         updateBorderPosition();
-        window.addEventListener('resize', updateBorderPosition);
-        return () => window.removeEventListener('resize', updateBorderPosition);
     }, [updateBorderPosition]);
 
     const handleClick = (index, item) => {
@@ -70,22 +87,24 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
                             ref={el => itemsRef.current[index] = el}
                             onClick={() => handleClick(index, item)}
                             data-active={isActive}
-                            // ✨ Added explicit focus:ring-0 to definitively remove any outline/border on all states
-                            className="group relative flex h-full flex-col cursor-pointer justify-center items-center transition-transform duration-700 focus:outline-none focus:ring-0 [-webkit-tap-highlight-color:transparent]
-                                       data-[active=true]:translate-y-[-0.6em]"
+                            className="group relative flex h-full flex-col cursor-pointer rad-0 justify-center items-center focus:outline-none [-webkit-tap-highlight-color:transparent]"
                             title={item.label}
                         >
-                            <div className={`w-[2.4em] h-[2.4em] fill-transparent stroke-[1.5pt] flex items-center justify-center transition-colors duration-500 text-gray-700 group-data-[active=true]:text-gray-900`}>
-                                <IconComponent size={item.size} stroke="currentColor" />
+                            {/* ✨ This wrapper now handles the animation, leaving the button static */}
+                            <div className="flex flex-col items-center justify-center transition-transform duration-700 group-data-[active=true]:translate-y-[-0.6em]">
+                                <div className={`w-[2.4em] h-[2.4em] fill-transparent stroke-[1.5pt] flex items-center justify-center transition-colors duration-500 text-gray-700 group-data-[active=true]:text-gray-900`}>
+                                    <IconComponent size={item.size} stroke="currentColor" />
+                                </div>
+                                <span className={`text-xs mt-1 transition-colors duration-500 group-data-[active=true]:font-bold group-data-[active=true]:text-gray-900 text-gray-600`}>
+                                    {item.label}
+                                </span>
                             </div>
-                            <span className={`text-xs mt-1 transition-colors duration-500 group-data-[active=true]:font-bold group-data-[active=true]:text-gray-900 text-gray-600`}>
-                                {item.label}
-                            </span>
                         </button>
                     );
                 })}
                 <div
-                    className="absolute left-0 bottom-[90%] w-[10.9em] h-[2.0em] bg-[#f9f9f9] transition-transform duration-700"
+                    // ✨ Transition duration is now conditional to be instant during resize
+                    className={`absolute left-0 bottom-[95%] w-[10.9em] h-[2.4em] bg-[#f9f9f9] transition-transform ${isResizing ? 'duration-0' : 'duration-700'}`}
                     style={{ ...borderStyle, clipPath: 'url(#menu)' }}
                 ></div>
             </menu>
@@ -113,14 +132,14 @@ const Header = React.memo(({ onNavigate, onOpenEncouragement, user, currentPage 
             <header className="w-full bg-white shadow-md sticky top-0 z-40">
                 <div className="relative flex items-center justify-between px-4 h-20">
                     <div
-                        className="absolute left-12 top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+                        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
                         onClick={() => onNavigate(isNonPlayer ? 'send-note' : 'home')}
                     >
                         <img src={LogoImage} alt="FlightLog Logo" className="h-24 md:h-20 lg:h-16 w-auto" />
                     </div>
                     {user && (
                         <button
-                            className={`absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center p-2 rounded-full cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-0 [-webkit-tap-highlight-color:transparent] ${currentPage === 'settings' ? 'bg-gray-200' : ''}`}
+                            className={`absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center p-2 rounded-full cursor-pointer !bg-transparent focus:outline-none [-webkit-tap-highlight-color:transparent] ${currentPage === 'settings' ? 'bg-gray-200' : ''}`}
                             onClick={() => onNavigate('settings')}
                             aria-label="Settings"
                         >
