@@ -68,7 +68,7 @@ const GooeyNav = ({ items, currentPage, onNavigate, onOpenEncouragement }) => {
     };
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 h-12 z-50 flex items-center justify-center bg-white" style={{ filter: "drop-shadow(0 -2px 5px rgba(0,0,0,0.07))" }}>
+        <div className="fixed bottom-0 left-0 right-0 h-14 z-50 flex items-center justify-center bg-white" style={{ filter: "drop-shadow(0 -2px 5px rgba(0,0,0,0.07))" }}>
             <div className="absolute w-0 h-0">
                 <svg>
                     <clipPath id="menu" clipPathUnits="objectBoundingBox" transform="scale(0.0049285362247413 0.021978021978022)">
