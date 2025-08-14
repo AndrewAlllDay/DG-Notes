@@ -172,3 +172,23 @@ button:focus-visible {
   outline: none !important;
   box-shadow: none !important;
 }
+
+/* Custom classes for filter icon colors */
+.icon-tournament-active {
+  color: #d69e2e !important;
+}
+
+.icon-league-active {
+  color: #38a169 !important;
+}
+
+/* Dark mode colors for the icons */
+@media (prefers-color-scheme: dark) {
+  .icon-tournament-active {
+    color: #d69e2e !important;
+  }
+
+  .icon-league-active {
+    color: #38a169 !important;
+  }
+}

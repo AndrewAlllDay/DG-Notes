@@ -83,7 +83,7 @@ const useUserRounds = (userId) => {
     return { rounds, isLoading };
 };
 
-// ✨ --- NEW: Custom hook for Gemini AI logic ---
+// --- Custom hook for Gemini AI logic ---
 const useGeminiAnalysis = (user, rounds) => {
     const [prompt, setPrompt] = useState('');
     const [response, setResponse] = useState('');
@@ -155,22 +155,65 @@ const ScorecardHeader = React.memo(({ type, rating }) => {
     );
 });
 
-const FilterControls = React.memo(({ activeFilters, onRemoveFilter, onResetFilters }) => {
-    const allFiltersActive = activeFilters.length === ALL_FILTER_TYPES.length;
+// ✨ CORRECTED: FilterControls with custom CSS classes
+const FilterControls = React.memo(({ activeFilter, onFilterChange }) => {
+    // Shared classes for the active state
+    const activePillClasses = 'border-blue-500 bg-blue-100 dark:bg-blue-900';
+    const activeTextClasses = 'text-blue-800 dark:text-blue-200';
+    // Shared classes for the inactive state
+    const inactivePillClasses = 'border-transparent text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600';
+
     return (
-        <div className="flex justify-center items-center gap-3 mb-6 max-w-2xl mx-auto min-h-[34px]">
-            <div className="flex flex-wrap justify-center gap-2">
-                {activeFilters.map(filterKey => {
-                    const config = ROUND_TYPE_CONFIG[filterKey];
-                    return (
-                        <span key={filterKey} className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium border-1 border-gray-300 transition-all duration-300 ${config.styles}`}>
-                            {config.label}
-                            <button onClick={() => onRemoveFilter(filterKey)} className="button-p-0 -mr-1 rounded-full !bg-transparent focus:outline-none" aria-label={`Remove ${config.label} filter`}><FaTimes size={12} /></button>
-                        </span>
-                    );
-                })}
-            </div>
-            {!allFiltersActive && <button onClick={onResetFilters} className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" aria-label="Reset filters" title="Reset filters"><FaUndo size={14} /></button>}
+        <div className="flex justify-center items-center gap-2 mb-6 max-w-2xl mx-auto min-h-[34px] flex-wrap">
+            <button
+                onClick={() => onFilterChange('all')}
+                className={`
+                    inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium
+                    border-2 transition-all duration-200
+                    ${activeFilter === 'all'
+                        ? `${activePillClasses} ${activeTextClasses}`
+                        : inactivePillClasses
+                    }
+                `}
+                aria-label="Show all scores"
+            >
+                All Rounds
+            </button>
+            {ALL_FILTER_TYPES.map(filterKey => {
+                const config = ROUND_TYPE_CONFIG[filterKey];
+                const isActive = activeFilter === filterKey;
+
+                // Determine the custom class for the icon based on the filter key
+                let iconClass = '';
+                if (isActive) {
+                    if (filterKey === 'tournament') {
+                        iconClass = 'icon-tournament-active';
+                    } else if (filterKey === 'league') {
+                        iconClass = 'icon-league-active';
+                    }
+                } else {
+                    iconClass = 'text-gray-600 dark:text-gray-400';
+                }
+
+                return (
+                    <button
+                        key={filterKey}
+                        onClick={() => onFilterChange(filterKey)}
+                        className={`
+                            inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium
+                            border-2 transition-all duration-200
+                            ${isActive
+                                ? activePillClasses
+                                : inactivePillClasses
+                            }
+                        `}
+                        aria-label={`Filter by ${config.label} rounds`}
+                    >
+                        <span className={iconClass}>{config.icon}</span>
+                        <span className={isActive ? activeTextClasses : ''}>{config.label}</span>
+                    </button>
+                );
+            })}
         </div>
     );
 });
@@ -287,7 +330,7 @@ const ScorecardItem = React.memo(({ round, userId, onDelete }) => {
     );
 });
 
-// ✨ --- NEW: Self-contained component for the Gemini AI feature ---
+// --- NEW: Self-contained component for the Gemini AI feature ---
 const GeminiAnalysis = React.memo(({ user, rounds }) => {
     const { prompt, setPrompt, runAnalysis, isLoading, error, response } = useGeminiAnalysis(user, rounds);
 
@@ -313,7 +356,7 @@ const GeminiAnalysis = React.memo(({ user, rounds }) => {
 // --- MAIN PAGE COMPONENT ---
 export default function ScoresPage({ user }) {
     const { rounds, isLoading } = useUserRounds(user.uid);
-    const [activeFilters, setActiveFilters] = useState(ALL_FILTER_TYPES);
+    const [activeFilter, setActiveFilter] = useState('all');
     const [roundToDelete, setRoundToDelete] = useState(null);
 
     const averageRatingThisYear = useMemo(() => {
@@ -325,9 +368,11 @@ export default function ScoresPage({ user }) {
     }, [rounds]);
 
     const filteredRounds = useMemo(() => {
-        if (activeFilters.length === ALL_FILTER_TYPES.length) return rounds;
-        return rounds.filter(round => activeFilters.includes(round.roundType) || (!round.roundType && activeFilters.length > 0));
-    }, [rounds, activeFilters]);
+        if (activeFilter === 'all') {
+            return rounds;
+        }
+        return rounds.filter(round => round.roundType === activeFilter);
+    }, [rounds, activeFilter]);
 
     const handleConfirmDelete = useCallback(async () => {
         if (!roundToDelete || !user.uid) return;
@@ -358,14 +403,13 @@ export default function ScoresPage({ user }) {
             )}
 
             <FilterControls
-                activeFilters={activeFilters}
-                onRemoveFilter={(filter) => setActiveFilters(prev => prev.filter(f => f !== filter))}
-                onResetFilters={() => setActiveFilters(ALL_FILTER_TYPES)}
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
             />
 
             {filteredRounds.length === 0 && !isLoading ? (
                 <div className="text-center text-gray-600 dark:text-gray-400 mt-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md max-w-md mx-auto">
-                    <p>No scores match the selected filters.</p>
+                    <p>No scores match the selected filter.</p>
                 </div>
             ) : (
                 <div className="max-w-2xl mx-auto space-y-4">

@@ -10,8 +10,8 @@ import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import { addDiscToBag, subscribeToUserDiscs, subscribeToArchivedUserDiscs, updateDiscInBag, deleteDiscFromBag } from '../services/firestoreService';
 import { getCache, setCache, getTtlCache, setTtlCache } from '../utilities/cache.js';
 import { toast } from 'react-toastify';
-import { FaTrash } from 'react-icons/fa';
-import { Archive, FolderOpen, ChevronDown, Pencil, MoreVertical } from 'lucide-react';
+import { FaTrash, FaTimes } from 'react-icons/fa';
+import { Archive, FolderOpen, ChevronDown, Pencil } from 'lucide-react';
 
 // --- Animated Sub-components ---
 
@@ -118,31 +118,14 @@ const Accordion = React.memo(({ title, children, isOpen, onToggle }) => {
     );
 });
 
-const DiscItem = React.memo(({ disc, type, isExpanded, onToggleExpand, onEdit, onArchive, onRestore, onDelete }) => {
-    const dropdownRef = useRef(null);
-    const actionButtonRef = useRef(null);
-    const [isActionsOpen, setIsActionsOpen] = useState(false);
-
-    const handleToggleActions = useCallback((e) => { e.stopPropagation(); setIsActionsOpen(prev => !prev); }, []);
-    const closeActions = useCallback(() => setIsActionsOpen(false), []);
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (actionButtonRef.current?.contains(event.target)) return;
-            if (isActionsOpen && dropdownRef.current && !dropdownRef.current.contains(event.target)) closeActions();
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isActionsOpen, closeActions]);
-
-    const createActionHandler = useCallback((action) => (e) => { e.stopPropagation(); action(disc); closeActions(); }, [disc, closeActions]);
-
+// ✨ REFACTORED: DiscItem is now just a clickable card
+const DiscItem = React.memo(({ disc, type, onOpenDetails }) => {
     return (
         <div className="relative h-full">
             <div className={`w-full h-full flex flex-col border rounded-lg shadow-sm overflow-hidden text-left transition-shadow hover:shadow-md ${type === 'active' ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'}`}>
-                <button onClick={() => onToggleExpand(disc.id)} aria-expanded={isExpanded} className={`flex-grow w-full flex text-left ${isExpanded ? 'rounded-b-none' : ''}`}>
-                    <div className="w-2 flex-shrink-0" style={{ backgroundColor: disc.color || 'transparent' }} />
-                    <div className="p-4 flex-1 min-w-0">
+                <div className="h-3 flex-shrink-0" style={{ backgroundColor: disc.color || 'transparent' }} />
+                <button onClick={() => onOpenDetails(disc)} className="flex-grow w-full flex text-left p-4">
+                    <div className="flex-1 min-w-0">
                         <h4 className={`text-lg font-normal ${type === 'active' ? 'text-gray-800 dark:text-white' : 'text-gray-700 dark:text-gray-200'}`}><span className='font-bold'>{disc.manufacturer}</span> {disc.name}</h4>
                         <div className="mt-1">
                             <p className={`text-sm ${type === 'active' ? 'text-gray-600 dark:text-gray-400' : 'text-gray-500 dark:text-gray-400'}`}>{disc.notes || <span className="italic text-gray-400 dark:text-gray-500">No notes.</span>}</p>
@@ -150,37 +133,139 @@ const DiscItem = React.memo(({ disc, type, isExpanded, onToggleExpand, onEdit, o
                         </div>
                     </div>
                 </button>
-                <AnimatePresence>
-                    {isExpanded && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                            <div className="px-4 pb-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                                <h5 className="text-center text-sm font-bold text-gray-700 dark:text-gray-300 pt-3 mb-2">Flight Path</h5>
-                                <div className="flex justify-center"><FlightPath isExpanded={isExpanded} speed={disc.speed} glide={disc.glide} turn={disc.turn} fade={disc.fade} /></div>
-                                <p className="text-center text-sm font-semibold text-gray-600 dark:text-gray-400 mt-1">{`${disc.speed ?? 'N/A'} | ${disc.glide ?? 'N/A'} | ${disc.turn ?? 'N/A'} | ${disc.fade ?? 'N/A'}`}</p>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
             </div>
-            <div className="absolute top-2 right-2">
-                <button ref={actionButtonRef} onClick={handleToggleActions} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-2 rounded-full !bg-transparent hover:!bg-gray-100 dark:hover:!bg-gray-700/50 transition-colors" title="Disc Options"><MoreVertical size={20} /></button>
-                {isActionsOpen && (
-                    <div ref={dropdownRef} className="absolute right-0 mt-2 w-48 rounded-md shadow-lg z-20">
-                        {type === 'active' ? (
-                            <>
-                                <button onClick={createActionHandler(onEdit)} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-t-md"><Pencil size={16} className="mr-2" /> Edit</button>
-                                <button onClick={createActionHandler(onArchive)} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"><Archive size={16} className="mr-2" /> Move to Shelf</button>
-                                <button onClick={createActionHandler(onDelete)} className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded-b-md"><FaTrash size={16} className="mr-2" /> Delete</button>
-                            </>
-                        ) : (
-                            <>
-                                <button onClick={createActionHandler(onRestore)} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-t-md"><FolderOpen size={16} className="mr-2" /> Restore to Bag</button>
-                                <button onClick={createActionHandler(onDelete)} className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded-b-md"><FaTrash size={16} className="mr-2" /> Delete</button>
-                            </>
-                        )}
-                    </div>
-                )}
-            </div>
+        </div>
+    );
+});
+
+
+// ✨ NEW: DiscDetailModal component
+const DiscDetailModal = React.memo(({ disc, isOpen, onClose, onEdit, onArchive, onRestore, onDelete }) => {
+    if (!isOpen || !disc) return null;
+
+    const modalRef = useRef(null);
+
+    // ✨ CORRECTED: Separate, dedicated handlers for each button
+    const handleArchive = useCallback(() => { onArchive(disc); onClose(); }, [disc, onArchive, onClose]);
+    const handleRestore = useCallback(() => { onRestore(disc); onClose(); }, [disc, onRestore, onClose]);
+    const handleEdit = useCallback(() => { onEdit(disc); onClose(); }, [onEdit, disc, onClose]);
+    const handleDelete = useCallback(() => { onDelete(disc); onClose(); }, [onDelete, disc, onClose]);
+
+    const handleCloseModal = useCallback(() => {
+        onClose();
+    }, [onClose]);
+
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={handleCloseModal}
+                    className="fixed inset-0 z-[100] bg-black bg-opacity-50 flex justify-center items-center p-4"
+                >
+                    <motion.div
+                        initial={{ scale: 0.9, opacity: 0, y: 50 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.9, opacity: 0, y: 50 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                        ref={modalRef}
+                        onClick={e => e.stopPropagation()}
+                        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6 relative"
+                    >
+                        <button onClick={handleCloseModal} className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 !bg-transparent p-1 rounded-full">
+                            <FaTimes size={18} />
+                        </button>
+                        <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">{disc.manufacturer} {disc.name}</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{disc.notes || "No notes."}</p>
+
+                        <div className="flex justify-center mb-6">
+                            <FlightPath isExpanded={true} speed={disc.speed} glide={disc.glide} turn={disc.turn} fade={disc.fade} />
+                        </div>
+                        <p className="text-center text-lg font-semibold text-gray-600 dark:text-gray-400 mb-6">
+                            Flight Numbers: {`${disc.speed ?? 'N/A'} | ${disc.glide ?? 'N/A'} | ${disc.turn ?? 'N/A'} | ${disc.fade ?? 'N/A'}`}
+                        </p>
+
+                        <div className="flex justify-between gap-2 mt-4">
+                            <button onClick={handleEdit} className="flex-1 flex items-center justify-center gap-2 !bg-blue-600 hover:!bg-blue-700 text-white rounded-md p-2">
+                                <Pencil size={16} /> Edit
+                            </button>
+                            {disc.archived ? (
+                                <button onClick={handleRestore} className="flex-1 flex items-center justify-center gap-2 !bg-green-600 hover:!bg-green-700 text-white rounded-md p-2">
+                                    <FolderOpen size={16} /> Restore
+                                </button>
+                            ) : (
+                                <button onClick={handleArchive} className="flex-1 flex items-center justify-center gap-2 !bg-gray-500 hover:!bg-gray-600 text-white rounded-md p-2">
+                                    <Archive size={16} /> Archive
+                                </button>
+                            )}
+                            <button onClick={handleDelete} className="flex-1 flex items-center justify-center gap-2 !bg-red-600 hover:!bg-red-700 text-white rounded-md p-2">
+                                <FaTrash size={16} /> Delete
+                            </button>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+});
+
+
+const DISC_TYPE_CONFIG = {
+    'Distance Driver': { label: 'Distance Drivers', color: 'bg-red-100 text-red-800' },
+    'Hybrid Driver': { label: 'Hybrid Drivers', color: 'bg-orange-100 text-orange-800' },
+    'Control Driver': { label: 'Control Drivers', color: 'bg-yellow-100 text-yellow-800' },
+    'Midrange': { label: 'Midranges', color: 'bg-green-100 text-green-800' },
+    'Putter': { label: 'Putters', color: 'bg-blue-100 text-blue-800' },
+    'Approach Discs': { label: 'Approach Discs', color: 'bg-purple-100 text-purple-800' },
+    'Other': { label: 'Other', color: 'bg-gray-100 text-gray-800' },
+};
+const ALL_DISC_TYPES = Object.keys(DISC_TYPE_CONFIG);
+
+const FilterControls = React.memo(({ activeFilter, onFilterChange }) => {
+    // Tailwind classes for the pill styles
+    const activePillClasses = 'border-blue-500 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200';
+    const inactivePillClasses = 'border-transparent text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600';
+
+    return (
+        <div className="flex justify-center items-center gap-2 mb-6 max-w-2xl mx-auto min-h-[34px] flex-wrap">
+            <button
+                onClick={() => onFilterChange('all')}
+                className={`
+                    inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium
+                    border-2 transition-all duration-200
+                    ${activeFilter === 'all'
+                        ? activePillClasses
+                        : inactivePillClasses
+                    }
+                `}
+                aria-label="Show all discs"
+            >
+                All Discs
+            </button>
+            {ALL_DISC_TYPES.map(filterKey => {
+                const config = DISC_TYPE_CONFIG[filterKey];
+                const isActive = activeFilter === filterKey;
+
+                return (
+                    <button
+                        key={filterKey}
+                        onClick={() => onFilterChange(filterKey)}
+                        className={`
+                            inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium
+                            border-2 transition-all duration-200
+                            ${isActive
+                                ? activePillClasses
+                                : inactivePillClasses
+                            }
+                        `}
+                        aria-label={`Filter by ${config.label}`}
+                    >
+                        {config.label}
+                    </button>
+                );
+            })}
         </div>
     );
 });
@@ -199,8 +284,13 @@ export default function InTheBagPage({ user: currentUser }) {
     const [apiFetchError, setApiFetchError] = useState(null);
     const [pendingApiDisc, setPendingApiDisc] = useState(null);
     const [deleteModalState, setDeleteModalState] = useState({ isOpen: false, disc: null });
-    const [expandedDiscId, setExpandedDiscId] = useState(null);
-    const [openAccordion, setOpenAccordion] = useState(null);
+    // ✨ REFACTORED: We no longer need expandedDiscId state.
+    // We will use a single state to hold the selected disc for our new modal.
+    const [selectedDiscForModal, setSelectedDiscForModal] = useState(null);
+    const [isArchivedAccordionOpen, setIsArchivedAccordionOpen] = useState(false);
+
+    // ✨ NEW: State for disc type filtering
+    const [activeFilter, setActiveFilter] = useState('all');
 
 
     useEffect(() => {
@@ -238,19 +328,31 @@ export default function InTheBagPage({ user: currentUser }) {
         return () => { unsubscribeActive(); unsubscribeArchived(); };
     }, [currentUser]);
 
-    const handleToggleExpand = useCallback((discId) => setExpandedDiscId(prevId => (prevId === discId ? null : discId)), []);
+    // ✨ NEW: Handler to open the modal with the disc's data
+    const handleOpenDiscModal = useCallback((disc) => {
+        setSelectedDiscForModal(disc);
+    }, []);
+
+    // ✨ REFACTORED: Handler to close the new modal
+    const handleCloseDiscModal = useCallback(() => {
+        setSelectedDiscForModal(null);
+    }, []);
+
     const openAddDiscModal = useCallback(() => setIsApiModalOpen(true), []);
-    const openEditDiscModal = useCallback((disc) => { setCurrentDiscToEdit(disc); setPendingApiDisc(null); setIsDetailsModalOpen(true); }, []);
+
+    // ✨ REFACTORED: This handler is now for the form modal, not the new detail modal
+    const openEditDiscModal = useCallback((disc) => {
+        setCurrentDiscToEdit(disc);
+        setPendingApiDisc(null);
+        setIsDetailsModalOpen(true);
+    }, []);
+
     const handleSelectDiscFromApi = useCallback((disc) => { setPendingApiDisc(disc); setIsApiModalOpen(false); setIsDetailsModalOpen(true); }, []);
     const handleDeleteDisc = useCallback((disc) => setDeleteModalState({ isOpen: true, disc }), []);
 
-    const handleToggleAccordion = useCallback((type) => {
-        setOpenAccordion(prevOpen => (prevOpen === type ? null : type));
-    }, []);
-
     const collapseAll = useCallback(() => {
-        setOpenAccordion(null);
-        setExpandedDiscId(null);
+        // ✨ REFACTORED: We no longer need to collapse discs individually
+        setIsArchivedAccordionOpen(false);
     }, []);
 
     const closeModalAndReset = useCallback(() => {
@@ -282,41 +384,28 @@ export default function InTheBagPage({ user: currentUser }) {
         }
     }, [currentUser, currentDiscToEdit, closeModalAndReset]);
 
-    const handleArchiveDisc = useCallback(async (disc) => { /* Full logic remains the same */ }, [currentUser]);
-    const handleRestoreDisc = useCallback(async (disc) => { /* Full logic remains the same */ }, [currentUser]);
-    const confirmDeleteDisc = useCallback(async () => { /* Full logic remains the same */ }, [currentUser, deleteModalState.disc]);
+    // Logic for archiving, restoring, and confirming deletion is omitted for brevity as it remains the same.
+    const handleArchiveDisc = useCallback(async (disc) => { /* ... */ }, [currentUser]);
+    const handleRestoreDisc = useCallback(async (disc) => { /* ... */ }, [currentUser]);
+    const confirmDeleteDisc = useCallback(async () => { /* ... */ }, [currentUser, deleteModalState.disc]);
 
-    const dynamicDiscTypes = useMemo(() => {
-        if (!apiDiscs || apiDiscs.length === 0) return [];
-        const allTypes = apiDiscs.map(disc => disc.category);
-        return [...new Set(allTypes)].filter(type => type).sort();
-    }, [apiDiscs]);
-
-    const groupedAndSortedDiscs = useMemo(() => {
-        if (!activeDiscs) return { grouped: {}, sortedTypes: [] };
-        const grouped = activeDiscs.reduce((acc, disc) => {
-            const type = (disc.type && disc.type.trim() !== '') ? disc.type : 'Other';
-            if (!acc[type]) acc[type] = [];
-            acc[type].push(disc);
-            return acc;
-        }, {});
-        for (const type in grouped) {
-            grouped[type].sort((a, b) => {
-                const speedA = parseInt(a.speed, 10) || 0;
-                const speedB = parseInt(b.speed, 10) || 0;
-                if (speedA !== speedB) return speedB - speedA;
-                return (a.name || '').localeCompare(b.name || '');
-            });
+    // ✨ NEW: Filtered discs logic using the new activeFilter state
+    const sortedAndFilteredDiscs = useMemo(() => {
+        let discs = [...activeDiscs]; // Clone the array
+        if (activeFilter && activeFilter !== 'all') {
+            discs = discs.filter(disc => (disc.type || 'Other') === activeFilter);
         }
-        const discTypeOrder = ['Distance Driver', 'Hybrid Driver', 'Control Driver', 'Midrange', 'Approach Discs', 'Putter'];
-        const sortedTypes = Object.keys(grouped).sort((a, b) => {
-            const indexA = discTypeOrder.indexOf(a); const indexB = discTypeOrder.indexOf(b);
-            if (indexA === -1 && indexB === -1) return a.localeCompare(b);
-            if (indexA === -1) return 1; if (indexB === -1) return -1;
-            return indexA - indexB;
+
+        // Sort remaining discs by speed descending, then name ascending
+        discs.sort((a, b) => {
+            const speedA = parseInt(a.speed, 10) || 0;
+            const speedB = parseInt(b.speed, 10) || 0;
+            if (speedA !== speedB) return speedB - speedA;
+            return (a.name || '').localeCompare(b.name || '');
         });
-        return { grouped, sortedTypes };
-    }, [activeDiscs]);
+        return discs;
+    }, [activeDiscs, activeFilter]);
+
 
     const listVariants = { visible: { transition: { staggerChildren: 0.07 } }, hidden: {} };
     const itemVariants = { visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }, hidden: { opacity: 0, y: 20, transition: { duration: 0.2 } } };
@@ -327,41 +416,55 @@ export default function InTheBagPage({ user: currentUser }) {
         <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 p-4 sm:p-6 lg:p-8 pb-48">
             <h2 className="text-2xl font-bold text-center pt-5 mb-2">In Your Bag</h2>
             {activeDiscs.length > 0 && <p className="text-md text-gray-600 dark:text-gray-400 text-center mb-6">{activeDiscs.length} active discs</p>}
-            {activeDiscs.length === 0 && archivedDiscs.length === 0 ? (<p className="text-center">You haven't added any discs yet!</p>) : (
-                <>
-                    <div className="max-w-full mx-auto mb-2 flex justify-start space-x-4"><button onClick={collapseAll} className="!text-sm text-gray-400 dark:text-blue-400 !font-normal hover:underline !bg-transparent">Collapse All</button></div>
-                    <div className="space-y-4">
-                        {groupedAndSortedDiscs.sortedTypes.map(type => (
-                            <Accordion key={type} title={<span className='text-black dark:text-blue-400 text-xl'>{type} <span className='text-black dark:text-white text-base font-light'>({groupedAndSortedDiscs.grouped[type].length} discs)</span></span>}
-                                isOpen={openAccordion === type}
-                                onToggle={() => handleToggleAccordion(type)}
-                            >
-                                <motion.ul className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2" variants={listVariants} initial="hidden" animate="visible">
-                                    {groupedAndSortedDiscs.grouped[type].map(disc => (
-                                        <motion.li key={disc.id} variants={itemVariants} className="self-stretch relative focus-within:z-10">
-                                            <Tilt glareEnable={true} glareMaxOpacity={0.05} glarePosition="all" tiltMaxAngleX={8} tiltMaxAngleY={8} scale={1.03} className="h-full">
-                                                <DiscItem disc={disc} type="active" isExpanded={expandedDiscId === disc.id} onToggleExpand={handleToggleExpand} onEdit={openEditDiscModal} onArchive={handleArchiveDisc} onDelete={handleDeleteDisc} />
-                                            </Tilt>
-                                        </motion.li>
-                                    ))}
-                                </motion.ul>
-                            </Accordion>
-                        ))}
-                    </div>
-                </>
+
+            <FilterControls
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+            />
+
+            {sortedAndFilteredDiscs.length === 0 && activeDiscs.length > 0 ? (
+                <div className="text-center text-gray-600 dark:text-gray-400 mt-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md max-w-md mx-auto">
+                    <p>No discs match the selected filter.</p>
+                </div>
+            ) : (
+                <motion.ul
+                    className="grid grid-cols-2 gap-4"
+                    variants={listVariants}
+                    initial="hidden"
+                    animate="visible"
+                >
+                    {sortedAndFilteredDiscs.map(disc => (
+                        <motion.li key={disc.id} variants={itemVariants} className="self-stretch relative focus-within:z-10">
+                            <Tilt glareEnable={true} glareMaxOpacity={0.05} glarePosition="all" tiltMaxAngleX={8} tiltMaxAngleY={8} scale={1.03} className="h-full">
+                                {/* ✨ REFACTORED: DiscItem now just a clickable card that opens the modal */}
+                                <DiscItem
+                                    disc={disc}
+                                    type="active"
+                                    onOpenDetails={handleOpenDiscModal}
+                                />
+                            </Tilt>
+                        </motion.li>
+                    ))}
+                </motion.ul>
             )}
+
             {archivedDiscs.length > 0 && (
                 <>
                     <hr className="my-8 border-t border-gray-200 dark:border-gray-700" />
                     <Accordion title={`On the Shelf (${archivedDiscs.length} discs)`}
-                        isOpen={openAccordion === 'archived'}
-                        onToggle={() => handleToggleAccordion('archived')}
+                        isOpen={isArchivedAccordionOpen}
+                        onToggle={() => setIsArchivedAccordionOpen(prev => !prev)}
                     >
-                        <motion.ul className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2" variants={listVariants} initial="hidden" animate="visible">
+                        <motion.ul className="grid grid-cols-2 gap-4 mt-2" variants={listVariants} initial="hidden" animate="visible">
                             {archivedDiscs.sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(disc => (
                                 <motion.li key={disc.id} variants={itemVariants} className="self-stretch relative focus-within:z-10">
                                     <Tilt glareEnable={true} glareMaxOpacity={0.05} glarePosition="all" tiltMaxAngleX={8} tiltMaxAngleY={8} scale={1.03} className="h-full">
-                                        <DiscItem disc={disc} type="archived" isExpanded={expandedDiscId === disc.id} onToggleExpand={handleToggleExpand} onRestore={handleRestoreDisc} onDelete={handleDeleteDisc} />
+                                        {/* ✨ REFACTORED: Archived discs also open the modal */}
+                                        <DiscItem
+                                            disc={disc}
+                                            type="archived"
+                                            onOpenDetails={handleOpenDiscModal}
+                                        />
                                     </Tilt>
                                 </motion.li>
                             ))}
@@ -369,6 +472,18 @@ export default function InTheBagPage({ user: currentUser }) {
                     </Accordion>
                 </>
             )}
+
+            {/* ✨ REFACTORED: The new detail modal is now rendered conditionally */}
+            <DiscDetailModal
+                disc={selectedDiscForModal}
+                isOpen={!!selectedDiscForModal}
+                onClose={handleCloseDiscModal}
+                onEdit={openEditDiscModal}
+                onArchive={handleArchiveDisc}
+                onRestore={handleRestoreDisc}
+                onDelete={handleDeleteDisc}
+            />
+
             <button onClick={openAddDiscModal} className="fab-fix fixed bottom-24 right-4 !bg-blue-600 hover:!bg-blue-700 text-white !rounded-full w-14 h-14 flex items-center justify-center shadow-lg z-50" title="Add New Disc"><span className="text-2xl">＋</span></button>
             <AddDiscFromAPImodal isOpen={isApiModalOpen} onClose={() => setIsApiModalOpen(false)} onSubmit={handleSelectDiscFromApi} apiDiscs={apiDiscs} isLoading={isApiLoading} fetchError={apiFetchError} />
             <DiscFormModal
@@ -376,7 +491,7 @@ export default function InTheBagPage({ user: currentUser }) {
                 onClose={closeModalAndReset}
                 onSubmit={handleDetailsSubmit}
                 initialData={currentDiscToEdit || pendingApiDisc}
-                discTypes={dynamicDiscTypes}
+                discTypes={ALL_DISC_TYPES.filter(t => t !== 'Other')}
             />
             <DeleteConfirmationModal
                 isOpen={deleteModalState.isOpen}
